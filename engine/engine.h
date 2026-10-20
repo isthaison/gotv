@@ -39,6 +39,10 @@ gboolean gtv_dict_available(const GtvConfig *config);
 guint gtv_dict_count(void);
 const gchar *gtv_dict_tag(void);
 gboolean gtv_dict_update_check(const gchar *repo);
+GPtrArray *gtv_suggest_combined(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad);
+void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad,
+                               GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+GPtrArray *gtv_suggest_combined_finish(GAsyncResult *res, GError **error);
 /* Self-update against GitHub releases. Check/download need curl and network;
  * parse/compare/throttle are offline. Out strings belong to the caller. */
 typedef enum { GTV_UPDATE_AVAILABLE, GTV_UPDATE_CURRENT, GTV_UPDATE_ERROR } GtvUpdateStatus;

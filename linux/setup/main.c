@@ -627,16 +627,30 @@ static void ensure_input_source(void) {
     GVariant *current = g_settings_get_value(settings, "sources");
     GVariantIter iter;
     const gchar *kind, *name;
-    gboolean found = FALSE;
+    gboolean found = FALSE, changed = FALSE;
     GVariantBuilder builder;
     g_variant_builder_init(&builder, G_VARIANT_TYPE("a(ss)"));
     g_variant_iter_init(&iter, current);
     while (g_variant_iter_next(&iter, "(&s&s)", &kind, &name)) {
-        if (!strcmp(kind, "ibus") && !strcmp(name, "gotv")) found = TRUE;
+        if (!strcmp(kind, "ibus") && !strcmp(name, "gotiengviet")) {
+            changed = TRUE;
+            if (!found) {
+                g_variant_builder_add(&builder, "(ss)", "ibus", "gotv");
+                found = TRUE;
+            }
+            continue;
+        }
+        if (!strcmp(kind, "ibus") && !strcmp(name, "gotv")) {
+            if (found) { changed = TRUE; continue; }
+            found = TRUE;
+        }
         g_variant_builder_add(&builder, "(ss)", kind, name);
     }
     if (!found) {
         g_variant_builder_add(&builder, "(ss)", "ibus", "gotv");
+        changed = TRUE;
+    }
+    if (changed) {
         g_settings_set_value(settings, "sources", g_variant_builder_end(&builder));
         g_settings_sync();
         g_spawn_command_line_async("ibus engine gotv", NULL);

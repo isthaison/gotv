@@ -39,23 +39,23 @@ $(BUILD_DIR)/test-support: tests/test_support.c $(CORE_LIB)
 $(BUILD_DIR)/test-verdir: tests/test_verdir.c $(CORE_LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(CORE_LIB) $(LDFLAGS) $(CORE_LIBS) -o $@
 test: $(BUILD_DIR)/test-engine $(BUILD_DIR)/test-support $(BUILD_DIR)/test-verdir
-	$(BUILD_DIR)/test-engine
-	$(BUILD_DIR)/test-support
-	$(BUILD_DIR)/test-verdir
+	@for t in $(BUILD_DIR)/test-engine $(BUILD_DIR)/test-support $(BUILD_DIR)/test-verdir; do \
+		if [ -x "$$t" ]; then "$$t"; else /lib64/ld-linux-x86-64.so.2 "$$t"; fi || exit 1; \
+	done
 vet:
 	$(MAKE) build test CFLAGS='-O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Werror' BUILD_DIR=$(BUILD_DIR)/strict
 install: build
-	sudo ./gtv.sh install
+	sudo bash ./gtv.sh install
 package: build
-	./gtv.sh package "$(VERSION)"
+	bash ./gtv.sh package "$(VERSION)"
 clean:
-	./gtv.sh clean
+	bash ./gtv.sh clean
 help:
 	@echo 'make build | test | vet | install | package VERSION=... | clean | bump V=...'
 	@echo '  (shell entry point: ./gtv.sh <build|test|vet|clean|install|package|bump|help>)'
 .PHONY: bump
 bump:
-	./gtv.sh bump "$(V)" "$(NOTES)"
+	bash ./gtv.sh bump "$(V)" "$(NOTES)"
 -include $(CORE_OBJ:.o=.d)
 
 $(BUILD_DIR)/test-setup: tests/test_setup.c linux/setup/main.c linux/setup/data.c $(CORE_LIB)

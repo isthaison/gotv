@@ -559,6 +559,29 @@ cmd_install_linux() {
     mkdir -p "$DESTDIR/usr/bin" "$DESTDIR/usr/share/applications" "$DESTDIR/etc/xdg/autostart"
     ln -sfn /usr/libexec/ibus-setup-gotv "$DESTDIR/usr/bin/gotv"
     if [[ -z "$DESTDIR" ]]; then
+        # Clean up legacy manual/package gotiengviet system files on upgrade.
+        if dpkg -s gotiengviet >/dev/null 2>&1; then
+            dpkg --remove gotiengviet >/dev/null 2>&1 || true
+        fi
+        rm -f /usr/libexec/ibus-engine-gotiengviet \
+            /usr/libexec/ibus-setup-gotiengviet \
+            /usr/bin/gotiengviet-demo \
+            /usr/bin/gotiengviet \
+            /usr/local/bin/gotiengviet \
+            /usr/local/bin/gotiengviet-demo \
+            /usr/share/ibus/component/gotiengviet.xml \
+            /usr/share/metainfo/gotiengviet.metainfo.xml \
+            /usr/share/icons/hicolor/scalable/apps/gotiengviet.svg \
+            /usr/share/icons/hicolor/scalable/apps/gotiengviet-telex.svg \
+            /usr/share/icons/hicolor/scalable/apps/gotiengviet-vni.svg \
+            /usr/share/applications/gotiengviet.desktop \
+            /etc/xdg/autostart/gotiengviet.desktop
+        rm -rf /usr/share/gotiengviet
+        for size in 16 22 24 32 48 64 128 256; do
+            rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/gotiengviet.png"
+            rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/gotiengviet-telex.png"
+            rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/gotiengviet-vni.png"
+        done
         mkdir -p /usr/local/bin
         ln -sfn /usr/bin/gotv /usr/local/bin/gotv
         ln -sfn /usr/bin/gotv-demo /usr/local/bin/gotv-demo
@@ -699,7 +722,7 @@ cmd_package_linux() {
     cat > "$staging/DEBIAN/control" <<CONTROL
 Package: gotv
 Replaces: gotiengviet
-Breaks: gotiengviet
+Conflicts: gotiengviet
 Provides: gotiengviet
 Version: $version
 Section: utils
@@ -709,7 +732,7 @@ Depends: ibus, libibus-1.0-5, libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, lib
 Recommends: curl, libnotify-bin
 Maintainer: GoTV Project <https://github.com/isthaison/gotv>
 Homepage: https://github.com/isthaison/gotv
- Description: Vietnamese Telex/VNI input method in native C
+Description: Vietnamese Telex/VNI input method in native C
   Shared C input engine, GTK settings, indicator, spelling and macro support.
   Offline dictionary suggestions, updated from GitHub; no Go runtime is required.
 CONTROL
@@ -722,6 +745,7 @@ fi
 if command -v update-desktop-database >/dev/null; then
     update-desktop-database /usr/share/applications || true
 fi
+rm -f /usr/local/bin/gotiengviet /usr/local/bin/gotiengviet-demo 2>/dev/null || true
 mkdir -p /usr/local/bin 2>/dev/null || true
 ln -sfn /usr/bin/gotv /usr/local/bin/gotv 2>/dev/null || true
 ln -sfn /usr/bin/gotv-demo /usr/local/bin/gotv-demo 2>/dev/null || true

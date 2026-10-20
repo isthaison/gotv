@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GoTV — Bộ gõ Telex/VNI cho Windows, Linux, macOS</title>
-  <meta name="description" content="Bộ gõ tiếng Việt Telex/VNI mã nguồn mở cho Windows, Linux và macOS. Nhẹ, riêng tư, có kiểm tra chính tả và gợi ý từ điển ngoại tuyến.">
-  <meta name="keywords" content="bộ gõ tiếng việt, gotv, go tv, telex, vni, vietnamese input method, vietnamese keyboard, ibus vietnamese, tsf vietnamese, inputmethodkit, unikey alternative, evkey, openkey, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos, từ điển tiếng việt">
-  <meta name="author" content="GoTV Project">
+  <title>GoTV — Bộ gõ tiếng Việt Telex/VNI cho Windows, Linux, macOS</title>
+  <meta name="description" content="GoTV là bộ gõ tiếng Việt Telex/VNI mã nguồn mở cho Windows, Linux (IBus) và macOS. Nhẹ, riêng tư, có kiểm tra chính tả, macro/emoji và gợi ý từ điển ngoại tuyến.">
+  <meta name="keywords" content="bộ gõ tiếng việt, gotv, go tv, telex, vni, vietnamese input method, vietnamese keyboard, ibus vietnamese, ibus gotv, tsf vietnamese, inputmethodkit, unikey alternative, evkey, openkey, gõ tiếng việt linux, gõ tiếng việt ubuntu, gõ tiếng việt windows, gõ tiếng việt macos, từ điển tiếng việt">
+  <meta name="author" content="isthaison">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
   <meta name="theme-color" content="#b22222">
   <link rel="canonical" href="https://isthaison.github.io/gotv/">
   <link rel="alternate" hreflang="vi" href="https://isthaison.github.io/gotv/">
@@ -14,20 +16,21 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" content="vi_VN">
   <meta property="og:site_name" content="GoTV">
-  <meta property="og:title" content="GoTV — Bộ gõ Telex/VNI đa nền tảng">
-  <meta property="og:description" content="Một lõi C duy nhất, gõ Telex/VNI mọi nền tảng. Chính tả ngoại tuyến, macro/emoji, gợi ý từ điển offline. MIT.">
+  <meta property="og:title" content="GoTV — Bộ gõ tiếng Việt Telex/VNI cho Windows, Linux, macOS">
+  <meta property="og:description" content="Một lõi C duy nhất, gõ tiếng Việt Telex/VNI mọi nền tảng. Chính tả ngoại tuyến, macro/emoji, gợi ý từ điển offline. Mã nguồn mở MIT.">
   <meta property="og:url" content="https://isthaison.github.io/gotv/">
   <meta property="og:image" content="https://isthaison.github.io/gotv/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="GoTV — bộ gõ tiếng Việt Telex và VNI cho Windows, Linux và macOS">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GoTV — Bộ gõ Telex/VNI đa nền tảng">
+  <meta name="twitter:title" content="GoTV — Bộ gõ tiếng Việt Telex/VNI cho Windows, Linux, macOS">
   <meta name="twitter:description" content="Bộ gõ tiếng Việt nhẹ, riêng tư cho Windows, Linux và macOS, có chính tả và gợi ý từ điển ngoại tuyến.">
   <meta name="twitter:image" content="https://isthaison.github.io/gotv/og-image.png">
   <meta name="twitter:image:alt" content="GoTV — bộ gõ tiếng Việt Telex và VNI cho Windows, Linux và macOS">
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="og-image.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -37,29 +40,76 @@
         "@id": "https://isthaison.github.io/gotv/#website",
         "url": "https://isthaison.github.io/gotv/",
         "name": "GoTV",
+        "alternateName": ["Bộ gõ tiếng Việt GoTV", "GoTV Vietnamese Input", "GoTiengViet (isthaison)"],
+        "description": "Trang chủ chính thức của bộ gõ tiếng Việt GoTV (Telex/VNI) cho Windows, Linux và macOS.",
         "inLanguage": "vi"
       },
       {
         "@type": "SoftwareApplication",
         "@id": "https://isthaison.github.io/gotv/#software",
         "name": "GoTV",
+        "alternateName": ["Bộ gõ tiếng Việt GoTV", "ibus-gotv"],
         "url": "https://isthaison.github.io/gotv/",
         "image": "https://isthaison.github.io/gotv/og-image.png",
         "applicationCategory": "UtilitiesApplication",
         "applicationSubCategory": "Vietnamese input method",
-        "operatingSystem": ["Linux", "Windows 10", "Windows 11", "macOS"],
+        "operatingSystem": ["Linux", "Ubuntu", "Windows 10", "Windows 11", "macOS"],
         "softwareVersion": "0.9.0",
+        "datePublished": "2026-09-05",
+        "dateModified": "2026-10-20",
         "license": "https://opensource.org/licenses/MIT",
         "inLanguage": "vi",
-        "description": "Bộ gõ tiếng Việt Telex/VNI mã nguồn mở cho Windows, Linux và macOS.",
+        "description": "Bộ gõ tiếng Việt Telex/VNI mã nguồn mở cho Windows, Linux và macOS với kiểm tra chính tả, macro/emoji và gợi ý từ điển ngoại tuyến.",
         "downloadUrl": "https://github.com/isthaison/gotv/releases/latest",
         "codeRepository": "https://github.com/isthaison/gotv",
         "sameAs": "https://github.com/isthaison/gotv",
+        "author": {
+          "@type": "Person",
+          "name": "isthaison",
+          "url": "https://github.com/isthaison"
+        },
+        "featureList": [
+          "Gõ tiếng Việt Telex và VNI",
+          "Đặt dấu hiện đại (hoà) hoặc truyền thống (hòa)",
+          "Kiểm tra chính tả tiếng Việt ngoại tuyến",
+          "Gợi ý từ điển tiếng Việt offline",
+          "Gõ tắt Macro và Emoji text"
+        ],
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
         }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://isthaison.github.io/gotv/#faq-schema",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "GoTV có phải GoTiengViet của Trần Kỳ Nam không?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Không. GoTV là dự án mã nguồn mở độc lập của isthaison, trước đây mang tên GoTiengViet. Từ phiên bản 0.9.0, dự án đổi tên thành GoTV để tránh nhầm lẫn với phần mềm của Trần Kỳ Nam."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "GoTV khác gì Unikey và EVKey?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GoTV dùng một lõi C chung cho cả 3 hệ điều hành (Windows, Linux, macOS), có kiểm tra chính tả khi gõ và gợi ý từ điển tiếng Việt offline."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Bộ gõ GoTV có cần mạng không?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Không. Gõ tiếng Việt, kiểm tra chính tả, macro/emoji và gợi ý từ điển đều hoạt động ngoại tuyến 100%."
+            }
+          }
+        ]
       }
     ]
   }
