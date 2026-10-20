@@ -48,7 +48,7 @@ jobs:
             VER="${GITHUB_REF#refs/tags/v}"
           else
             VER="$(sed -n 's/^#define GTV_VERSION "\(.*\)"/\1/p' windows/version.h)"
-            [ -n "$VER" ] || VER="0.9.0"
+            [ -n "$VER" ] || VER="0.9.1"
           fi
           VERNUM="$(echo "$VER" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/').0"
           case "$VERNUM" in
@@ -119,6 +119,6 @@ jobs:
           files: |
             gotv-*-x64-setup.exe
             gotiengviet-*-x64-setup.exe
-            data/dict-vi.txt
+            data/dict-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

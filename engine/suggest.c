@@ -48,6 +48,7 @@ static GPtrArray *suggest(const GtvConfig *config,const gchar *context,const gch
     if(!config || !config->suggest_enabled)return out;
     if(prefix && !g_utf8_validate(prefix,-1,NULL))return out;
     if(!prefix || !*prefix)return out;
+    if(config->dicts[0])gtv_dict_set_langs(config->dicts);
     if(bad){
         GHashTable *fixes=load_user_fixes();
         if(fixes){
@@ -111,12 +112,7 @@ void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, c
     GTask *task = g_task_new(NULL, cancellable, callback, user_data);
     SuggestTaskData *d = g_new0(SuggestTaskData, 1);
     if (config) {
-        d->config = (GtvConfig){
-            .mode = config->mode,
-            .modern = config->modern,
-            .spellcheck = config->spellcheck,
-            .suggest_enabled = config->suggest_enabled
-        };
+        d->config = *config;
     }
     d->context = g_strdup(context);
     d->preedit = g_strdup(preedit);

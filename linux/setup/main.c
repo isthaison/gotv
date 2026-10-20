@@ -407,6 +407,7 @@ int tray_run(int argc, char *argv[]){
 static GtkWidget *rb_telex, *rb_vni, *cb_modern, *cb_spell;
 static GtkWidget *lbl_preview;
 static GtkWidget *cb_suggest, *lbl_dict_ver, *lbl_dict_status, *btn_dict_update;
+static GtkWidget *cb_dict_packs[8];
 static char *config_path;
 
 static void update_preview(){
@@ -420,15 +421,41 @@ static void on_modern_toggled(GtkWidget *w, gpointer data){
     update_preview();
 }
 
+static gchar *collect_selected_dicts(void){
+    guint count = gtv_dict_catalog_count();
+    GString *buf = g_string_new("");
+    for(guint i = 0; i < count && i < G_N_ELEMENTS(cb_dict_packs); i++){
+        if(!cb_dict_packs[i]) continue;
+        if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cb_dict_packs[i]))){
+            const GtvDictInfo *info = gtv_dict_catalog_get(i);
+            if(info){
+                if(buf->len > 0) g_string_append_c(buf, ',');
+                g_string_append(buf, info->id);
+            }
+        }
+    }
+    if(buf->len == 0) g_string_assign(buf, "vi");
+    return g_string_free(buf, FALSE);
+}
+
 static void dict_ui_refresh(void){
     if(!lbl_dict_ver) return;
     guint n = gtv_dict_count();
     const gchar *tag = gtv_dict_tag();
+    const gchar *langs = gtv_dict_get_langs();
     gchar *ver = (n > 0)
-        ? g_strdup_printf("Từ điển %s · %u từ", (tag && *tag) ? tag : "cài sẵn", n)
+        ? g_strdup_printf("Từ điển %s · %u từ (%s)", (tag && *tag) ? tag : "cài sẵn", n,
+                          (langs && *langs) ? langs : "vi")
         : g_strdup("Chưa có từ điển");
     gtk_label_set_text(GTK_LABEL(lbl_dict_ver), ver);
     g_free(ver);
+}
+static void on_dict_pack_toggled(GtkWidget *w, gpointer data){
+    (void)w; (void)data;
+    gchar *sel = collect_selected_dicts();
+    gtv_dict_set_langs(sel);
+    g_free(sel);
+    dict_ui_refresh();
 }
 static gboolean dict_update_done(gpointer data){
     gboolean updated = GPOINTER_TO_INT(data);
@@ -437,13 +464,13 @@ static gboolean dict_update_done(gpointer data){
     if(lbl_dict_status){
         if(updated){
             const gchar *tag = gtv_dict_tag();
-            gchar *msg = g_strdup_printf("Đã cập nhật từ điển %s (%u từ).",
-                (tag && *tag) ? tag : "", gtv_dict_count());
+            gchar *msg = g_strdup_printf("Đã tải/cập nhật từ điển %s (%u từ · %s).",
+                (tag && *tag) ? tag : "", gtv_dict_count(), gtv_dict_get_langs());
             gtk_label_set_text(GTK_LABEL(lbl_dict_status), msg);
             g_free(msg);
         } else {
             gtk_label_set_text(GTK_LABEL(lbl_dict_status),
-                "Từ điển đã mới nhất (hoặc không có mạng).");
+                "Các bộ từ điển đã chọn đều ở bản mới nhất (hoặc không có mạng).");
         }
     }
     return G_SOURCE_REMOVE;
@@ -456,10 +483,13 @@ static gpointer dict_update_worker(gpointer data){
 }
 static void on_dict_update(GtkWidget *w, gpointer data){
     (void)w; (void)data;
+    gchar *sel = collect_selected_dicts();
+    gtv_dict_set_langs(sel);
+    g_free(sel);
     if(btn_dict_update) gtk_widget_set_sensitive(btn_dict_update, FALSE);
     if(lbl_dict_status)
         gtk_label_set_text(GTK_LABEL(lbl_dict_status),
-            "Đang kiểm tra từ điển mới trên GitHub...");
+            "Đang tải / kiểm tra các bộ từ điển đã chọn trên GitHub...");
     GThread *th = g_thread_new("gtv-dict-update", dict_update_worker, NULL);
     if(th) g_thread_unref(th);
     else if(btn_dict_update) gtk_widget_set_sensitive(btn_dict_update, TRUE);
@@ -478,6 +508,9 @@ static void on_save(GtkWidget *w, gpointer data){
     GtvConfig config = {.mode = strcmp(method,"vni") == 0 ? GTV_VNI : GTV_TELEX,
         .modern = strcmp(modern,"true") == 0, .spellcheck = strcmp(spell,"true") == 0,
         .suggest_enabled = strcmp(suggest,"true") == 0};
+    gchar *sel = collect_selected_dicts();
+    g_strlcpy(config.dicts, sel, sizeof(config.dicts));
+    g_free(sel);
     gchar *directory = g_path_get_dirname(config_path);
     GError *error = NULL;
     gboolean saved = gtv_config_save(&config,directory,&error);
@@ -491,7 +524,8 @@ static void on_save(GtkWidget *w, gpointer data){
     // Restart ibus
     run_shell("ibus restart 2>/dev/null &");
     GtkWidget *dlg = gtk_message_dialog_new(win, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-        "Đã lưu %s, modern=%s, gợi ý từ điển=%s. Đã restart ibus.", method, modern, suggest);
+        "Đã lưu %s, modern=%s, gợi ý từ điển=%s (%s). Đã restart ibus.",
+        method, modern, suggest, config.dicts);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
     gtk_main_quit();
@@ -567,7 +601,7 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_box_pack_start(GTK_BOX(box2), w2, FALSE, FALSE, 0);
 
     // Dictionary frame (offline suggestions, GitHub-updated word list)
-    GtkWidget *f_dict = gtk_frame_new("Gợi ý từ điển (offline)");
+    GtkWidget *f_dict = gtk_frame_new("Gợi ý từ điển & Keywords (offline)");
     gtk_box_pack_start(GTK_BOX(vbox), f_dict, FALSE, FALSE, 0);
     GtkWidget *box_dict = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_set_border_width(GTK_CONTAINER(box_dict), 8);
@@ -575,10 +609,33 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     cb_suggest = gtk_check_button_new_with_label("Bật gợi ý từ thông minh");
     gtk_box_pack_start(GTK_BOX(box_dict), cb_suggest, FALSE, FALSE, 0);
     g_signal_connect(cb_suggest, "toggled", G_CALLBACK(on_suggest_toggled), NULL);
+
+    GtkWidget *lbl_packs = gtk_label_new("Chọn bộ từ điển / thư viện từ khóa:");
+    gtk_label_set_xalign(GTK_LABEL(lbl_packs), 0.0);
+    gtk_box_pack_start(GTK_BOX(box_dict), lbl_packs, FALSE, FALSE, 0);
+    GtkWidget *grid_packs = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid_packs), 12);
+    gtk_grid_set_row_spacing(GTK_GRID(grid_packs), 4);
+    gtk_box_pack_start(GTK_BOX(box_dict), grid_packs, FALSE, FALSE, 0);
+    const gchar *active_langs = gtv_dict_get_langs();
+    guint pack_count = gtv_dict_catalog_count();
+    for(guint i = 0; i < pack_count && i < G_N_ELEMENTS(cb_dict_packs); i++){
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if(!info) continue;
+        guint pwords = gtv_dict_pack_count(info->id);
+        gchar *label = g_strdup_printf("%s (%u)", info->title, pwords);
+        cb_dict_packs[i] = gtk_check_button_new_with_label(label);
+        g_free(label);
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_dict_packs[i]),
+            gtv_dict_lang_enabled(active_langs, info->id));
+        g_signal_connect(cb_dict_packs[i], "toggled", G_CALLBACK(on_dict_pack_toggled), NULL);
+        gtk_grid_attach(GTK_GRID(grid_packs), cb_dict_packs[i], (gint)(i % 3), (gint)(i / 3), 1, 1);
+    }
+
     lbl_dict_ver = gtk_label_new("Từ điển...");
     gtk_label_set_xalign(GTK_LABEL(lbl_dict_ver), 0.0);
     gtk_box_pack_start(GTK_BOX(box_dict), lbl_dict_ver, FALSE, FALSE, 0);
-    btn_dict_update = gtk_button_new_with_label("Cập nhật từ điển từ GitHub...");
+    btn_dict_update = gtk_button_new_with_label("Tải / Cập nhật bộ từ điển đã chọn từ GitHub...");
     g_signal_connect(btn_dict_update, "clicked", G_CALLBACK(on_dict_update), NULL);
     gtk_box_pack_start(GTK_BOX(box_dict), btn_dict_update, FALSE, FALSE, 0);
     lbl_dict_status = gtk_label_new("Gợi ý offline 100%, không cần mạng.");
@@ -679,6 +736,11 @@ static int setup_cli(GtvConfig *config, const gchar *directory) {
     cli_choice("Gợi ý từ điển [true/false]", input, sizeof(input));
     if (!g_ascii_strcasecmp(input, "true")) config->suggest_enabled = TRUE;
     if (!g_ascii_strcasecmp(input, "false")) config->suggest_enabled = FALSE;
+    cli_choice("Bộ từ điển [vi,tsql,c,csharp,en]", input, sizeof(input));
+    if (*input) {
+        gtv_dict_set_langs(input);
+        g_strlcpy(config->dicts, gtv_dict_get_langs(), sizeof(config->dicts));
+    }
     GError *error = NULL;
     if (!gtv_config_save(config, directory, &error)) {
         g_printerr("Không lưu được cấu hình: %s\n", error->message);

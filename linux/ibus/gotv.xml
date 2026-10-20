@@ -3,7 +3,7 @@
   <name>org.freedesktop.IBus.GoTV</name>
   <description>GoTV - Gõ Telex/VNI thuần hệ thống (không lib ngoài)</description>
   <exec>/usr/libexec/ibus-engine-gotv --ibus</exec>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
   <author>GoTV Project</author>
   <license>GPL</license>
   <homepage>https://github.com/isthaison/gotv</homepage>

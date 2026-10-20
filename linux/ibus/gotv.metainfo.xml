@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.1" date="2026-10-20">
+      <description>
+        <p>Bổ sung chọn và tải nhiều bộ từ điển ngôn ngữ và thư viện keywords (Tiếng Việt, T-SQL, C/C++, C#, Tiếng Anh).</p>
+      </description>
+    </release>
     <release version="0.9.0" date="2026-10-13">
       <description>
         <p>Rename project to GoTV</p>

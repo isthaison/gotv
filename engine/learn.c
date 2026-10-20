@@ -16,7 +16,12 @@ gchar *gtv_word_key(const gchar *word){
     if(!word || !g_utf8_validate(word,-1,NULL))return NULL;
     gchar *lower=g_utf8_strdown(word,-1),*key=g_utf8_normalize(lower,-1,G_NORMALIZE_NFC);g_free(lower);
     if(!*key || g_utf8_strlen(key,-1)>64){g_free(key);return NULL;}
-    for(const gchar *p=key;*p;p=g_utf8_next_char(p))if(!g_unichar_isalpha(g_utf8_get_char(p))){g_free(key);return NULL;}
+    gunichar first=g_utf8_get_char(key);
+    if(!g_unichar_isalpha(first)){g_free(key);return NULL;}
+    for(const gchar *p=key;*p;p=g_utf8_next_char(p)){
+        gunichar c=g_utf8_get_char(p);
+        if(!g_unichar_isalpha(c) && !g_unichar_isdigit(c) && c!='_'){g_free(key);return NULL;}
+    }
     return key;
 }
 

@@ -8,3 +8,4 @@ charset=unicode
 
 [suggest]
 enable=true
+dicts=vi,tsql,c,csharp

@@ -223,7 +223,7 @@ staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated
 	cp -f /mingw64/bin/gspawn-win64-helper*.exe $(VERDIR)/ 2>/dev/null || true
 	printf '%s' "$(VERSION)" > $(STAGE)/current.txt
 	cp README.md LICENSE $(STAGE)/
-	cp data/macros.txt data/emojis.txt data/config data/dict-vi.txt data/learned-corrections.txt data/learned-words.txt $(VERDIR)/data/
+	cp data/macros.txt data/emojis.txt data/config data/dict-*.txt data/learned-corrections.txt data/learned-words.txt $(VERDIR)/data/
 
 # Versioned installer (Windows-only: needs Inno Setup's iscc.exe).
 # SourceDir is relative to windows/installer.iss (script dir), not to make.

@@ -16,6 +16,26 @@ int main(int argc, char **argv) {
         puts(out); g_free(out); gtv_config_clear(&config);
         return 0;
     }
+    if (argc >= 2 && !strcmp(argv[1], "--dicts")) {
+        if (argc == 2) {
+            guint n = gtv_dict_catalog_count();
+            for (guint i = 0; i < n; i++) {
+                const GtvDictInfo *info = gtv_dict_catalog_get(i);
+                if (!info) continue;
+                gchar *tag = gtv_dict_pack_tag(info->id);
+                printf("%s\t%u words\t(%s)\t[%s]\n", info->id,
+                    gtv_dict_pack_count(info->id), info->title,
+                    (tag && *tag) ? tag : "seed");
+                g_free(tag);
+            }
+            gtv_config_clear(&config);
+            return 0;
+        }
+        gtv_dict_set_langs(argv[2]);
+        g_strlcpy(config.dicts, gtv_dict_get_langs(), sizeof(config.dicts));
+        argc -= 2;
+        argv += 2;
+    }
     if (argc == 3 && !strcmp(argv[1], "--suggest")) {
         GPtrArray *out = gtv_suggest_combined(&config, "", argv[2], FALSE);
         for(guint i=0;i<out->len;i++) puts(g_ptr_array_index(out,i));
@@ -27,7 +47,7 @@ int main(int argc, char **argv) {
         g_ptr_array_unref(out);gtv_config_clear(&config);return 0;
     }
     if (argc > 1) {
-        puts("GoTV Demo (C)\nUsage: gotv-demo [--transform telex|vni TEXT] [--suggest PREFIX] [--correct WORD]");
+        puts("GoTV Demo (C)\nUsage: gotv-demo [--dicts [LIST]] [--transform telex|vni TEXT] [--suggest PREFIX] [--correct WORD]");
         gtv_config_clear(&config);
         return strcmp(argv[1], "--help") != 0;
     }

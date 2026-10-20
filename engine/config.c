@@ -162,6 +162,13 @@ static void read_bool(GKeyFile *file, const gchar *group, const gchar *key, gboo
  * provider values still migrate (provider=ollama implies on) so existing
  * user configs keep working. */
 static void overlay_suggest(GKeyFile *file, GtvConfig *config) {
+    gchar *dicts = g_key_file_get_string(file, "suggest", "dicts", NULL);
+    if (!dicts) dicts = g_key_file_get_string(file, "suggest", "langs", NULL);
+    if (dicts) {
+        g_strstrip(dicts);
+        if (*dicts) g_strlcpy(config->dicts, dicts, sizeof(config->dicts));
+        g_free(dicts);
+    }
     if (g_key_file_has_key(file, "suggest", "enable", NULL)) {
         read_bool(file, "suggest", "enable", &config->suggest_enabled);
         return;
@@ -197,6 +204,7 @@ static void overlay_path(GtvConfig *config, const gchar *path, gboolean input) {
 void gtv_config_load(GtvConfig *config, const gchar *directory) {
     *config = (GtvConfig){.mode = GTV_TELEX, .modern = TRUE, .spellcheck = TRUE,
         .suggest_enabled = TRUE};
+    g_strlcpy(config->dicts, "vi,tsql,c,csharp", sizeof(config->dicts));
     /* Shipped defaults first (data/config), then user files. */
     gchar *path = gtv_data_path("config");
     overlay_path(config, path, TRUE);
@@ -204,6 +212,8 @@ void gtv_config_load(GtvConfig *config, const gchar *directory) {
     path = g_build_filename(directory, "config", NULL);
     overlay_path(config, path, TRUE);
     g_free(path);
+    gtv_dict_set_langs(config->dicts);
+    g_strlcpy(config->dicts, gtv_dict_get_langs(), sizeof(config->dicts));
 }
 
 gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError **error) {
@@ -219,6 +229,10 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
     g_key_file_set_boolean(file, "input", "spellcheck", config->spellcheck);
     g_key_file_set_string(file, "input", "charset", "unicode");
     g_key_file_set_boolean(file, "suggest", "enable", config->suggest_enabled);
+    if (config->dicts[0]) {
+        gtv_dict_set_langs(config->dicts);
+        g_key_file_set_string(file, "suggest", "dicts", gtv_dict_get_langs());
+    }
     gboolean ok = g_key_file_save_to_file(file, path, error);
     g_free(path);
     g_key_file_unref(file);

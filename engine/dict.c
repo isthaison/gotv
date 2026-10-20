@@ -1,9 +1,9 @@
-/* Bundled + GitHub-updated Vietnamese dictionary.
+/* Bundled + GitHub-updated multi-language / keyword dictionaries.
  *
  * Two layers feed word suggestions, both fully offline:
- *   1. data/dict-vi.txt seed shipped with the app (curated in-repo,
- *      see tools/mkdict.sh), refreshed from the dict-vi.txt asset of
- *      GitHub releases into the user data dir;
+ *   1. data/dict-<id>.txt seeds shipped with the app (vi, tsql, c, csharp,
+ *      en), refreshed from GitHub releases (or raw main fallback) into the
+ *      user data dir;
  *   2. the user's own learned-words.txt (personal picks win).
  *
  * File format (both copies): UTF-8, '#' comments and blank lines ignored,
@@ -18,6 +18,15 @@
 
 #define GTV_DICT_NAME "dict-vi.txt"
 #define GTV_DICT_TAG_PREFIX "# dict-tag:"
+
+static const GtvDictInfo dict_catalog[] = {
+    { "vi",     "dict-vi.txt",     "Tiếng Việt" },
+    { "tsql",   "dict-tsql.txt",   "T-SQL (SQL Server)" },
+    { "c",      "dict-c.txt",      "C / C++" },
+    { "csharp", "dict-csharp.txt", "C# (.NET)" },
+    { "en",     "dict-en.txt",     "Tiếng Anh (English)" },
+};
+
 typedef struct {
     gchar *word;   /* NFC lowercase display form */
     gchar *folded; /* accent-folded for prefix/edit matching */
@@ -25,7 +34,7 @@ typedef struct {
 
 typedef struct {
     GPtrArray *entries; /* DictEntry*, sorted by folded */
-    gchar *path;        /* file actually loaded */
+    gchar *path;        /* combined signature / path of loaded files */
     gchar *tag;         /* dict-tag header ("" when absent) */
     gint64 mtime;
     goffset size;
@@ -33,6 +42,118 @@ typedef struct {
 
 static GMutex dict_lock;
 static DictStore *dict_cache = NULL;
+static gchar active_langs[128] = "vi";
+
+guint gtv_dict_catalog_count(void) {
+    return (guint)G_N_ELEMENTS(dict_catalog);
+}
+
+const GtvDictInfo *gtv_dict_catalog_get(guint index) {
+    if (index >= G_N_ELEMENTS(dict_catalog)) return NULL;
+    return &dict_catalog[index];
+}
+
+const GtvDictInfo *gtv_dict_catalog_find(const gchar *id) {
+    if (!id || !*id) return NULL;
+    if (!g_ascii_strcasecmp(id, "t-sql") || !g_ascii_strcasecmp(id, "sql"))
+        id = "tsql";
+    else if (!g_ascii_strcasecmp(id, "c#") || !g_ascii_strcasecmp(id, "cs"))
+        id = "csharp";
+    else if (!g_ascii_strcasecmp(id, "c++") || !g_ascii_strcasecmp(id, "cpp"))
+        id = "c";
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        if (!g_ascii_strcasecmp(id, dict_catalog[i].id))
+            return &dict_catalog[i];
+    }
+    return NULL;
+}
+
+static void normalize_langs(const gchar *langs, gchar *out, gsize out_size) {
+    gboolean enabled[G_N_ELEMENTS(dict_catalog)] = { FALSE };
+    gboolean any = FALSE;
+    if (langs && *langs) {
+        gchar **tokens = g_strsplit_set(langs, ",; \t\r\n", -1);
+        for (guint t = 0; tokens && tokens[t]; t++) {
+            gchar *tok = g_strstrip(tokens[t]);
+            if (!*tok) continue;
+            const GtvDictInfo *info = gtv_dict_catalog_find(tok);
+            if (!info) continue;
+            for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+                if (info == &dict_catalog[i]) {
+                    enabled[i] = TRUE;
+                    any = TRUE;
+                }
+            }
+        }
+        g_strfreev(tokens);
+    }
+    if (!any) enabled[0] = TRUE; /* default to "vi" */
+    GString *buf = g_string_new("");
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        if (!enabled[i]) continue;
+        if (buf->len > 0) g_string_append_c(buf, ',');
+        g_string_append(buf, dict_catalog[i].id);
+    }
+    g_strlcpy(out, buf->str, out_size);
+    g_string_free(buf, TRUE);
+}
+
+gboolean gtv_dict_lang_enabled(const gchar *langs, const gchar *id) {
+    const GtvDictInfo *target = gtv_dict_catalog_find(id);
+    if (!target) return FALSE;
+    gchar norm[128];
+    normalize_langs((langs && *langs) ? langs : active_langs, norm, sizeof(norm));
+    gchar **tokens = g_strsplit(norm, ",", -1);
+    gboolean found = FALSE;
+    for (guint i = 0; tokens && tokens[i]; i++) {
+        if (!g_strcmp0(tokens[i], target->id)) {
+            found = TRUE;
+            break;
+        }
+    }
+    g_strfreev(tokens);
+    return found;
+}
+
+gchar *gtv_dict_lang_toggle(const gchar *langs, const gchar *id, gboolean enable) {
+    const GtvDictInfo *target = gtv_dict_catalog_find(id);
+    gchar norm[128];
+    normalize_langs((langs && *langs) ? langs : active_langs, norm, sizeof(norm));
+    if (!target) return g_strdup(norm);
+    GString *buf = g_string_new("");
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        const gchar *cid = dict_catalog[i].id;
+        gboolean on = (!g_strcmp0(cid, target->id))
+            ? enable
+            : gtv_dict_lang_enabled(norm, cid);
+        if (!on) continue;
+        if (buf->len > 0) g_string_append_c(buf, ',');
+        g_string_append(buf, cid);
+    }
+    if (buf->len == 0) g_string_assign(buf, "vi");
+    return g_string_free(buf, FALSE);
+}
+
+void gtv_dict_set_langs(const gchar *langs) {
+    gchar norm[128];
+    normalize_langs(langs, norm, sizeof(norm));
+    g_mutex_lock(&dict_lock);
+    if (strcmp(active_langs, norm) != 0) {
+        g_strlcpy(active_langs, norm, sizeof(active_langs));
+        if (dict_cache) {
+            if (dict_cache->entries) g_ptr_array_unref(dict_cache->entries);
+            g_free(dict_cache->path);
+            g_free(dict_cache->tag);
+            g_free(dict_cache);
+            dict_cache = NULL;
+        }
+    }
+    g_mutex_unlock(&dict_lock);
+}
+
+const gchar *gtv_dict_get_langs(void) {
+    return active_langs;
+}
 
 static void dict_entry_free(gpointer p) {
     DictEntry *e = p;
@@ -53,18 +174,14 @@ static void dict_store_free(DictStore *ds) {
 static gint entry_cmp_folded(gconstpointer a, gconstpointer b) {
     const DictEntry *ea = *(const DictEntry * const *)a;
     const DictEntry *eb = *(const DictEntry * const *)b;
-    return strcmp(ea->folded, eb->folded);
+    int c = strcmp(ea->folded, eb->folded);
+    if (c != 0) return c;
+    return strcmp(ea->word, eb->word);
 }
 
-/* Parse one dictionary file. Returns entries + tag (both possibly empty).
- * Corrupt lines are skipped, never fatal. */
-static DictStore *dict_parse_file(const gchar *path) {
-    DictStore *ds = g_new0(DictStore, 1);
-    ds->entries = g_ptr_array_new_with_free_func(dict_entry_free);
-    ds->path = g_strdup(path);
-    ds->tag = g_strdup("");
+static void dict_parse_into(const gchar *path, DictStore *ds) {
     gchar *contents = NULL;
-    if (!g_file_get_contents(path, &contents, NULL, NULL)) return ds;
+    if (!path || !g_file_get_contents(path, &contents, NULL, NULL)) return;
     gchar **lines = g_strsplit_set(contents, "\r\n", -1);
     g_free(contents);
     for (guint i = 0; lines[i]; i++) {
@@ -73,7 +190,7 @@ static DictStore *dict_parse_file(const gchar *path) {
         if (*line == '#') {
             if (g_str_has_prefix(line, GTV_DICT_TAG_PREFIX)) {
                 gchar *tag = g_strstrip((gchar *)line + strlen(GTV_DICT_TAG_PREFIX));
-                if (*tag) {
+                if (*tag && (!ds->tag || !*ds->tag || gtv_version_compare(tag, ds->tag) > 0)) {
                     g_free(ds->tag);
                     ds->tag = g_strdup(tag);
                 }
@@ -92,7 +209,10 @@ static DictStore *dict_parse_file(const gchar *path) {
         g_ptr_array_add(ds->entries, e);
     }
     g_strfreev(lines);
-    /* De-duplicate (same word) then sort by folded for prefix search. */
+}
+
+static void dict_finalize_entries(DictStore *ds) {
+    if (!ds || !ds->entries) return;
     g_ptr_array_sort(ds->entries, entry_cmp_folded);
     for (guint i = 1; i < ds->entries->len; ) {
         DictEntry *prev = ds->entries->pdata[i - 1];
@@ -102,18 +222,31 @@ static DictStore *dict_parse_file(const gchar *path) {
         else
             i++;
     }
+}
+
+/* Parse one dictionary file. Returns entries + tag (both possibly empty).
+ * Corrupt lines are skipped, never fatal. */
+static DictStore *dict_parse_file(const gchar *path) {
+    DictStore *ds = g_new0(DictStore, 1);
+    ds->entries = g_ptr_array_new_with_free_func(dict_entry_free);
+    ds->path = g_strdup(path ? path : "");
+    ds->tag = g_strdup("");
+    dict_parse_into(path, ds);
+    dict_finalize_entries(ds);
     return ds;
 }
 
-gchar *gtv_dict_user_path(void) {
-    return gtv_user_path(g_get_user_data_dir(), GTV_DICT_NAME);
+static gchar *dict_pack_user_path(const gchar *filename) {
+    return gtv_user_path(g_get_user_data_dir(), filename);
 }
 
-/* Downloaded copy wins when it parses to a non-empty table; otherwise the
- * shipped seed. A half-written download (crash mid-move) falls back to
- * the seed instead of breaking suggestions. */
-static DictStore *dict_load_locked(void) {
-    gchar *user = gtv_dict_user_path();
+gchar *gtv_dict_user_path(void) {
+    return dict_pack_user_path(GTV_DICT_NAME);
+}
+
+/* Load one pack (downloaded copy wins when non-empty; otherwise shipped seed). */
+static DictStore *dict_load_one_pack(const GtvDictInfo *info) {
+    gchar *user = dict_pack_user_path(info->filename);
     DictStore *ds = NULL;
     if (g_file_test(user, G_FILE_TEST_EXISTS)) {
         ds = dict_parse_file(user);
@@ -124,51 +257,88 @@ static DictStore *dict_load_locked(void) {
     }
     g_free(user);
     if (!ds) {
-        gchar *seed = gtv_data_path(GTV_DICT_NAME);
+        gchar *seed = gtv_data_path(info->filename);
         ds = dict_parse_file(seed);
         g_free(seed);
     }
     return ds;
 }
 
-static gboolean dict_current_locked(const gchar *path, gint64 mtime, goffset size) {
-    return dict_cache && dict_cache->path && path &&
-        !strcmp(dict_cache->path, path) &&
-        dict_cache->mtime == mtime && dict_cache->size == size;
+/* Load and merge all enabled packs in active_langs. */
+static DictStore *dict_load_locked(void) {
+    DictStore *merged = g_new0(DictStore, 1);
+    merged->entries = g_ptr_array_new_with_free_func(dict_entry_free);
+    merged->path = g_strdup("");
+    merged->tag = g_strdup("");
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        if (!gtv_dict_lang_enabled(active_langs, dict_catalog[i].id))
+            continue;
+        DictStore *one = dict_load_one_pack(&dict_catalog[i]);
+        if (!one) continue;
+        if (one->tag && *one->tag &&
+            (!*merged->tag || gtv_version_compare(one->tag, merged->tag) > 0)) {
+            g_free(merged->tag);
+            merged->tag = g_strdup(one->tag);
+        }
+        for (guint j = 0; j < one->entries->len; j++) {
+            DictEntry *src = one->entries->pdata[j];
+            DictEntry *copy = g_new0(DictEntry, 1);
+            copy->word = g_strdup(src->word);
+            copy->folded = g_strdup(src->folded);
+            g_ptr_array_add(merged->entries, copy);
+        }
+        dict_store_free(one);
+    }
+    dict_finalize_entries(merged);
+    return merged;
 }
 
-/* Process-wide cached table; reloads when the backing file changes
- * (GitHub refresh replaces it under us). Returned pointer is borrowed
- * and valid until the next reload — copy out what you keep. */
+static gchar *dict_build_signature_locked(gboolean *out_any_stat) {
+    GString *sig = g_string_new(active_langs);
+    gboolean any_stat = FALSE;
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        if (!gtv_dict_lang_enabled(active_langs, dict_catalog[i].id))
+            continue;
+        gchar *user = dict_pack_user_path(dict_catalog[i].filename);
+        gchar *seed = NULL;
+        const gchar *path = NULL;
+        if (g_file_test(user, G_FILE_TEST_EXISTS)) {
+            path = user;
+        } else {
+            seed = gtv_data_path(dict_catalog[i].filename);
+            path = seed;
+        }
+        GStatBuf st;
+        if (path && g_stat(path, &st) == 0) {
+            any_stat = TRUE;
+            g_string_append_printf(sig, "|%s:%" G_GINT64_FORMAT ":%" G_GOFFSET_FORMAT,
+                path, (gint64)st.st_mtime, (goffset)st.st_size);
+        } else {
+            g_string_append_printf(sig, "|%s:missing", dict_catalog[i].id);
+        }
+        g_free(user);
+        g_free(seed);
+    }
+    if (out_any_stat) *out_any_stat = any_stat;
+    return g_string_free(sig, FALSE);
+}
+
+/* Process-wide cached table; reloads when the backing files or active
+ * language packs change. Returned pointer is borrowed. */
 const DictStore *gtv_dict_get(void) {
     g_mutex_lock(&dict_lock);
-    gchar *user = gtv_dict_user_path();
-    const gchar *path = NULL;
-    gchar *seed = NULL;
-    if (g_file_test(user, G_FILE_TEST_EXISTS)) {
-        path = user;
-    } else {
-        seed = gtv_data_path(GTV_DICT_NAME);
-        path = seed;
-    }
-    GStatBuf st;
-    gboolean have_stat = path && g_stat(path, &st) == 0;
-    if (!dict_cache || !have_stat ||
-        !dict_current_locked(path, (gint64)st.st_mtime, (goffset)st.st_size)) {
+    gboolean have_stat = FALSE;
+    gchar *sig = dict_build_signature_locked(&have_stat);
+    if (!dict_cache || !have_stat || !dict_cache->path || strcmp(dict_cache->path, sig) != 0) {
         dict_store_free(dict_cache);
         dict_cache = NULL;
         if (have_stat) {
-            /* dict_load_locked picks user-first too; path here only
-             * decides the freshness check above. */
             dict_cache = dict_load_locked();
-            dict_cache->mtime = (gint64)st.st_mtime;
-            dict_cache->size = (goffset)st.st_size;
             g_free(dict_cache->path);
-            dict_cache->path = g_strdup(path);
+            dict_cache->path = g_strdup(sig);
         }
     }
-    g_free(user);
-    g_free(seed);
+    g_free(sig);
     const DictStore *out = dict_cache;
     g_mutex_unlock(&dict_lock);
     return out;
@@ -189,6 +359,24 @@ guint gtv_dict_count(void) {
 const gchar *gtv_dict_tag(void) {
     const DictStore *ds = gtv_dict_get();
     return (ds && ds->tag && *ds->tag) ? ds->tag : "";
+}
+
+guint gtv_dict_pack_count(const gchar *id) {
+    const GtvDictInfo *info = gtv_dict_catalog_find(id);
+    if (!info) return 0;
+    DictStore *ds = dict_load_one_pack(info);
+    guint n = ds && ds->entries ? ds->entries->len : 0;
+    dict_store_free(ds);
+    return n;
+}
+
+gchar *gtv_dict_pack_tag(const gchar *id) {
+    const GtvDictInfo *info = gtv_dict_catalog_find(id);
+    if (!info) return g_strdup("");
+    DictStore *ds = dict_load_one_pack(info);
+    gchar *tag = g_strdup((ds && ds->tag) ? ds->tag : "");
+    dict_store_free(ds);
+    return tag;
 }
 
 /* Completions: accent-exact prefix first, then accent-folded prefix
@@ -273,10 +461,18 @@ void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
         g_free(lower);
         return;
     }
+    gboolean has_non_ascii = FALSE;
+    for (const gchar *p = lower; *p; p++) {
+        if ((guchar)*p >= 0x80) {
+            has_non_ascii = TRUE;
+            break;
+        }
+    }
     gsize want_len = strlen(folded);
     const DictStore *ds = gtv_dict_get();
     if (ds && ds->entries) {
         GArray *cands = g_array_new(FALSE, FALSE, sizeof(CorrectCand));
+        gboolean has_dist_zero = FALSE;
         for (guint i = 0; i < ds->entries->len; i++) {
             DictEntry *e = ds->entries->pdata[i];
             if (!strcmp(e->word, lower)) continue;
@@ -285,43 +481,49 @@ void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
             if (diff > 2) continue;
             guint d = edit_distance_cap(folded, e->folded, 2);
             if (d <= 2) {
+                if (d == 0) has_dist_zero = TRUE;
                 CorrectCand c = { e->word, d, diff };
                 g_array_append_val(cands, c);
             }
         }
         g_array_sort(cands, correct_cmp);
-        for (guint i = 0; i < cands->len && out->len < max; i++)
-            add_candidate_unique(out, g_array_index(cands, CorrectCand, i).word);
+        for (guint i = 0; i < cands->len && out->len < max; i++) {
+            CorrectCand c = g_array_index(cands, CorrectCand, i);
+            if (has_non_ascii && has_dist_zero && c.dist > 0) continue;
+            add_candidate_unique(out, c.word);
+        }
         g_array_unref(cands);
     }
     g_free(folded);
     g_free(lower);
 }
 
-static gboolean dict_asset_match(const gchar *asset_name, const gchar *tag_version, gpointer user_data) {
+static gboolean dict_asset_match_name(const gchar *asset_name, const gchar *tag_version, gpointer user_data) {
     (void)tag_version;
-    (void)user_data;
-    return !g_strcmp0(asset_name, GTV_DICT_NAME);
+    const gchar *wanted = user_data;
+    return wanted && !g_strcmp0(asset_name, wanted);
 }
 
-/* Refresh the dictionary from the dict-vi.txt asset of the latest GitHub
- * release. Downloads to temp, keeps the file only when its dict-tag header
- * is newer than the loaded table; a corrupt download is ignored and the
- * current table keeps serving. Returns TRUE when the on-disk copy changed
- * (call gtv_dict_invalidate() is unnecessary: the cache keys on mtime). */
-gboolean gtv_dict_update_check(const gchar *repo) {
+/* Download or refresh one dictionary pack by ID ("vi", "tsql", "c", "csharp", "en").
+ * Checks the latest GitHub release asset first, then falls back to raw main
+ * on GitHub so newly added packs can be downloaded immediately. */
+gboolean gtv_dict_update_pack(const gchar *repo, const gchar *id) {
+    const GtvDictInfo *info = gtv_dict_catalog_find(id);
+    if (!info) return FALSE;
+    const gchar *eff_repo = (repo && *repo) ? repo : GTV_GITHUB_REPO;
     gchar *tag = NULL, *url = NULL;
-    GtvUpdateStatus st = gtv_update_check_full(repo, "0.0.0", dict_asset_match, NULL,
-                                               &tag, &url);
+    GtvUpdateStatus st = gtv_update_check_full(eff_repo, "0.0.0", dict_asset_match_name,
+                                               (gpointer)info->filename, &tag, &url);
     if (st != GTV_UPDATE_AVAILABLE || !url) {
         g_free(tag);
         g_free(url);
-        return FALSE;
+        tag = NULL;
+        url = g_strdup_printf("https://raw.githubusercontent.com/%s/main/data/%s",
+                              eff_repo, info->filename);
     }
-    gchar *dest = gtv_dict_user_path();
+    gchar *dest = dict_pack_user_path(info->filename);
+    gboolean had_user = g_file_test(dest, G_FILE_TEST_EXISTS);
     gchar *tmp = g_strdup_printf("%s.dict-dl", dest);
-    /* gtv_update_download appends .part itself and moves the result to
-     * tmp; we then promote tmp over the live file only when newer. */
     gboolean ok = gtv_update_download(url, tmp);
     g_free(tag);
     g_free(url);
@@ -330,21 +532,23 @@ gboolean gtv_dict_update_check(const gchar *repo) {
         g_free(dest);
         return FALSE;
     }
-    /* Validate + compare tags before replacing the live file. */
     DictStore *dl = dict_parse_file(tmp);
-    gboolean newer = FALSE;
+    gboolean promote = FALSE;
     if (dl->entries->len > 0 && dl->tag && *dl->tag) {
-        const gchar *cur = gtv_dict_tag();
-        newer = !*cur || gtv_version_compare(dl->tag, cur) > 0;
+        gchar *cur = gtv_dict_pack_tag(info->id);
+        int cmp = (cur && *cur) ? gtv_version_compare(dl->tag, cur) : 1;
+        promote = had_user ? (cmp > 0) : (cmp >= 0);
+        g_free(cur);
     }
     dict_store_free(dl);
-    if (newer) {
+    if (promote) {
         gchar *dir = g_path_get_dirname(dest);
         g_mkdir_with_parents(dir, 0700);
         g_free(dir);
         if (g_rename(tmp, dest) == 0) {
             g_free(tmp);
             g_free(dest);
+            gtv_dict_invalidate();
             return TRUE;
         }
     }
@@ -352,4 +556,20 @@ gboolean gtv_dict_update_check(const gchar *repo) {
     g_free(tmp);
     g_free(dest);
     return FALSE;
+}
+
+/* Refresh all enabled dictionary packs from GitHub. */
+gboolean gtv_dict_update_check(const gchar *repo) {
+    gchar langs[128];
+    g_mutex_lock(&dict_lock);
+    g_strlcpy(langs, active_langs, sizeof(langs));
+    g_mutex_unlock(&dict_lock);
+    gboolean any_updated = FALSE;
+    for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
+        if (!gtv_dict_lang_enabled(langs, dict_catalog[i].id))
+            continue;
+        if (gtv_dict_update_pack(repo, dict_catalog[i].id))
+            any_updated = TRUE;
+    }
+    return any_updated;
 }

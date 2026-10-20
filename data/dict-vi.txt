@@ -4,7 +4,7 @@
 #   - data/learned-words.txt (this repo, MIT)
 # Regenerate: ./tools/mkdict.sh vX.Y.Z
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.8.28
+# dict-tag: v0.9.1
 abc
 accordeon
 aceton

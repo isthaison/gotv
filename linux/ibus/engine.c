@@ -767,7 +767,7 @@ static void bus_connected_cb(IBusBus *b, gpointer user_data){
         c = ibus_component_new_from_file("/usr/share/ibus/component/gotv.xml");
     }
     if(!c){
-        c = ibus_component_new("org.freedesktop.IBus.GoTV","GoTV Engine (thuần hệ thống)","0.9.0","GPL","GoTV Project","https://github.com/isthaison/gotv","/usr/libexec/ibus-engine-gotv --ibus","gotv");
+        c = ibus_component_new("org.freedesktop.IBus.GoTV","GoTV Engine (thuần hệ thống)","0.9.1","GPL","GoTV Project","https://github.com/isthaison/gotv","/usr/libexec/ibus-engine-gotv --ibus","gotv");
         IBusEngineDesc *d = ibus_engine_desc_new_varargs(
             "name", "gotv",
             "longname", "GoTV",

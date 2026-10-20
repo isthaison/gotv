@@ -39,6 +39,11 @@
 #define IDC_BTN_DATA        217
 #define IDC_BTN_KEYBOARD    253
 #define IDC_LBL_DICT_STATUS 233
+#define IDC_CHECK_DICT_VI     234
+#define IDC_CHECK_DICT_TSQL   235
+#define IDC_CHECK_DICT_C      236
+#define IDC_CHECK_DICT_CSHARP 237
+#define IDC_CHECK_DICT_EN     238
 
 #define IDD_DATA_DIALOG     220
 #define IDC_DATA_MACRO      221

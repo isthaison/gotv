@@ -218,9 +218,53 @@ static void test_spelling(void) {
 
 static void test_dict(void) {
     /* The shipped seed loads offline: version tag, word count, lookups. */
-    g_assert_cmpuint(gtv_dict_count(), >, 1000);
+    gtv_dict_set_langs("vi");
+    guint vi_count = gtv_dict_count();
+    g_assert_cmpuint(vi_count, >, 1000);
     g_assert_true(gtv_dict_tag() && *gtv_dict_tag());
+    /* Catalog and per-pack counts (vi, tsql, c, csharp, en). */
+    g_assert_cmpuint(gtv_dict_catalog_count(), >=, 5);
+    g_assert_nonnull(gtv_dict_catalog_find("tsql"));
+    g_assert_nonnull(gtv_dict_catalog_find("t-sql"));
+    g_assert_nonnull(gtv_dict_catalog_find("c"));
+    g_assert_nonnull(gtv_dict_catalog_find("csharp"));
+    g_assert_nonnull(gtv_dict_catalog_find("c#"));
+    g_assert_cmpuint(gtv_dict_pack_count("tsql"), >, 100);
+    g_assert_cmpuint(gtv_dict_pack_count("c"), >, 100);
+    g_assert_cmpuint(gtv_dict_pack_count("csharp"), >, 100);
+    g_assert_cmpuint(gtv_dict_pack_count("en"), >, 100);
+    /* Selecting multiple packs merges their vocabularies. */
+    gtv_dict_set_langs("vi,t-sql,c,c#");
+    g_assert_cmpstr(gtv_dict_get_langs(), ==, "vi,tsql,c,csharp");
+    g_assert_cmpuint(gtv_dict_count(), >, vi_count);
     GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
+    /* T-SQL completions (including underscore identifiers). */
+    gtv_dict_complete("nvarch", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "nvarchar");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_complete("sp_exec", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "sp_executesql");
+    g_ptr_array_set_size(out, 0);
+    /* C keyword / stdint completions. */
+    gtv_dict_complete("typede", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "typedef");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_complete("uint32_", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "uint32_t");
+    g_ptr_array_set_size(out, 0);
+    /* C# keyword / BCL completions. */
+    gtv_dict_complete("ienumera", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "ienumerable");
+    g_ptr_array_set_size(out, 0);
+    /* Toggle helper. */
+    gchar *toggled = gtv_dict_lang_toggle("vi,tsql", "csharp", TRUE);
+    g_assert_cmpstr(toggled, ==, "vi,tsql,csharp");
+    g_free(toggled);
     /* Completions are alphabetical; every hit shares the (folded) prefix. */
     gtv_dict_complete("thong", out, 5);
     g_assert_cmpuint(out->len, >, 0);

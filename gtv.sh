@@ -392,7 +392,7 @@ mac_build_app() {
         -o "$app/MacOS/GoTV"
     cp macos/Info.plist "$app/Info.plist"
     printf 'APPL????' > "$app/PkgInfo"
-    cp data/macros.txt data/emojis.txt data/config data/dict-vi.txt \
+    cp data/macros.txt data/emojis.txt data/config data/dict-*.txt \
         data/learned-corrections.txt \
         data/learned-words.txt "$app/Resources/data/"
     echo "Đã build: build/macos/GoTV.app"
@@ -535,7 +535,9 @@ cmd_install_linux() {
     install -Dm644 data/macros.txt "$DESTDIR/usr/share/gotv/macros.txt"
     install -Dm644 data/emojis.txt "$DESTDIR/usr/share/gotv/emojis.txt"
     install -Dm644 data/config "$DESTDIR/usr/share/gotv/config"
-    install -Dm644 data/dict-vi.txt "$DESTDIR/usr/share/gotv/dict-vi.txt"
+    for dfile in data/dict-*.txt; do
+        [[ -f "$dfile" ]] && install -Dm644 "$dfile" "$DESTDIR/usr/share/gotv/$(basename "$dfile")"
+    done
     install -Dm644 data/learned-corrections.txt "$DESTDIR/usr/share/gotv/learned-corrections.txt"
     install -Dm644 data/learned-words.txt "$DESTDIR/usr/share/gotv/learned-words.txt"
     for size in 16 22 24 32 48 64 128 256; do
@@ -710,7 +712,7 @@ cmd_uninstall_linux() {
 }
 
 cmd_package_linux() {
-    version=${1:-0.9.0-1}
+    version=${1:-0.9.1-1}
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
     make build test
@@ -812,6 +814,12 @@ cmd_bump() {
         echo "(restored UTF-8 BOM in windows/installer.iss)"
     fi
     sed -i 's/\[ -n "\$VER" \] || VER="[^"]*"/[ -n "$VER" ] || VER="'"$ver"'"/' .github/workflows/build-windows.yml
+    for dfile in data/dict-*.txt; do
+        [[ -f "$dfile" ]] && sed -i "s/^# dict-tag: v.*/# dict-tag: v$ver/" "$dfile"
+    done
+    if [[ -f site/index.html ]]; then
+        sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$ver\"/" site/index.html
+    fi
 
     echo "--- bumped $old -> $ver ---"
     echo "--- leftover $old refs (history/tests/examples are fine) ---"

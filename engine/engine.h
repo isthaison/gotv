@@ -10,6 +10,7 @@ typedef enum { GTV_TELEX, GTV_VNI } GtvMode;
 typedef struct {
     GtvMode mode;
     gboolean modern, spellcheck, suggest_enabled;
+    gchar dicts[128];
 } GtvConfig;
 typedef struct {
     GtvMode mode;
@@ -32,13 +33,29 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
 void gtv_config_clear(GtvConfig *config);
 /* GoTV user path; copies missing legacy files without removing the originals. */
 gchar *gtv_user_path(const gchar *base, const gchar *name);
-/* Offline dictionary suggestions (bundled dict-vi.txt seed, refreshed
- * from the dict-vi.txt asset of GitHub releases, plus the user's learned
- * vocabulary). Disabled providers return no candidates. */
+/* Offline dictionary suggestions (bundled dict-*.txt seeds, refreshed
+ * from GitHub releases, plus the user's learned vocabulary). Multiple
+ * language/keyword packs (vi, tsql, c, csharp, en) can be selected. */
+typedef struct {
+    const gchar *id;
+    const gchar *filename;
+    const gchar *title;
+} GtvDictInfo;
+
 gboolean gtv_dict_available(const GtvConfig *config);
 guint gtv_dict_count(void);
 const gchar *gtv_dict_tag(void);
 gboolean gtv_dict_update_check(const gchar *repo);
+guint gtv_dict_catalog_count(void);
+const GtvDictInfo *gtv_dict_catalog_get(guint index);
+const GtvDictInfo *gtv_dict_catalog_find(const gchar *id);
+void gtv_dict_set_langs(const gchar *langs);
+const gchar *gtv_dict_get_langs(void);
+gboolean gtv_dict_lang_enabled(const gchar *langs, const gchar *id);
+gchar *gtv_dict_lang_toggle(const gchar *langs, const gchar *id, gboolean enable);
+guint gtv_dict_pack_count(const gchar *id);
+gchar *gtv_dict_pack_tag(const gchar *id);
+gboolean gtv_dict_update_pack(const gchar *repo, const gchar *id);
 GPtrArray *gtv_suggest_combined(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad);
 void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad,
                                GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);

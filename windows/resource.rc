@@ -16,7 +16,7 @@
 
 IDI_APP_ICON    ICON    "icons/gotv.ico"
 
-IDD_SETUP_DIALOG DIALOGEX 0, 0, 240, 230
+IDD_SETUP_DIALOG DIALOGEX 0, 0, 240, 260
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GoTV - Setup"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -33,16 +33,21 @@ BEGIN
     AUTOCHECKBOX    "Spellcheck and smart suggestions", IDC_CHECK_SPELL, 20, 90, 200, 10
     AUTOCHECKBOX    "Start with Windows", IDC_CHECK_STARTUP, 20, 106, 200, 10
 
-    GROUPBOX        "Dictionary suggestions (offline)", IDC_GROUP_DICT, 10, 130, 220, 60
+    GROUPBOX        "Dictionary suggestions (offline)", IDC_GROUP_DICT, 10, 130, 220, 92
     AUTOCHECKBOX    "Enable smart suggestions", IDC_CHECK_SUGGEST, 20, 144, 200, 10
-    LTEXT           "Dict:", IDC_LBL_DICT_VER, 20, 160, 140, 10
-    PUSHBUTTON      "Update", IDC_BTN_DICT_UPDATE, 165, 158, 55, 14
-    LTEXT           "Status", IDC_LBL_DICT_STATUS, 20, 176, 200, 10
+    AUTOCHECKBOX    "Vietnamese", IDC_CHECK_DICT_VI, 20, 158, 62, 10
+    AUTOCHECKBOX    "T-SQL", IDC_CHECK_DICT_TSQL, 86, 158, 52, 10
+    AUTOCHECKBOX    "C / C++", IDC_CHECK_DICT_C, 142, 158, 78, 10
+    AUTOCHECKBOX    "C# (.NET)", IDC_CHECK_DICT_CSHARP, 20, 172, 62, 10
+    AUTOCHECKBOX    "English", IDC_CHECK_DICT_EN, 86, 172, 70, 10
+    LTEXT           "Dict:", IDC_LBL_DICT_VER, 20, 188, 140, 10
+    PUSHBUTTON      "Update", IDC_BTN_DICT_UPDATE, 165, 186, 55, 14
+    LTEXT           "Status", IDC_LBL_DICT_STATUS, 20, 204, 200, 10
 
-    DEFPUSHBUTTON   "OK", IDC_BTN_OK, 126, 206, 50, 14
-    PUSHBUTTON      "Cancel", IDC_BTN_CANCEL, 179, 206, 50, 14
-    PUSHBUTTON      "Data", IDC_BTN_DATA, 5, 206, 55, 14
-    PUSHBUTTON      "Keyboards", IDC_BTN_KEYBOARD, 63, 206, 60, 14
+    DEFPUSHBUTTON   "OK", IDC_BTN_OK, 126, 234, 50, 14
+    PUSHBUTTON      "Cancel", IDC_BTN_CANCEL, 179, 234, 50, 14
+    PUSHBUTTON      "Data", IDC_BTN_DATA, 5, 234, 55, 14
+    PUSHBUTTON      "Keyboards", IDC_BTN_KEYBOARD, 63, 234, 60, 14
 END
 
 IDD_DATA_DIALOG DIALOGEX 0, 0, 280, 232
@@ -104,8 +109,8 @@ BEGIN
 END
 
 1 VERSIONINFO
-FILEVERSION     0,9,0,0
-PRODUCTVERSION  0,9,0,0
+FILEVERSION     0,9,1,0
+PRODUCTVERSION  0,9,1,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          0x40004L
@@ -118,12 +123,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "GoTV Open Source Project\0"
             VALUE "FileDescription", "GoTV - Vietnamese Input (Native)\0"
-            VALUE "FileVersion", "0.9.0.0\0"
+            VALUE "FileVersion", "0.9.1.0\0"
             VALUE "InternalName", "gotv\0"
             VALUE "LegalCopyright", "Copyright (C) 2026\0"
             VALUE "OriginalFilename", "gotv.exe\0"
             VALUE "ProductName", "GoTV\0"
-            VALUE "ProductVersion", "0.9.0.0\0"
+            VALUE "ProductVersion", "0.9.1.0\0"
         END
     END
     BLOCK "VarFileInfo"

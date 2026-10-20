@@ -14,11 +14,33 @@
 /* Dictionary panel: version/word-count labels plus a worker that refreshes
  * dict-vi.txt from the GitHub release asset (offline-first: the bundled
  * seed always works, the download only upgrades it). */
+static const struct { int ctl_id; const char *dict_id; const char *label; } dict_pack_ctls[] = {
+    { IDC_CHECK_DICT_VI,     "vi",     "Tiếng Việt" },
+    { IDC_CHECK_DICT_TSQL,   "tsql",   "T-SQL" },
+    { IDC_CHECK_DICT_C,      "c",      "C / C++" },
+    { IDC_CHECK_DICT_CSHARP, "csharp", "C# (.NET)" },
+    { IDC_CHECK_DICT_EN,     "en",     "Tiếng Anh" },
+};
+
+static gchar *collect_dlg_dicts(HWND hwnd) {
+    GString *buf = g_string_new("");
+    for (guint i = 0; i < G_N_ELEMENTS(dict_pack_ctls); i++) {
+        if (IsDlgButtonChecked(hwnd, dict_pack_ctls[i].ctl_id) == BST_CHECKED) {
+            if (buf->len > 0) g_string_append_c(buf, ',');
+            g_string_append(buf, dict_pack_ctls[i].dict_id);
+        }
+    }
+    if (buf->len == 0) g_string_assign(buf, "vi");
+    return g_string_free(buf, FALSE);
+}
+
 static void dict_ui_refresh(HWND hwnd) {
     guint n = gtv_dict_count();
     const gchar *tag = gtv_dict_tag();
+    const gchar *langs = gtv_dict_get_langs();
     gchar *ver = (n > 0)
-        ? g_strdup_printf("Từ điển %s · %u từ", (tag && *tag) ? tag : "cài sẵn", n)
+        ? g_strdup_printf("Từ điển %s · %u từ (%s)", (tag && *tag) ? tag : "cài sẵn", n,
+                          (langs && *langs) ? langs : "vi")
         : g_strdup("Chưa có từ điển");
     gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_VER, ver);
     g_free(ver);
@@ -86,6 +108,11 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             for (guint i = 0; i < G_N_ELEMENTS(labels); i++) {
                 gtv_win_set_dlg_item_text(hwnd, labels[i].id, labels[i].text);
             }
+            for (guint i = 0; i < G_N_ELEMENTS(dict_pack_ctls); i++) {
+                gtv_win_set_dlg_item_text(hwnd, dict_pack_ctls[i].ctl_id, dict_pack_ctls[i].label);
+                gboolean on = gtv_dict_lang_enabled(g_app.config.dicts, dict_pack_ctls[i].dict_id);
+                CheckDlgButton(hwnd, dict_pack_ctls[i].ctl_id, on ? BST_CHECKED : BST_UNCHECKED);
+            }
             pin_dialog_font(hwnd);
             if (g_app.config.mode == GTV_VNI) {
                 CheckRadioButton(hwnd, IDC_RADIO_TELEX, IDC_RADIO_VNI, IDC_RADIO_VNI);
@@ -123,6 +150,10 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 g_app.config.modern = (IsDlgButtonChecked(hwnd, IDC_CHECK_MODERN) == BST_CHECKED);
                 g_app.config.spellcheck = (IsDlgButtonChecked(hwnd, IDC_CHECK_SPELL) == BST_CHECKED);
                 g_app.config.suggest_enabled = (IsDlgButtonChecked(hwnd, IDC_CHECK_SUGGEST) == BST_CHECKED);
+                gchar *sel = collect_dlg_dicts(hwnd);
+                g_strlcpy(g_app.config.dicts, sel, sizeof(g_app.config.dicts));
+                gtv_dict_set_langs(sel);
+                g_free(sel);
 
                 gboolean want_startup = (IsDlgButtonChecked(hwnd, IDC_CHECK_STARTUP) == BST_CHECKED);
                 if (want_startup) {
@@ -140,7 +171,18 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
                 EndDialog(hwnd, IDOK);
                 return TRUE;
+            } else if (id == IDC_CHECK_DICT_VI || id == IDC_CHECK_DICT_TSQL ||
+                       id == IDC_CHECK_DICT_C || id == IDC_CHECK_DICT_CSHARP ||
+                       id == IDC_CHECK_DICT_EN) {
+                gchar *sel = collect_dlg_dicts(hwnd);
+                gtv_dict_set_langs(sel);
+                g_free(sel);
+                dict_ui_refresh(hwnd);
+                return TRUE;
             } else if (id == IDC_BTN_DICT_UPDATE) {
+                gchar *sel = collect_dlg_dicts(hwnd);
+                gtv_dict_set_langs(sel);
+                g_free(sel);
                 HWND btn = GetDlgItem(hwnd, IDC_BTN_DICT_UPDATE);
                 if (btn) EnableWindow(btn, FALSE);
                 gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,

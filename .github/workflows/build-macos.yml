@@ -53,7 +53,7 @@ jobs:
             -o "$APP/MacOS/GoTV"
           cp macos/Info.plist "$APP/Info.plist"
           printf 'APPL????' > "$APP/PkgInfo"
-          cp data/macros.txt data/emojis.txt data/config data/dict-vi.txt \
+          cp data/macros.txt data/emojis.txt data/config data/dict-*.txt \
             data/learned-corrections.txt \
             data/learned-words.txt "$APP/Resources/data/"
           plutil -lint "$APP/Info.plist"
