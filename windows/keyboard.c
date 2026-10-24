@@ -46,6 +46,11 @@
 static const wchar_t *KBD_LAYOUTS_KEY =
     L"SYSTEM\\CurrentControlSet\\Control\\Keyboard Layouts";
 
+static gboolean is_gtv_vi_tip(const gchar *tip) {
+    return tip && (g_strcmp0(tip, GTV_TIP_VI) == 0 ||
+                   g_str_has_prefix(tip, "042a:{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}"));
+}
+
 static LANGID tip_langid(const gchar *tip);
 
 static void kbd_log(const gchar *fmt, ...) {
@@ -272,7 +277,15 @@ static gchar *tsf_profile_name(const gchar *tip) {
         }
         if (uninit) CoUninitialize();
     }
-    if (name && *name) { g_free(wrest); return name; }
+    if (name && *name) {
+        if (is_gtv_vi_tip(tip)) {
+            g_free(name);
+            g_free(wrest);
+            return g_strdup("Vietnamese (GoTV)");
+        }
+        g_free(wrest);
+        return name;
+    }
     g_clear_pointer(&name, g_free);
 
     /* Registry fallback. */
@@ -287,6 +300,7 @@ static gchar *tsf_profile_name(const gchar *tip) {
 }
 
 gchar *gtv_kbd_tip_name(const gchar *tip) {
+    if (is_gtv_vi_tip(tip)) return g_strdup("Vietnamese (GoTV)");
     gchar *lang = NULL, *rest = NULL;
     if (!tip_split(tip, &lang, &rest)) return NULL;
     gboolean is_tip = rest_is_guid_pair(rest);

@@ -2,18 +2,9 @@
 #include <ole2.h>
 #include <msctf.h>
 #include "tsf_defs.h"
+#include "tsf_service.h"
 
-/* Registration entry points for the STABLE stub (gtv_tsf.dll).
- * Linked into the stub only: the registered InprocServer32 path is the
- * stub itself, so it never changes and updates never re-register.
- * DllGetClassObject/DllCanUnloadNow live in tsf_factory.cpp (engine DLL);
- * the stub forwards to them. */
-
-#ifdef __cplusplus
 extern "C" HINSTANCE gtv_stub_instance(void);
-#else
-HINSTANCE gtv_stub_instance(void);
-#endif
 
 /* Per-user COM registration under HKCU\Software\Classes: the installer
  * runs without elevation (PrivilegesRequired=lowest), so HKLM writes
@@ -59,34 +50,28 @@ static void UnregisterServerKeys(LPCWSTR szClsid)
 
 STDAPI DllRegisterServer(void)
 {
+    HINSTANCE hinst = gtv_stub_instance();
+    if (!hinst) hinst = GetModuleHandleW(NULL);
     WCHAR szModule[MAX_PATH];
-    if (!GetModuleFileNameW(gtv_stub_instance(), szModule, MAX_PATH))
+    if (!GetModuleFileNameW(hinst, szModule, MAX_PATH))
         return HRESULT_FROM_WIN32(GetLastError());
 
     WCHAR szClsid[64];
     if (!StringFromGUID2(CLSID_GtvTextService, szClsid, 64))
         return E_FAIL;
 
-    /* Register COM class under HKCU (per-user). */
     if (!RegisterServerKeys(szClsid, szModule))
         return E_FAIL;
 
-    /* Register TSF Profiles — these APIs may try to write to HKLM.
-     * For per-user installs, failures are expected; the actual
-     * per-user TSF profile/category registration is handled by
-     * gtv_tsf_install_ensure_registered() in tsf_install.c using
-     * direct registry writes under HKCU.  We continue even if the
-     * TSF APIs fail so that the COM class is still usable. */
+    // Register TSF Profiles
     ITfInputProcessorProfiles *pProfiles = NULL;
     HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
         IID_ITfInputProcessorProfiles, (void**)&pProfiles);
 
     if (SUCCEEDED(hr) && pProfiles) {
-        pProfiles->Register(CLSID_GtvTextService);
+        hr = pProfiles->Register(CLSID_GtvTextService);
 
-        /* Register ONLY under Vietnamese (0x042A). Do NOT register under
-         * en-US — that causes duplicate keyboard entries in Settings/Win+Space.
-         * Users add Vietnamese language in Settings to get the GoTV keyboard. */
+        // Register under Vietnamese (0x042A) with description "GoTV"
         pProfiles->AddLanguageProfile(CLSID_GtvTextService,
             GTV_LANG_VIETNAMESE,
             GUID_GtvProfile,
@@ -96,36 +81,34 @@ STDAPI DllRegisterServer(void)
             (ULONG)wcslen(szModule),
             0);
         pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_VIETNAMESE, GUID_GtvProfile, TRUE);
-        pProfiles->RemoveLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile);
 
+        // Some Windows apps only activate TIPs registered for the current
+        // input language. Keep the Vietnamese profile, and also expose the
+        // same keyboard under en-US for systems/apps that never switch to vi-VN.
+        pProfiles->AddLanguageProfile(CLSID_GtvTextService,
+            GTV_LANG_ENGLISH,
+            GUID_GtvProfile,
+            GTV_TSF_DESC,
+            (ULONG)wcslen(GTV_TSF_DESC),
+            szModule,
+            (ULONG)wcslen(szModule),
+            0);
+        pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile, TRUE);
         pProfiles->Release();
     }
 
-    /* Register TSF Categories: keyboard TIP must register
-     * GUID_TFCAT_TIP_KEYBOARD, GUID_TFCAT_TIP_TEXTSERVICE, and the
-     * {34745C63-B2F0-4784-8B67-5E12C8701A31} keyboard category that
-     * Windows' own TIPs carry (HKLM\SOFTWARE\Microsoft\CTF\TIP) —
-     * without it the keyboard never appears in language settings.
-     * Same per-user caveat applies — TSF APIs may fail on HKLM write. */
+    // Register TSF Categories (keyboard TIP only; the display-attribute
+    // provider category is intentionally not claimed: QueryInterface does
+    // not implement ITfDisplayAttributeProvider).
     ITfCategoryMgr *pCategoryMgr = NULL;
     hr = CoCreateInstance(CLSID_TF_CategoryMgr, NULL, CLSCTX_INPROC_SERVER,
         IID_ITfCategoryMgr, (void**)&pCategoryMgr);
 
     if (SUCCEEDED(hr) && pCategoryMgr) {
-        GUID guidCat4784 = GUID_NULL;
-        CLSIDFromString(L"{34745C63-B2F0-4784-8B67-5E12C8701A31}", &guidCat4784);
-        pCategoryMgr->RegisterCategory(
-            CLSID_GtvTextService, GUID_TFCAT_TIP_TEXTSERVICE, CLSID_GtvTextService);
-        pCategoryMgr->RegisterCategory(
-            CLSID_GtvTextService, GUID_TFCAT_TIP_KEYBOARD, CLSID_GtvTextService);
-        pCategoryMgr->RegisterCategory(
-            CLSID_GtvTextService, guidCat4784, CLSID_GtvTextService);
+        pCategoryMgr->RegisterCategory(CLSID_GtvTextService, GUID_TFCAT_TIP_KEYBOARD, CLSID_GtvTextService);
         pCategoryMgr->Release();
     }
 
-    /* Always succeed: even if TSF APIs failed (per-user HKLM write denied),
-     * gtv_tsf_install_ensure_registered() will register profiles/categories
-     * under HKCU directly when the app starts. */
     return S_OK;
 }
 
@@ -135,19 +118,15 @@ STDAPI DllUnregisterServer(void)
     if (!StringFromGUID2(CLSID_GtvTextService, szClsid, 64))
         return E_FAIL;
 
-    /* Unregister TSF Categories — ignore failures (may not have HKLM access). */
+    // Unregister TSF Categories
     ITfCategoryMgr *pCategoryMgr = NULL;
     if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, NULL, CLSCTX_INPROC_SERVER,
         IID_ITfCategoryMgr, (void**)&pCategoryMgr)) && pCategoryMgr) {
-        GUID guidCat4784 = GUID_NULL;
-        CLSIDFromString(L"{34745C63-B2F0-4784-8B67-5E12C8701A31}", &guidCat4784);
-        pCategoryMgr->UnregisterCategory(CLSID_GtvTextService, GUID_TFCAT_TIP_TEXTSERVICE, CLSID_GtvTextService);
         pCategoryMgr->UnregisterCategory(CLSID_GtvTextService, GUID_TFCAT_TIP_KEYBOARD, CLSID_GtvTextService);
-        pCategoryMgr->UnregisterCategory(CLSID_GtvTextService, guidCat4784, CLSID_GtvTextService);
         pCategoryMgr->Release();
     }
 
-    /* Unregister TSF Profiles — ignore failures. */
+    // Unregister TSF Profiles
     ITfInputProcessorProfiles *pProfiles = NULL;
     if (SUCCEEDED(CoCreateInstance(CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
         IID_ITfInputProcessorProfiles, (void**)&pProfiles)) && pProfiles) {

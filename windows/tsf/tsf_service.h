@@ -58,11 +58,16 @@ public:
     HRESULT UpdateCompositionText(ITfContext *pic, const wchar_t *text, int len);
     HRESULT EndComposition(ITfContext *pic, BOOL commit);
     BOOL IsComposing() const { return m_pComposition != NULL; }
-    GtvEngine *GetEngine() { return m_pEngine; }
-    TfClientId GetClientId() const { return m_tfClientId; }
-    BOOL GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *src);
 
     void ReloadConfig();
+    BOOL IsEnabled() const { return m_fEnabled; }
+    void SetEnabled(BOOL enabled);
+    void ToggleEnabled();
+
+    ITfComposition *GetComposition() const { return m_pComposition; }
+    GtvEngine *GetEngine() const { return m_pEngine; }
+    BOOL GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *src);
+    void RequestDeferredCaret(ITfContext *pic, guint generation);
 
 private:
     volatile LONG m_cRef;
@@ -72,6 +77,7 @@ private:
     DWORD m_dwKeyEventSinkCookie;
     ITfComposition *m_pComposition;
     GtvEngine *m_pEngine;
+    BOOL m_fEnabled;
 
     BOOL InitKeyEventSink();
     void UninitKeyEventSink();

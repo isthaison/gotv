@@ -178,6 +178,47 @@ static BOOL caret_rect_usable(const RECT *r) {
     RECT hit;
     if (!IntersectRect(&hit, &probe, &padded)) return FALSE;
 
+    /* A caret lives in the client area: one reported inside the title bar or
+     * border is stale (Chromium/Electron hosts hand back the caret of a
+     * hidden control at the window origin, e.g. {48,0,50,20} while the user
+     * types in a composer at the bottom of the window). Reject those so the
+     * popup does not pin itself to the window's top-left corner. */
+    RECT cr;
+    if (GetClientRect(focus, &cr)) {
+        POINT tl = { cr.left, cr.top };
+        POINT br = { cr.right, cr.bottom };
+        ClientToScreen(focus, &tl);
+        ClientToScreen(focus, &br);
+        /* Chromium/Electron hosts keep a dummy Win32 caret at the client
+         * origin (the real caret is painted by the renderer), so the probe
+         * answers {0,0,2,20} no matter where the user types. Accepting it
+         * parks the popup on the window's top-left corner. */
+        if (r->left <= tl.x && r->top <= tl.y) return FALSE;
+        RECT client = { tl.x - slack, tl.y - slack, br.x + slack, br.y + slack };
+        if (!IntersectRect(&hit, &probe, &client)) return FALSE;
+    }
+
+    /* A stale TSF rect from another control (for example, a search box) can
+     * still lie inside the foreground application's large client area. When
+     * Windows identifies the focused child, require the caret to belong to
+     * that control too. */
+    GUITHREADINFO gti;
+    memset(&gti, 0, sizeof(gti));
+    gti.cbSize = sizeof(gti);
+    if (GetGUIThreadInfo(0, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus) &&
+        gti.hwndFocus != focus) {
+        RECT focused_client;
+        if (GetClientRect(gti.hwndFocus, &focused_client)) {
+            POINT focused_tl = { focused_client.left, focused_client.top };
+            POINT focused_br = { focused_client.right, focused_client.bottom };
+            ClientToScreen(gti.hwndFocus, &focused_tl);
+            ClientToScreen(gti.hwndFocus, &focused_br);
+            RECT focused_area = { focused_tl.x - slack, focused_tl.y - slack,
+                                  focused_br.x + slack, focused_br.y + slack };
+            if (!IntersectRect(&hit, &probe, &focused_area)) return FALSE;
+        }
+    }
+
     MONITORINFO mi;
     mi.cbSize = sizeof(mi);
     HMONITOR mon = MonitorFromWindow(focus, MONITOR_DEFAULTTONEAREST);
@@ -186,109 +227,192 @@ static BOOL caret_rect_usable(const RECT *r) {
     return TRUE;
 }
 
+static void gtv_suggest_deferred_caret(guint generation, RECT comp, BOOL comp_ok,
+                                       RECT sel, BOOL sel_ok);
+
+/* Picks the best of the two TSF rects, then the Win32 caret. Shared by the
+ * synchronous probe and the deferred one so both apply the same sanity rules.
+ * `source` is diagnostic: it travels to the tray so a misplaced popup can be
+ * attributed to a probe instead of guessed at. */
+static BOOL choose_caret(RECT sel, BOOL sel_ok, RECT comp, BOOL comp_ok,
+                         RECT *out, GTV_CARET_SOURCE *src) {
+    if (sel_ok && caret_rect_usable(&sel)) {
+        *out = sel;
+        *src = GTV_CARET_SRC_SELECTION;
+        return TRUE;
+    }
+    if (comp_ok && caret_rect_usable(&comp)) {
+        *out = comp;
+        *src = GTV_CARET_SRC_COMPOSITION;
+        return TRUE;
+    }
+
+    /* Fallback 1: Win32 caret via GetGUIThreadInfo (classic edit controls,
+     * notepad, WinForms). Chromium/Electron keep a dummy caret at the client
+     * origin, which caret_rect_usable() rejects. */
+    GUITHREADINFO gti;
+    memset(&gti, 0, sizeof(gti));
+    gti.cbSize = sizeof(gti);
+    if (GetGUIThreadInfo(0, &gti)) {
+        RECT r = {0, 0, 0, 0};
+        if (gti.hwndCaret && IsWindow(gti.hwndCaret) &&
+            (gti.rcCaret.right > gti.rcCaret.left || gti.rcCaret.bottom > gti.rcCaret.top)) {
+            POINT pts[2];
+            pts[0].x = gti.rcCaret.left;
+            pts[0].y = gti.rcCaret.top;
+            pts[1].x = gti.rcCaret.right;
+            pts[1].y = gti.rcCaret.bottom;
+            if (MapWindowPoints(gti.hwndCaret, NULL, pts, 2) != (LONG)-1) {
+                r.left = pts[0].x;
+                r.top = pts[0].y;
+                r.right = pts[1].x;
+                r.bottom = pts[1].y;
+            }
+        } else if (gti.hwndFocus && IsWindow(gti.hwndFocus)) {
+            POINT pt;
+            if (GetCaretPos(&pt)) {
+                ClientToScreen(gti.hwndFocus, &pt);
+                r.left = pt.x;
+                r.top = pt.y;
+                r.right = pt.x + 2;
+                r.bottom = pt.y + 20;
+            }
+        }
+        if (caret_rect_usable(&r)) {
+            *out = r;
+            *src = GTV_CARET_SRC_WIN32;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* Read-only caret probe session. A non-zero generation marks it deferred:
+ * hosts (Chromium/Electron) refuse a synchronous session while the key event
+ * that triggered us is still being dispatched, so the rect is published when
+ * the session finally runs. */
+class CCaretSession : public ITfEditSession {
+public:
+    CCaretSession(CGtvTextService *service, ITfContext *p, guint gen,
+                  RECT *comp, BOOL *comp_ok, RECT *sel, BOOL *sel_ok)
+        : m_cRef(1), m_service(service), m_pic(p), m_gen(gen),
+          m_comp(comp), m_comp_ok(comp_ok), m_sel(sel), m_sel_ok(sel_ok) {
+        if (m_service) m_service->AddRef();
+        if (m_pic) m_pic->AddRef();
+    }
+    virtual ~CCaretSession() {
+        if (m_pic) m_pic->Release();
+        if (m_service) m_service->Release();
+    }
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv) {
+        if (!ppv) return E_INVALIDARG;
+        if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
+            *ppv = static_cast<ITfEditSession *>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return InterlockedIncrement(&m_cRef); }
+    STDMETHODIMP_(ULONG) Release() {
+        LONG c = InterlockedDecrement(&m_cRef);
+        if (c == 0) delete this;
+        return c;
+    }
+    STDMETHODIMP DoEditSession(TfEditCookie ec) {
+        RECT comp = {0, 0, 0, 0};
+        RECT sel = {0, 0, 0, 0};
+        BOOL comp_ok = FALSE;
+        BOOL sel_ok = FALSE;
+
+        ITfContextView *view = NULL;
+        if (FAILED(m_pic->GetActiveView(&view)) || !view) {
+            if (m_gen) gtv_suggest_deferred_caret(m_gen, comp, comp_ok, sel, sel_ok);
+            return E_FAIL;
+        }
+
+        BOOL clipped = FALSE;
+
+        /* 1. Active composition range. Essential for Chromium/Electron/
+         * OpenCode/VSCode because querying a 0-length collapsed selection
+         * often yields TS_E_NOLAYOUT or E_FAIL before reflow. The
+         * composition range has real character bounds; collapse it onto
+         * its right edge to approximate the caret. */
+        if (m_service && m_service->GetComposition()) {
+            ITfRange *compRange = NULL;
+            if (SUCCEEDED(m_service->GetComposition()->GetRange(&compRange)) && compRange) {
+                if (SUCCEEDED(view->GetTextExt(ec, compRange, &comp, &clipped)) &&
+                    caret_rect_plausible(&comp)) {
+                    if (comp.right > comp.left) comp.left = comp.right;
+                    comp_ok = TRUE;
+                }
+                compRange->Release();
+            }
+        }
+
+        /* 2. Selection range. For a collapsed selection this is the real
+         * caret, which is strictly better than the composition box, so it
+         * is probed independently and the caller prefers it. */
+        {
+            TF_SELECTION tsel;
+            ULONG fetched = 0;
+            if (SUCCEEDED(m_pic->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &tsel, &fetched)) &&
+                fetched == 1 && tsel.range) {
+                if (SUCCEEDED(view->GetTextExt(ec, tsel.range, &sel, &clipped)) &&
+                    caret_rect_plausible(&sel))
+                    sel_ok = TRUE;
+                tsel.range->Release();
+            }
+        }
+
+        view->Release();
+
+        if (m_gen) {
+            gtv_suggest_deferred_caret(m_gen, comp, comp_ok, sel, sel_ok);
+        } else {
+            if (m_comp) *m_comp = comp;
+            if (m_comp_ok) *m_comp_ok = comp_ok;
+            if (m_sel) *m_sel = sel;
+            if (m_sel_ok) *m_sel_ok = sel_ok;
+        }
+        return S_OK;
+    }
+
+private:
+    volatile LONG m_cRef;
+    CGtvTextService *m_service;
+    ITfContext *m_pic;
+    guint m_gen;
+    RECT *m_comp;
+    BOOL *m_comp_ok;
+    RECT *m_sel;
+    BOOL *m_sel_ok;
+};
+
+void CGtvTextService::RequestDeferredCaret(ITfContext *pic, guint generation) {
+    if (!pic || !generation) return;
+    CCaretSession *s = new (std::nothrow) CCaretSession(this, pic, generation,
+                                                        NULL, NULL, NULL, NULL);
+    if (!s) return;
+    /* TF_ES_ASYNCDONTCARE: run as soon as the document lock is free instead of
+     * being refused outright during key dispatch (Chromium/Electron). */
+    pic->RequestEditSession(m_tfClientId, s, TF_ES_ASYNCDONTCARE | TF_ES_READ, NULL);
+    s->Release();
+}
+
 BOOL CGtvTextService::GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *src) {
     if (!pic || !rc) return FALSE;
     /* Read-only caret probe: open a tiny sync session through the context.
      * Both candidate rects are reported separately so the caller can pick the
      * trustworthy one instead of committing to whichever query answered. */
-    class CCaretSession : public ITfEditSession {
-    public:
-        CCaretSession(CGtvTextService *service, ITfContext *p,
-                      RECT *comp, BOOL *comp_ok, RECT *sel, BOOL *sel_ok)
-            : m_cRef(1), m_service(service), m_pic(p),
-              m_comp(comp), m_comp_ok(comp_ok), m_sel(sel), m_sel_ok(sel_ok) {
-            if (m_service) m_service->AddRef();
-            if (m_pic) m_pic->AddRef();
-        }
-        virtual ~CCaretSession() {
-            if (m_pic) m_pic->Release();
-            if (m_service) m_service->Release();
-        }
-        STDMETHODIMP QueryInterface(REFIID riid, void **ppv) {
-            if (!ppv) return E_INVALIDARG;
-            if (IsEqualIID(riid, IID_IUnknown) || IsEqualIID(riid, IID_ITfEditSession)) {
-                *ppv = static_cast<ITfEditSession *>(this);
-                AddRef();
-                return S_OK;
-            }
-            *ppv = NULL;
-            return E_NOINTERFACE;
-        }
-        STDMETHODIMP_(ULONG) AddRef() { return InterlockedIncrement(&m_cRef); }
-        STDMETHODIMP_(ULONG) Release() {
-            LONG c = InterlockedDecrement(&m_cRef);
-            if (c == 0) delete this;
-            return c;
-        }
-        STDMETHODIMP DoEditSession(TfEditCookie ec) {
-            ITfContextView *view = NULL;
-            if (FAILED(m_pic->GetActiveView(&view)) || !view)
-                return E_FAIL;
-
-            BOOL clipped = FALSE;
-            RECT r = {0, 0, 0, 0};
-
-            /* 1. Active composition range. Essential for Chromium/Electron/
-             * OpenCode/VSCode because querying a 0-length collapsed selection
-             * often yields TS_E_NOLAYOUT or E_FAIL before reflow. The
-             * composition range has real character bounds; collapse it onto
-             * its right edge to approximate the caret. */
-            if (m_service && m_service->m_pComposition) {
-                ITfRange *compRange = NULL;
-                if (SUCCEEDED(m_service->m_pComposition->GetRange(&compRange)) && compRange) {
-                    if (SUCCEEDED(view->GetTextExt(ec, compRange, &r, &clipped)) &&
-                        caret_rect_plausible(&r)) {
-                        if (r.right > r.left) r.left = r.right;
-                        if (m_comp && m_comp_ok) {
-                            *m_comp = r;
-                            *m_comp_ok = TRUE;
-                        }
-                    }
-                    compRange->Release();
-                }
-            }
-
-            /* 2. Selection range. For a collapsed selection this is the real
-             * caret, which is strictly better than the composition box, so it
-             * is probed independently and the caller prefers it. */
-            {
-                TF_SELECTION sel;
-                ULONG fetched = 0;
-                if (SUCCEEDED(m_pic->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) &&
-                    fetched == 1 && sel.range) {
-                    r.left = r.top = r.right = r.bottom = 0;
-                    if (SUCCEEDED(view->GetTextExt(ec, sel.range, &r, &clipped)) &&
-                        caret_rect_plausible(&r)) {
-                        if (m_sel && m_sel_ok) {
-                            *m_sel = r;
-                            *m_sel_ok = TRUE;
-                        }
-                    }
-                    sel.range->Release();
-                }
-            }
-
-            view->Release();
-            return S_OK;
-        }
-
-    private:
-        volatile LONG m_cRef;
-        CGtvTextService *m_service;
-        ITfContext *m_pic;
-        RECT *m_comp;
-        BOOL *m_comp_ok;
-        RECT *m_sel;
-        BOOL *m_sel_ok;
-    };
-
     RECT comp = {0, 0, 0, 0};
     RECT sel = {0, 0, 0, 0};
     BOOL comp_ok = FALSE;
     BOOL sel_ok = FALSE;
 
-    CCaretSession *s = new (std::nothrow) CCaretSession(this, pic, &comp, &comp_ok,
-                                                         &sel, &sel_ok);
+    CCaretSession *s = new (std::nothrow) CCaretSession(this, pic, 0,
+                                                        &comp, &comp_ok, &sel, &sel_ok);
     if (s) {
         /* Hosts routinely refuse or defer a read-only session while the key
          * event that triggered us is still being dispatched. Both rects then
@@ -299,63 +423,9 @@ BOOL CGtvTextService::GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *
         s->Release();
     }
 
-    /* Prefer the real caret, fall back to the composition box only when the
-     * selection probe did not yield a usable rect. `source` is diagnostic:
-     * it travels to the tray so a misplaced popup can be attributed to a probe
-     * instead of guessed at. */
     RECT out = {0, 0, 0, 0};
-    BOOL ok = FALSE;
     GTV_CARET_SOURCE source = GTV_CARET_SRC_NONE;
-    if (sel_ok && caret_rect_usable(&sel)) {
-        out = sel;
-        source = GTV_CARET_SRC_SELECTION;
-        ok = TRUE;
-    } else if (comp_ok && caret_rect_usable(&comp)) {
-        out = comp;
-        source = GTV_CARET_SRC_COMPOSITION;
-        ok = TRUE;
-    }
-
-    /* Fallback 1: Win32 caret via GetGUIThreadInfo (classic edit controls,
-     * notepad, WinForms). Chromium keeps no Win32 caret, so hwndCaret is NULL
-     * and GetCaretPos fails there; the usability check rejects the stale caret
-     * of a previously focused window. */
-    if (!ok) {
-        GUITHREADINFO gti;
-        memset(&gti, 0, sizeof(gti));
-        gti.cbSize = sizeof(gti);
-        if (GetGUIThreadInfo(0, &gti)) {
-            RECT r = {0, 0, 0, 0};
-            if (gti.hwndCaret && IsWindow(gti.hwndCaret) &&
-                (gti.rcCaret.right > gti.rcCaret.left || gti.rcCaret.bottom > gti.rcCaret.top)) {
-                POINT pts[2];
-                pts[0].x = gti.rcCaret.left;
-                pts[0].y = gti.rcCaret.top;
-                pts[1].x = gti.rcCaret.right;
-                pts[1].y = gti.rcCaret.bottom;
-                if (MapWindowPoints(gti.hwndCaret, NULL, pts, 2) != (LONG)-1) {
-                    r.left = pts[0].x;
-                    r.top = pts[0].y;
-                    r.right = pts[1].x;
-                    r.bottom = pts[1].y;
-                }
-            } else if (gti.hwndFocus && IsWindow(gti.hwndFocus)) {
-                POINT pt;
-                if (GetCaretPos(&pt)) {
-                    ClientToScreen(gti.hwndFocus, &pt);
-                    r.left = pt.x;
-                    r.top = pt.y;
-                    r.right = pt.x + 2;
-                    r.bottom = pt.y + 20;
-                }
-            }
-            if (caret_rect_usable(&r)) {
-                out = r;
-                source = GTV_CARET_SRC_WIN32;
-                ok = TRUE;
-            }
-        }
-    }
+    BOOL ok = choose_caret(sel, sel_ok, comp, comp_ok, &out, &source);
 
     /* Fallback 2: caret cached from the previous keystroke of this
      * composition. Still validated, so a window move cannot pin the popup to
@@ -432,6 +502,78 @@ static void broker_send_show(guint generation, gchar **candidates, guint count,
     payload.candidate_count = n;
     payload.selected = (selected >= 0 && (guint)selected < n) ? (DWORD)selected : 0;
     broker_send(&payload);
+}
+
+/* Late caret from a deferred edit session (Chromium/Electron). The user's
+ * keystrokes keep the original generation alive; if the session ran for a
+ * superseded generation it is dropped. When suggestions are already shown,
+ * re-publish them so the tray can move the popup onto the real caret.
+ * Publishing happens on a short-lived thread: an edit session must not block
+ * on the tray round-trip while it holds the document lock. */
+typedef struct {
+    guint gen;
+    gchar *snap[GTV_SUGGEST_MAX];
+    guint n;
+    gint cursor;
+    RECT caret;
+    GTV_CARET_SOURCE src;
+} DeferredShow;
+
+static gpointer deferred_show_thread(gpointer data) {
+    DeferredShow *ds = (DeferredShow *)data;
+    broker_send_show(ds->gen, ds->snap, ds->n, ds->cursor, ds->caret, ds->src);
+    for (guint i = 0; i < ds->n; i++) g_free(ds->snap[i]);
+    g_free(ds);
+    return NULL;
+}
+
+static void gtv_suggest_deferred_caret(guint generation, RECT comp, BOOL comp_ok,
+                                       RECT sel, BOOL sel_ok) {
+    suggest_init_once();
+    RECT out;
+    GTV_CARET_SOURCE src = GTV_CARET_SRC_NONE;
+    if (!choose_caret(sel, sel_ok, comp, comp_ok, &out, &src)) return;
+
+    gchar *snapshot[GTV_SUGGEST_MAX];
+    memset(snapshot, 0, sizeof(snapshot));
+    guint n = 0;
+    gint cursor = 0;
+    gboolean current = FALSE;
+    EnterCriticalSection(&g_suggest.cs);
+    current = (generation == g_suggest.generation);
+    if (current) {
+        g_suggest.caret = out;
+        g_suggest.caret_valid = TRUE;
+        g_suggest.caret_source = src;
+        g_suggest.last_caret = out;
+        g_suggest.last_caret_valid = TRUE;
+        g_suggest.last_caret_source = src;
+        if (g_suggest.shown && g_suggest.shown->len > 0) {
+            cursor = g_suggest.cursor;
+            n = g_suggest.shown->len > GTV_SUGGEST_MAX ? GTV_SUGGEST_MAX
+                                                       : (guint)g_suggest.shown->len;
+            for (guint i = 0; i < n; i++) {
+                SuggestItem *it = (SuggestItem *)g_ptr_array_index(g_suggest.shown, i);
+                snapshot[i] = g_strdup(it->text ? it->text : "");
+            }
+        }
+    }
+    LeaveCriticalSection(&g_suggest.cs);
+    if (current && n > 0) {
+        DeferredShow *ds = g_new0(DeferredShow, 1);
+        ds->gen = generation;
+        ds->n = n;
+        ds->cursor = cursor;
+        ds->caret = out;
+        ds->src = src;
+        for (guint i = 0; i < n; i++) ds->snap[i] = snapshot[i];
+        if (!g_thread_new("gtv-caret", deferred_show_thread, ds)) {
+            for (guint i = 0; i < n; i++) g_free(ds->snap[i]);
+            g_free(ds);
+        }
+        return;
+    }
+    for (guint i = 0; i < n; i++) g_free(snapshot[i]);
 }
 
 /* -- worker ------------------------------------------------------------ */
@@ -776,6 +918,11 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
     RECT caret;
     GTV_CARET_SOURCE caret_source = GTV_CARET_SRC_NONE;
     gboolean have_caret = (gboolean)service->GetCaretRect(pic, &caret, &caret_source);
+    if (!have_caret) {
+        /* Chromium/Electron refuse the sync probe during dispatch: retry on a
+         * deferred session so the popup can still land on the caret. */
+        service->RequestDeferredCaret(pic, gen);
+    }
 
     gunichar first = g_utf8_get_char(buf);
     if ((first == ':' || first == ';' || first == '<' || first == '(') && len >= 2) {

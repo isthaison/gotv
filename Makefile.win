@@ -49,10 +49,12 @@ GLIB_STATIC_LIBS = -Wl,--start-group \
                    $(STATIC_SYS_LIBS) \
                    -Wl,-Bstatic -lstdc++ -lgcc -lgcc_eh -lpthread -Wl,-Bdynamic \
                    -Wl,--end-group
-# MSYS2's static libglib ships a vasnprintf.o that wants the msvcrt *import*
-# thunk for wcrtomb, but mingw-w64 only provides wcrtomb as a plain function.
-# Point the import name at the real symbol so the link closes.
-GLIB_STATIC_FIXUPS = -Wl,--defsym=__imp_wcrtomb=wcrtomb
+# MSYS2's static libglib vasnprintf.o calls wcrtomb through an import
+# pointer (call *__imp_wcrtomb(%rip)); mingw-w64 has no __imp_wcrtomb data
+# symbol. --defsym aliased it to the function ENTRY, so the indirect call
+# executed code bytes as a pointer (0xc0000005 at the call site, crash-loop
+# explorer.exe). A real data slot holding &wcrtomb is the correct fix.
+GLIB_STATIC_FIXUPS = build/win-static/windows/tsf/wcrtomb_slot.o
 
 # Versioned engine DLL (real text service, lives in ver\<V>\).
 TSF_ENGINE_LDFLAGS ?= -shared -nodefaultlibs windows/tsf/gtv_engine.def $(STATIC_ENGINE_OBJS) $(GLIB_STATIC_LIBS) $(GLIB_STATIC_FIXUPS) -Wl,--exclude-libs,ALL -mwindows
@@ -101,7 +103,7 @@ $(TSF_TARGET): $(TSF_STUB_OBJS) $(STUB_RC_OBJ) windows/tsf/gtv_tsf.def
 
 # Versioned engine: the real text service, forwarded to by the stub.
 # Statically linked (no third-party DLL imports) - see GLIB_STATIC_DEFS above.
-$(TSF_ENGINE_TARGET): $(STATIC_TSF_ENGINE_OBJS) $(STATIC_ENGINE_OBJS) windows/tsf/gtv_engine.def
+$(TSF_ENGINE_TARGET): $(STATIC_TSF_ENGINE_OBJS) $(STATIC_ENGINE_OBJS) $(GLIB_STATIC_FIXUPS) windows/tsf/gtv_engine.def
 	@mkdir -p $(dir $@)
 	$(CXX) $(STATIC_TSF_ENGINE_OBJS) $(TSF_ENGINE_LDFLAGS) -o $@
 

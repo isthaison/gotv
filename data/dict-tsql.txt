@@ -1,7 +1,7 @@
 # GoTV T-SQL (SQL Server) dictionary: one keyword/identifier per line (UTF-8 NFC lowercase).
 # Covers T-SQL DML/DDL/DCL/TCL keywords, data types, built-in functions, hints, and system procs.
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.9.1
+# dict-tag: v0.9.2
 abs
 acos
 action

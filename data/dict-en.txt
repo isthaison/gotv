@@ -1,7 +1,7 @@
 # GoTV English dictionary: one word per line (UTF-8 NFC lowercase).
 # Common English and software engineering vocabulary for bilingual typing.
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.9.1
+# dict-tag: v0.9.2
 about
 above
 accept

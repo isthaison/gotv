@@ -1,7 +1,7 @@
 # GoTV C# (.NET) dictionary: one keyword/identifier per line (UTF-8 NFC lowercase).
 # Covers C# keywords, contextual keywords, LINQ operators, and common .NET BCL types & methods.
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.9.1
+# dict-tag: v0.9.2
 abstract
 action
 activator
