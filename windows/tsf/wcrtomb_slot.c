@@ -1,6 +1,6 @@
 /* glib's static vasnprintf (gnulib) converts wide format args by calling
- * wcrtomb through an import pointer: call *__imp_wcrtomb(%rip). mingw-w64
- * ships no __imp_wcrtomb data symbol. The previous -Wl,--defsym alias
+ * wcrtomb through an import pointer: call *__imp_wcrtomb(%rip). Older
+ * mingw-w64 runtimes lack an __imp_wcrtomb data symbol. The previous -Wl,--defsym alias
  * pointed that pointer at the wcrtomb FUNCTION ENTRY, so every indirect
  * call executed machine code as an address and died with 0xc0000005 at the
  * call site (seen as explorer.exe / gotv.exe crash loops). A real data slot

@@ -252,11 +252,37 @@ win_appdir() {
     fi
 }
 
+# Preflight: if a currently-running process is holding a DLL that the installer
+# would replace, fail early with a clear message instead of letting Inno hit the
+# Windows "DeleteFile failed: 5. Access is denied" dialog.
+win_install_preflight() {
+    local appdir0="$1" dll eng holders
+    dll="$appdir0/gtv_tsf.dll"
+    eng="$appdir0/ver/$(version)/gtv_engine.dll"
+    holders=""
+    if [[ -f "$dll" ]]; then
+        holders="$(win_dll_holders "$(cygpath -w "$dll")")"
+    fi
+    if [[ -z "$holders" && -f "$eng" ]]; then
+        holders="$(win_dll_holders "$(cygpath -w "$eng")")"
+    fi
+    if [[ -n "$holders" ]]; then
+        echo "gtv.sh: Dừng cài đặt: các tiến trình sau đang giữ DLL GoTV/TSF:" >&2
+        echo "$holders" | sed 's/^/  - /' >&2
+        echo "gtv.sh: Đóng các app đó, rồi chạy lại cài đặt. Nếu vẫn khóa, restart Explorer hoặc reboot." >&2
+        return 1
+    fi
+    return 0
+}
+
 cmd_install_windows() {
     local setup; setup="$(win_setup_exe)"
     [[ -f "$setup" ]] || cmd_package_windows
     local appdir0; appdir0="$(win_appdir)"
     local verv; verv="$(version)"
+    if [[ -d "$appdir0" ]]; then
+        win_install_preflight "$appdir0" || return 1
+    fi
     # Preflight: an install aborted mid-replace leaves gtv_tsf.dll marked for
     # deletion - the file is still listed but every open fails with
     # ERROR_ACCESS_DENIED, so Inno cannot read its VERSIONINFO, decides it

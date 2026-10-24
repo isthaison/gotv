@@ -918,9 +918,10 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
     RECT caret;
     GTV_CARET_SOURCE caret_source = GTV_CARET_SRC_NONE;
     gboolean have_caret = (gboolean)service->GetCaretRect(pic, &caret, &caret_source);
-    if (!have_caret) {
-        /* Chromium/Electron refuse the sync probe during dispatch: retry on a
-         * deferred session so the popup can still land on the caret. */
+    if (!have_caret || caret_source == GTV_CARET_SRC_WIN32) {
+        /* Some editors expose a stale Win32 caret while the TSF text layout is
+         * still updating. Retry after dispatch so a usable TSF rect can move
+         * the popup to the actual insertion point. */
         service->RequestDeferredCaret(pic, gen);
     }
 
