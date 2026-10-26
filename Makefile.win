@@ -57,7 +57,7 @@ GLIB_STATIC_LIBS = -Wl,--start-group \
 GLIB_STATIC_FIXUPS = build/win-static/windows/tsf/wcrtomb_slot.o
 
 # Versioned engine DLL (real text service, lives in ver\<V>\).
-TSF_ENGINE_LDFLAGS ?= -shared -nodefaultlibs windows/tsf/gtv_engine.def $(STATIC_ENGINE_OBJS) $(GLIB_STATIC_LIBS) $(GLIB_STATIC_FIXUPS) -Wl,--exclude-libs,ALL -mwindows
+TSF_ENGINE_LDFLAGS ?= -shared -nodefaultlibs windows/tsf/gtv_engine.def $(STATIC_ENGINE_OBJS) $(GLIB_STATIC_LIBS) $(GLIB_STATIC_FIXUPS) -Wl,--allow-multiple-definition -Wl,--exclude-libs,ALL -mwindows
 
 RC_SRC = windows/resource.rc
 
