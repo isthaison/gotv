@@ -1,7 +1,7 @@
 # GoTV C / C++ dictionary: one keyword/identifier per line (UTF-8 NFC lowercase).
 # Covers C89/C99/C11/C23/C++ keywords, preprocessor directives, stdlib/POSIX/GLib identifiers.
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.9.2
+# dict-tag: v0.9.3
 abort
 abs
 accept
