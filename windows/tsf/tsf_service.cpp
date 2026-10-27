@@ -7,6 +7,8 @@ CGtvTextService::CGtvTextService() :
     m_tfClientId(0),
     m_dwThreadMgrEventSinkCookie(TF_INVALID_COOKIE),
     m_dwKeyEventSinkCookie(TF_INVALID_COOKIE),
+    m_dwTextLayoutSinkCookie(TF_INVALID_COOKIE),
+    m_pLayoutContext(NULL),
     m_pComposition(NULL),
     m_pEngine(NULL)
 {
@@ -34,6 +36,7 @@ void CGtvTextService::ReloadConfig()
 
 CGtvTextService::~CGtvTextService()
 {
+    UnadviseTextLayoutSink();
     if (m_pEngine) {
         gtv_engine_free(m_pEngine);
         m_pEngine = NULL;
@@ -56,6 +59,8 @@ STDMETHODIMP CGtvTextService::QueryInterface(REFIID riid, void **ppvObj)
         *ppvObj = static_cast<ITfKeyEventSink*>(this);
     } else if (IsEqualIID(riid, IID_ITfCompositionSink)) {
         *ppvObj = static_cast<ITfCompositionSink*>(this);
+    } else if (IsEqualIID(riid, IID_ITfTextLayoutSink)) {
+        *ppvObj = static_cast<ITfTextLayoutSink*>(this);
     }
 
     if (*ppvObj) {
@@ -97,6 +102,17 @@ STDMETHODIMP CGtvTextService::Activate(ITfThreadMgr *ptim, TfClientId tid)
         return E_FAIL;
     }
 
+    /* Track initial focused context for text layout updates */
+    ITfDocumentMgr *pdim = NULL;
+    if (m_pThreadMgr && SUCCEEDED(m_pThreadMgr->GetFocus(&pdim)) && pdim) {
+        ITfContext *pic = NULL;
+        if (SUCCEEDED(pdim->GetTop(&pic)) && pic) {
+            AdviseTextLayoutSink(pic);
+            pic->Release();
+        }
+        pdim->Release();
+    }
+
     return S_OK;
 }
 
@@ -113,6 +129,7 @@ STDMETHODIMP CGtvTextService::Deactivate(void)
     }
 
     gtv_suggest_hide();
+    UnadviseTextLayoutSink();
     UninitKeyEventSink();
     UninitThreadMgrEventSink();
 
@@ -145,10 +162,32 @@ STDMETHODIMP CGtvTextService::OnSetFocus(ITfDocumentMgr *pdimFocus, ITfDocumentM
     if (m_pEngine) {
         gtv_engine_reset(m_pEngine);
     }
+
+    if (pdimFocus) {
+        ITfContext *pic = NULL;
+        if (SUCCEEDED(pdimFocus->GetTop(&pic)) && pic) {
+            AdviseTextLayoutSink(pic);
+            pic->Release();
+        }
+    } else {
+        UnadviseTextLayoutSink();
+    }
     return S_OK;
 }
-STDMETHODIMP CGtvTextService::OnPushContext(ITfContext *pic) { return S_OK; }
-STDMETHODIMP CGtvTextService::OnPopContext(ITfContext *pic) { return S_OK; }
+
+STDMETHODIMP CGtvTextService::OnPushContext(ITfContext *pic)
+{
+    AdviseTextLayoutSink(pic);
+    return S_OK;
+}
+
+STDMETHODIMP CGtvTextService::OnPopContext(ITfContext *pic)
+{
+    if (m_pLayoutContext == pic) {
+        UnadviseTextLayoutSink();
+    }
+    return S_OK;
+}
 
 // ITfCompositionSink
 STDMETHODIMP CGtvTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition)
@@ -162,6 +201,40 @@ STDMETHODIMP CGtvTextService::OnCompositionTerminated(TfEditCookie ecWrite, ITfC
         gtv_engine_reset(m_pEngine);
     }
     return S_OK;
+}
+
+// Layout Sink registration (Chromium / Electron async layout tracking)
+void CGtvTextService::AdviseTextLayoutSink(ITfContext *pic)
+{
+    if (!pic || m_pLayoutContext == pic) return;
+    UnadviseTextLayoutSink();
+
+    ITfSource *pSource = NULL;
+    if (SUCCEEDED(pic->QueryInterface(IID_ITfSource, (void**)&pSource)) && pSource) {
+        DWORD cookie = TF_INVALID_COOKIE;
+        if (SUCCEEDED(pSource->AdviseSink(IID_ITfTextLayoutSink,
+                                          static_cast<ITfTextLayoutSink*>(this),
+                                          &cookie))) {
+            m_pLayoutContext = pic;
+            m_pLayoutContext->AddRef();
+            m_dwTextLayoutSinkCookie = cookie;
+        }
+        pSource->Release();
+    }
+}
+
+void CGtvTextService::UnadviseTextLayoutSink(void)
+{
+    if (m_pLayoutContext && m_dwTextLayoutSinkCookie != TF_INVALID_COOKIE) {
+        ITfSource *pSource = NULL;
+        if (SUCCEEDED(m_pLayoutContext->QueryInterface(IID_ITfSource, (void**)&pSource)) && pSource) {
+            pSource->UnadviseSink(m_dwTextLayoutSinkCookie);
+            pSource->Release();
+        }
+        m_dwTextLayoutSinkCookie = TF_INVALID_COOKIE;
+        m_pLayoutContext->Release();
+        m_pLayoutContext = NULL;
+    }
 }
 
 // Event Sink registrations

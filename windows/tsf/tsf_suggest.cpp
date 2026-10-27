@@ -208,7 +208,9 @@ static BOOL caret_rect_usable(const RECT *r) {
     if (GetGUIThreadInfo(0, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus) &&
         gti.hwndFocus != focus) {
         RECT focused_client;
-        if (GetClientRect(gti.hwndFocus, &focused_client)) {
+        if (GetClientRect(gti.hwndFocus, &focused_client) &&
+            focused_client.right > focused_client.left &&
+            focused_client.bottom > focused_client.top) {
             POINT focused_tl = { focused_client.left, focused_client.top };
             POINT focused_br = { focused_client.right, focused_client.bottom };
             ClientToScreen(gti.hwndFocus, &focused_tl);
@@ -248,8 +250,7 @@ static BOOL choose_caret(RECT sel, BOOL sel_ok, RECT comp, BOOL comp_ok,
     }
 
     /* Fallback 1: Win32 caret via GetGUIThreadInfo (classic edit controls,
-     * notepad, WinForms). Chromium/Electron keep a dummy caret at the client
-     * origin, which caret_rect_usable() rejects. */
+     * notepad, WinForms). Reject dummy {0,0} carets from Chromium/Electron. */
     GUITHREADINFO gti;
     memset(&gti, 0, sizeof(gti));
     gti.cbSize = sizeof(gti);
@@ -257,31 +258,24 @@ static BOOL choose_caret(RECT sel, BOOL sel_ok, RECT comp, BOOL comp_ok,
         RECT r = {0, 0, 0, 0};
         if (gti.hwndCaret && IsWindow(gti.hwndCaret) &&
             (gti.rcCaret.right > gti.rcCaret.left || gti.rcCaret.bottom > gti.rcCaret.top)) {
-            POINT pts[2];
-            pts[0].x = gti.rcCaret.left;
-            pts[0].y = gti.rcCaret.top;
-            pts[1].x = gti.rcCaret.right;
-            pts[1].y = gti.rcCaret.bottom;
-            if (MapWindowPoints(gti.hwndCaret, NULL, pts, 2) != (LONG)-1) {
-                r.left = pts[0].x;
-                r.top = pts[0].y;
-                r.right = pts[1].x;
-                r.bottom = pts[1].y;
+            if (gti.rcCaret.left > 0 || gti.rcCaret.top > 0) {
+                POINT pts[2];
+                pts[0].x = gti.rcCaret.left;
+                pts[0].y = gti.rcCaret.top;
+                pts[1].x = gti.rcCaret.right;
+                pts[1].y = gti.rcCaret.bottom;
+                if (MapWindowPoints(gti.hwndCaret, NULL, pts, 2) != (LONG)-1) {
+                    r.left = pts[0].x;
+                    r.top = pts[0].y;
+                    r.right = pts[1].x;
+                    r.bottom = pts[1].y;
+                    if (caret_rect_usable(&r)) {
+                        *out = r;
+                        *src = GTV_CARET_SRC_WIN32;
+                        return TRUE;
+                    }
+                }
             }
-        } else if (gti.hwndFocus && IsWindow(gti.hwndFocus)) {
-            POINT pt;
-            if (GetCaretPos(&pt)) {
-                ClientToScreen(gti.hwndFocus, &pt);
-                r.left = pt.x;
-                r.top = pt.y;
-                r.right = pt.x + 2;
-                r.bottom = pt.y + 20;
-            }
-        }
-        if (caret_rect_usable(&r)) {
-            *out = r;
-            *src = GTV_CARET_SRC_WIN32;
-            return TRUE;
         }
     }
     return FALSE;
@@ -389,6 +383,82 @@ private:
     RECT *m_sel;
     BOOL *m_sel_ok;
 };
+
+/* -- asynchronous layout updates & retries ------------------------------- */
+
+STDMETHODIMP CGtvTextService::OnLayoutChange(ITfContext *pic, TfLayoutCode lcode, ITfContextView *pView) {
+    (void)lcode;
+    (void)pView;
+    if (!pic) return S_OK;
+
+    guint gen = 0;
+    EnterCriticalSection(&g_suggest.cs);
+    gen = g_suggest.generation;
+    LeaveCriticalSection(&g_suggest.cs);
+
+    if (gen && (IsComposing() || gtv_suggest_visible())) {
+        RequestDeferredCaret(pic, gen);
+    }
+    return S_OK;
+}
+
+static UINT_PTR s_caret_retry_timer = 0;
+static CGtvTextService *s_retry_service = NULL;
+static ITfContext *s_retry_pic = NULL;
+static guint s_retry_gen = 0;
+
+static void cancel_caret_retry_timer(void) {
+    if (s_caret_retry_timer) {
+        KillTimer(NULL, s_caret_retry_timer);
+        s_caret_retry_timer = 0;
+    }
+    if (s_retry_service) {
+        s_retry_service->Release();
+        s_retry_service = NULL;
+    }
+    if (s_retry_pic) {
+        s_retry_pic->Release();
+        s_retry_pic = NULL;
+    }
+    s_retry_gen = 0;
+}
+
+static VOID CALLBACK caret_retry_timer_proc(HWND hwnd, UINT msg, UINT_PTR id, DWORD time) {
+    (void)hwnd;
+    (void)msg;
+    (void)time;
+    KillTimer(NULL, id);
+    s_caret_retry_timer = 0;
+
+    CGtvTextService *svc = s_retry_service;
+    ITfContext *ctx = s_retry_pic;
+    guint gen = s_retry_gen;
+    s_retry_service = NULL;
+    s_retry_pic = NULL;
+    s_retry_gen = 0;
+
+    EnterCriticalSection(&g_suggest.cs);
+    gboolean needed = (gen == g_suggest.generation) &&
+                      (!g_suggest.caret_valid || g_suggest.caret_source == GTV_CARET_SRC_CACHED);
+    LeaveCriticalSection(&g_suggest.cs);
+
+    if (needed && svc && ctx) {
+        svc->RequestDeferredCaret(ctx, gen);
+    }
+    if (svc) svc->Release();
+    if (ctx) ctx->Release();
+}
+
+static void schedule_caret_retry(CGtvTextService *service, ITfContext *pic, guint gen) {
+    cancel_caret_retry_timer();
+    if (!service || !pic || !gen) return;
+    s_retry_service = service;
+    s_retry_service->AddRef();
+    s_retry_pic = pic;
+    s_retry_pic->AddRef();
+    s_retry_gen = gen;
+    s_caret_retry_timer = SetTimer(NULL, 0, 35, caret_retry_timer_proc);
+}
 
 void CGtvTextService::RequestDeferredCaret(ITfContext *pic, guint generation) {
     if (!pic || !generation) return;
@@ -757,6 +827,7 @@ static guint suggest_restart_locked(void) {
 
 void gtv_suggest_hide(void) {
     suggest_init_once();
+    cancel_caret_retry_timer();
     guint gen = 0;
     EnterCriticalSection(&g_suggest.cs);
     gen = suggest_restart_locked();
@@ -913,16 +984,20 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
     }
     glong len = g_utf8_strlen(buf, -1);
 
+    /* Make sure layout changes in Chromium / Electron notify us */
+    service->AdviseTextLayoutSink(pic);
+
     /* Caret is captured on the app thread now; the worker only forwards it.
      * No rect -> no overlay (never fall back to a screen corner). */
     RECT caret;
     GTV_CARET_SOURCE caret_source = GTV_CARET_SRC_NONE;
     gboolean have_caret = (gboolean)service->GetCaretRect(pic, &caret, &caret_source);
-    if (!have_caret || caret_source == GTV_CARET_SRC_WIN32) {
-        /* Some editors expose a stale Win32 caret while the TSF text layout is
+    if (!have_caret || caret_source == GTV_CARET_SRC_WIN32 || caret_source == GTV_CARET_SRC_CACHED) {
+        /* Some editors expose a stale caret while the TSF text layout is
          * still updating. Retry after dispatch so a usable TSF rect can move
          * the popup to the actual insertion point. */
         service->RequestDeferredCaret(pic, gen);
+        schedule_caret_retry(service, pic, gen);
     }
 
     gunichar first = g_utf8_get_char(buf);

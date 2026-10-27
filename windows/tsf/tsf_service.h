@@ -18,7 +18,8 @@ class CGtvTextService :
     public ITfTextInputProcessor,
     public ITfThreadMgrEventSink,
     public ITfKeyEventSink,
-    public ITfCompositionSink
+    public ITfCompositionSink,
+    public ITfTextLayoutSink
 {
     friend class CEditSession;
 
@@ -53,6 +54,9 @@ public:
     // ITfCompositionSink
     STDMETHODIMP OnCompositionTerminated(TfEditCookie ecWrite, ITfComposition *pComposition);
 
+    // ITfTextLayoutSink
+    STDMETHODIMP OnLayoutChange(ITfContext *pic, TfLayoutCode lcode, ITfContextView *pView);
+
     // Internal composition helpers (Update/End create their own sessions;
     // compositions always start with initial text, never empty).
     HRESULT UpdateCompositionText(ITfContext *pic, const wchar_t *text, int len);
@@ -69,12 +73,17 @@ public:
     BOOL GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *src);
     void RequestDeferredCaret(ITfContext *pic, guint generation);
 
+    void AdviseTextLayoutSink(ITfContext *pic);
+    void UnadviseTextLayoutSink(void);
+
 private:
     volatile LONG m_cRef;
     ITfThreadMgr *m_pThreadMgr;
     TfClientId m_tfClientId;
     DWORD m_dwThreadMgrEventSinkCookie;
     DWORD m_dwKeyEventSinkCookie;
+    DWORD m_dwTextLayoutSinkCookie;
+    ITfContext *m_pLayoutContext;
     ITfComposition *m_pComposition;
     GtvEngine *m_pEngine;
     BOOL m_fEnabled;

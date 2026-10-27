@@ -32,4 +32,32 @@ DEFINE_GUID(GUID_TFCAT_TIP_TEXTSERVICE,
     0x12A1D29F, 0xA065, 0x440C, 0x97, 0x46, 0xEB, 0x20, 0x02, 0xC2, 0xB6, 0x67);
 #endif
 
+/* ITfTextLayoutSink is missing in MinGW msctf.h headers.
+ * Implemented by TIP to track asynchronous layout updates (Chromium / Electron). */
+#ifndef __ITfTextLayoutSink_INTERFACE_DEFINED__
+#define __ITfTextLayoutSink_INTERFACE_DEFINED__
+
+typedef enum {
+    TF_LC_CREATE = 0,
+    TF_LC_CHANGE = 1,
+    TF_LC_DESTROY = 2
+} TfLayoutCode;
+
+#undef INTERFACE
+#define INTERFACE ITfTextLayoutSink
+DECLARE_INTERFACE_(ITfTextLayoutSink, IUnknown)
+{
+    STDMETHOD(QueryInterface)(THIS_ REFIID riid, void **ppvObj) PURE;
+    STDMETHOD_(ULONG, AddRef)(THIS) PURE;
+    STDMETHOD_(ULONG, Release)(THIS) PURE;
+    STDMETHOD(OnLayoutChange)(THIS_ ITfContext *pic, TfLayoutCode lcode, ITfContextView *pView) PURE;
+};
+
+#ifndef IID_ITfTextLayoutSink
+DEFINE_GUID(IID_ITfTextLayoutSink,
+    0x2288303a, 0x3347, 0x11d2, 0x8b, 0x71, 0x00, 0x60, 0x08, 0x06, 0xd9, 0xb9);
+#endif
+
+#endif /* __ITfTextLayoutSink_INTERFACE_DEFINED__ */
+
 #endif /* GTV_TSF_DEFS_H */
