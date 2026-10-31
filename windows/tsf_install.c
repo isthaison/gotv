@@ -15,6 +15,12 @@ static const wchar_t *GTV_TSF_PROFILE_GUID_STR =
 
 static const wchar_t *GTV_TSF_INPROC_KEY =
     L"Software\\Classes\\CLSID\\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\\InprocServer32";
+/* 32-bit COM view: WOW64 processes resolve HKCU\Software\Classes through this
+ * redirected branch. The x64 DLL cannot be loaded by a 32-bit host (Zalo,
+ * legacy Electron), so the package ships a second stub there. */
+static const wchar_t *GTV_TSF_INPROC_KEY32 =
+    L"Software\\Classes\\Wow6432Node\\CLSID\\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\\InprocServer32";
+static const wchar_t *GTV_TSF_STUB32_NAME = L"gtv_tsf32.dll";
 
 /* TSF profile keys: HKCU\Software\Microsoft\CTF\TIP\{CLSID}\LanguageProfile\{langid}\{profileguid}
  * If these don't exist, the keyboard won't appear in language settings.
@@ -79,15 +85,15 @@ static gboolean same_path_ci(const wchar_t *a, const wchar_t *b) {
     return _wcsicmp(full_a, full_b) == 0;
 }
 
-static gboolean registered_to(const wchar_t *dll_path) {
+static gboolean registered_to_key(const wchar_t *key_path, const wchar_t *dll_path) {
     HKEY hkey = NULL;
     wchar_t registered[MAX_PATH];
     DWORD type = 0;
     DWORD size = sizeof(registered);
     gboolean ok = FALSE;
 
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, GTV_TSF_INPROC_KEY, 0, KEY_READ, &hkey) != ERROR_SUCCESS) {
-        log_msg("InprocServer32 key not found under HKCU");
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, key_path, 0, KEY_READ, &hkey) != ERROR_SUCCESS) {
+        log_msg("InprocServer32 key not found under HKCU (%ls)", key_path);
         return FALSE;
     }
 
@@ -96,11 +102,20 @@ static gboolean registered_to(const wchar_t *dll_path) {
         registered[G_N_ELEMENTS(registered) - 1] = L'\0';
         ok = same_path_ci(registered, dll_path);
         if (!ok)
-            log_msg("DLL path mismatch (registered path differs from app dir)");
+            log_msg("DLL path mismatch (registered=%ls expected=%ls)",
+                    registered, dll_path);
     }
 
     RegCloseKey(hkey);
     return ok;
+}
+
+static gboolean registered_to(const wchar_t *dll_path) {
+    return registered_to_key(GTV_TSF_INPROC_KEY, dll_path);
+}
+
+static gboolean registered_to_32(const wchar_t *dll_path) {
+    return registered_to_key(GTV_TSF_INPROC_KEY32, dll_path);
 }
 
 static gboolean reg_key_exists_root(HKEY root, const wchar_t *subkey) {
@@ -381,6 +396,80 @@ static void restore_path(wchar_t *old_path) {
     g_free(old_path);
 }
 
+/* Run regsvr32 on a stub. The 64-bit and 32-bit stubs each register into their
+ * own registry view, so this is called once per architecture. */
+static gboolean run_regsvr32(const wchar_t *regsvr32_path, const wchar_t *dll_path,
+                             const wchar_t *app_dir) {
+    wchar_t command_line[MAX_PATH * 3];
+    STARTUPINFOW si = {0};
+    PROCESS_INFORMATION pi = {0};
+    wchar_t *old_path = NULL;
+    gboolean ok = FALSE;
+
+    swprintf(command_line, G_N_ELEMENTS(command_line),
+             L"\"%ls\" /s \"%ls\"", regsvr32_path, dll_path);
+    log_msg("Running %ls /s %ls", regsvr32_path, dll_path);
+
+    old_path = prepend_app_dir_to_path(app_dir);
+    si.cb = sizeof(si);
+    if (CreateProcessW(NULL, command_line, NULL, NULL, FALSE, CREATE_NO_WINDOW,
+                       NULL, app_dir, &si, &pi)) {
+        DWORD wait_rc = WaitForSingleObject(pi.hProcess, 15000);
+        DWORD exit_code = 0;
+        GetExitCodeProcess(pi.hProcess, &exit_code);
+        ok = (wait_rc == WAIT_OBJECT_0 && exit_code == 0);
+        log_msg("regsvr32 wait=%lu exit_code=%lu", (unsigned long)wait_rc,
+                (unsigned long)exit_code);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    } else {
+        log_msg("CreateProcessW regsvr32 failed: %lu", (unsigned long)GetLastError());
+    }
+    restore_path(old_path);
+    return ok;
+}
+
+/* Register the 32-bit twin (gtv_tsf32.dll) in the WOW64 registry view. The
+ * x64 stub cannot be loaded by 32-bit hosts, so without this Zalo and other
+ * 32-bit apps get no GoTV keyboard at all. Returns TRUE when absent (old
+ * payload) or successfully registered. */
+static gboolean ensure_32bit_registered(const wchar_t *app_dir) {
+    wchar_t dll32[MAX_PATH];
+    wchar_t wow64_dir[MAX_PATH];
+    wchar_t regsvr32_path[MAX_PATH];
+    UINT n = 0;
+
+    swprintf(dll32, MAX_PATH, L"%ls\\%ls", app_dir, GTV_TSF_STUB32_NAME);
+    if (GetFileAttributesW(dll32) == INVALID_FILE_ATTRIBUTES) {
+        log_msg("gtv_tsf32.dll not installed - skipping 32-bit TSF registration");
+        return TRUE;
+    }
+
+    if (registered_to_32(dll32)) {
+        log_msg("32-bit TSF registration OK");
+        return TRUE;
+    }
+
+    n = GetSystemWow64DirectoryW(wow64_dir, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) {
+        log_msg("SysWOW64 directory unavailable - cannot register 32-bit TSF");
+        return FALSE;
+    }
+    swprintf(regsvr32_path, MAX_PATH, L"%ls\\regsvr32.exe", wow64_dir);
+
+    if (!run_regsvr32(regsvr32_path, dll32, app_dir)) {
+        log_msg("WARNING: 32-bit TSF registration failed (32-bit apps like Zalo "
+                "will not have GoTV)");
+        return FALSE;
+    }
+    if (registered_to_32(dll32)) {
+        log_msg("32-bit TSF registration verified OK");
+        return TRUE;
+    }
+    log_msg("WARNING: 32-bit TSF registration not visible after regsvr32");
+    return FALSE;
+}
+
 static gboolean app_paths(wchar_t *app_dir, wchar_t *dll_path) {
     wchar_t exe_path[MAX_PATH];
     wchar_t *slash = NULL;
@@ -427,10 +516,7 @@ void gtv_tsf_install_ensure_registered(void) {
     wchar_t dll_path[MAX_PATH];
     wchar_t system_dir[MAX_PATH];
     wchar_t regsvr32_path[MAX_PATH];
-    wchar_t command_line[MAX_PATH * 3];
-    wchar_t *old_path = NULL;
-    STARTUPINFOW si = {0};
-    PROCESS_INFORMATION pi = {0};
+    gboolean need64 = TRUE;
 
     log_msg("=== gtv_tsf_install_ensure_registered ===");
 
@@ -455,53 +541,41 @@ void gtv_tsf_install_ensure_registered(void) {
         enable_profiles_via_api();
         if (registered_to(dll_path) && tsf_profiles_registered() &&
             tsf_category_registered()) {
-            log_msg("All TSF registrations OK - skipping regsvr32");
-            return;
+            log_msg("All 64-bit TSF registrations OK - skipping regsvr32");
+            need64 = FALSE;
+        } else {
+            log_msg("Enable via API incomplete - will re-register");
         }
-        log_msg("Enable via API incomplete - will re-register");
     } else {
         log_msg("Missing registration: inproc=%d profiles=%d category=%d - will re-register",
                 inproc_ok, profiles_ok, category_ok);
     }
 
-    /* regsvr32 first (registers COM class + calls DllRegisterServer), then
-     * manual HKCU fallback + EnableLanguageProfile (makes it selectable). */
-    if (GetSystemDirectoryW(system_dir, MAX_PATH))
-        swprintf(regsvr32_path, MAX_PATH, L"%ls\\regsvr32.exe", system_dir);
-    else
-        wcscpy(regsvr32_path, L"regsvr32.exe");
+    if (need64) {
+        /* regsvr32 first (registers COM class + calls DllRegisterServer), then
+         * manual HKCU fallback + EnableLanguageProfile (makes it selectable). */
+        if (GetSystemDirectoryW(system_dir, MAX_PATH))
+            swprintf(regsvr32_path, MAX_PATH, L"%ls\\regsvr32.exe", system_dir);
+        else
+            wcscpy(regsvr32_path, L"regsvr32.exe");
 
-    swprintf(command_line, G_N_ELEMENTS(command_line),
-             L"\"%ls\" /s \"%ls\"", regsvr32_path, dll_path);
+        run_regsvr32(regsvr32_path, dll_path, app_dir);
 
-    log_msg("Running regsvr32 /s gtv_tsf.dll");
+        ensure_profiles_registered();
+        remove_stale_en_profile_tree(HKEY_CURRENT_USER);
+        ensure_category_registered();
+        enable_profiles_via_api();
 
-    old_path = prepend_app_dir_to_path(app_dir);
-    si.cb = sizeof(si);
-    if (CreateProcessW(NULL, command_line, NULL, NULL, FALSE, CREATE_NO_WINDOW,
-                       NULL, app_dir, &si, &pi)) {
-        DWORD wait_rc = WaitForSingleObject(pi.hProcess, 15000);
-        DWORD exit_code = 0;
-        GetExitCodeProcess(pi.hProcess, &exit_code);
-        log_msg("regsvr32 wait=%lu exit_code=%lu", (unsigned long)wait_rc, (unsigned long)exit_code);
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-    } else {
-        log_msg("CreateProcessW regsvr32 failed: %lu", (unsigned long)GetLastError());
+        /* Verify after registration */
+        if (registered_to(dll_path) && tsf_profiles_registered() && tsf_category_registered())
+            log_msg("TSF registration verified OK");
+        else
+            log_msg("WARNING: TSF registration may have failed - check logs");
     }
-    restore_path(old_path);
-    old_path = NULL;
 
-    ensure_profiles_registered();
-    remove_stale_en_profile_tree(HKEY_CURRENT_USER);
-    ensure_category_registered();
-    enable_profiles_via_api();
-
-    /* Verify after registration */
-    if (registered_to(dll_path) && tsf_profiles_registered() && tsf_category_registered())
-        log_msg("TSF registration verified OK");
-    else
-        log_msg("WARNING: TSF registration may have failed - check logs");
+    /* Always check the 32-bit view separately: a healthy 64-bit install says
+     * nothing about WOW64 hosts such as Zalo. */
+    ensure_32bit_registered(app_dir);
 
     /* The HKLM profile leaf needs admin to write. Without it Windows drops
      * GoTV from the vi language, so point the user at the one command that

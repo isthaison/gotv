@@ -30,6 +30,9 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-glib2
             mingw-w64-x86_64-pkg-config
+            mingw-w64-i686-gcc
+            mingw-w64-i686-glib2
+            mingw-w64-i686-pkg-config
 
       - name: Run Test Suite
         shell: msys2 {0}

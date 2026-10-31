@@ -34,9 +34,9 @@
     </screenshot>
   </screenshots>
   <releases>
-    <release version="0.9.3" date="2026-10-27">
+    <release version="0.9.3" date="2026-10-31">
       <description>
-        <p>Sua loi vi tri khung goi y tren trinh duyet va ung dung Electron</p>
+        <p>Hỗ trợ gõ tiếng Việt trên ứng dụng 32-bit (Zalo) và sửa lỗi vị trí khung gợi ý trên trình duyệt và ứng dụng Electron</p>
       </description>
     </release>
     <release version="0.9.2" date="2026-10-23">

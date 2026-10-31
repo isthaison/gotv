@@ -73,6 +73,9 @@ Name: "desktopicon"; Description: "{cm:DesktopDesc}"; GroupDescription: "{cm:Add
 ; and no app is ever closed for an update. (restartreplace stays as the
 ; safety net for the rare stub-version bump itself.)
 Source: "{#SourceDir}\gtv_tsf.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist restartreplace
+; 32-bit twin (same CLSID/profile) for WOW64 hosts such as Zalo. It is
+; registered into the Wow6432Node view below.
+Source: "{#SourceDir}\gtv_tsf32.dll"; DestDir: "{app}"; Flags: skipifsourcedoesntexist restartreplace
 Source: "{#SourceDir}\current.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; Versioned payload: each release adds a new ver\<V>\ dir (tray, engine DLL,
 ; runtime, data). Running processes keep their mapped files until they exit
@@ -97,6 +100,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 ; fails and no keyboard appears in language settings.
 ; Skipped on updates (Check): the stub path never changes once registered.
 Filename: "{cmd}"; Parameters: "/c set ""PATH={app};%PATH%"" && regsvr32.exe /s ""{app}\gtv_tsf.dll"""; Flags: runhidden; Check: NeedsStubRegistration
+; 32-bit stub: SysWOW64's regsvr32 writes the Wow6432Node COM view. Since the
+; installer runs in 64-bit mode, this must be named explicitly.
+Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\gtv_tsf32.dll"""; Flags: runhidden; Check: NeedsStubRegistration32
 ; One-time MACHINE registration of the TSF profiles/categories (HKLM):
 ; per-user Register/AddLanguageProfile always fail, leaving the keyboard
 ; invisible to Windows. Verb "runas" prompts for admin once.
@@ -109,6 +115,7 @@ Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--takeover"; Descript
 ; Ask the running tray to exit gracefully first (takeover event).
 Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{cmd}"; Parameters: "/c set ""PATH={app};%PATH%"" && regsvr32.exe /s /u ""{app}\gtv_tsf.dll"""; Flags: runhidden
+Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s /u ""{app}\gtv_tsf32.dll"""; Flags: runhidden
 ; The tray menu manages this same value independently of the installer's
 ; [Tasks]/[Registry] entry, so delete it explicitly (stale autostart would
 ; point at the removed {app} after uninstall).
@@ -133,6 +140,14 @@ function NeedsStubRegistration(): Boolean;
 begin
   Result := not RegValueExists(HKEY_CURRENT_USER,
     'Software\Classes\CLSID\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\InprocServer32', '');
+end;
+
+function NeedsStubRegistration32(): Boolean;
+begin
+  { Explicit Wow6432Node path: the installer is in 64-bit mode, so a normal
+    Software\Classes read/write would use the 64-bit view. }
+  Result := not RegValueExists(HKEY_CURRENT_USER,
+    'Software\Classes\Wow6432Node\CLSID\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\InprocServer32', '');
 end;
 
 function NeedsTsfProfile(): Boolean;

@@ -31,6 +31,17 @@
 typedef HRESULT(STDAPICALLTYPE *PFN_GETCLASSOBJECT)(REFCLSID, REFIID, void **);
 typedef HRESULT(STDAPICALLTYPE *PFN_CANUNLOADNOW)(void);
 
+/* The 64-bit stub forwards to gtv_engine.dll; the 32-bit twin built from the
+ * same source is compiled with GTV_ENGINE_DLL_FILE=gtv_engine32.dll so both
+ * payloads can share ver\<V>\. Stringify instead of embedding quotes in the
+ * compiler flag: make -> sh -> gcc quoting is fragile on Windows shells. */
+#define GTV_STR_(x) #x
+#define GTV_STR(x) GTV_STR_(x)
+#ifndef GTV_ENGINE_DLL_FILE
+#define GTV_ENGINE_DLL_FILE gtv_engine.dll
+#endif
+#define GTV_ENGINE_DLL_NAME L"" GTV_STR(GTV_ENGINE_DLL_FILE)
+
 static HINSTANCE g_hStub = NULL;
 static INIT_ONCE g_initOnce = INIT_ONCE_STATIC_INIT;
 static HMODULE g_hEngine = NULL;
@@ -77,7 +88,7 @@ static BOOL resolve_engine_path(WCHAR *out, DWORD cch) {
     if (!*s) return FALSE;
     WCHAR wver[64];
     if (!MultiByteToWideChar(CP_UTF8, 0, s, -1, wver, 64)) return FALSE;
-    wsprintfW(out, L"%ls\\ver\\%ls\\gtv_engine.dll", stub, wver);
+    wsprintfW(out, L"%ls\\ver\\%ls\\%ls", stub, wver, GTV_ENGINE_DLL_NAME);
     return out[0] != L'\0' && cch > 0;
 }
 

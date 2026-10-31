@@ -1,7 +1,27 @@
 CC ?= gcc
 CXX ?= g++
+AR ?= ar
 WINDRES ?= windres
 PKG_CONFIG ?= pkg-config
+
+# Object/target tree. Overridable so the same makefile can build the 32-bit
+# TSF payload (needed by 32-bit hosts such as Zalo) into a separate tree:
+#   make BUILD_ROOT=build/win32 CC=/mingw32/bin/gcc ... tsf32
+BUILD_ROOT ?= build
+
+# The stable stub hardcodes the engine DLL it forwards to. The 32-bit build
+# points at gtv_engine32.dll so both architectures can live side by side in
+# ver\<V>\.
+ENGINE_DLL_NAME ?= gtv_engine.dll
+
+# Cross toolchain for the 32-bit payload (MSYS2 mingw32 environment).
+MINGW32_PREFIX ?= /mingw32
+MINGW32_CC ?= $(MINGW32_PREFIX)/bin/gcc
+MINGW32_CXX ?= $(MINGW32_PREFIX)/bin/g++
+MINGW32_AR ?= $(MINGW32_PREFIX)/bin/ar
+MINGW32_WINDRES ?= $(MINGW32_PREFIX)/bin/windres
+MINGW32_PKG_CONFIG ?= $(MINGW32_PREFIX)/bin/pkg-config
+ARCH32_BUILD ?= build/win32
 
 include mk/common.mk
 
@@ -12,7 +32,9 @@ LDFLAGS ?= $(shell $(PKG_CONFIG) --libs gio-2.0) -lm -mwindows -luser32 -lshell3
 TSF_CXXFLAGS ?= -O2 -g -std=c++14 -Wall -Wextra -Wno-unused-parameter -Iengine -Iwindows/tsf $(shell $(PKG_CONFIG) --cflags gio-2.0)
 # Stable stub (registered once, almost never replaced): pure Win32, not even a
 # runtime DLL, so it always loads - see the note on the injected engine below.
-STUB_LDFLAGS ?= -shared windows/tsf/gtv_tsf.def -lole32 -loleaut32 -luuid -ladvapi32 -luser32 -mwindows
+STUB_LDFLAGS ?= -shared windows/tsf/gtv_tsf.def -lole32 -loleaut32 -luuid -ladvapi32 -luser32 -mwindows -static-libgcc -static-libstdc++
+# Only stub_loader.cpp consumes this; tsf_register.cpp is shared unchanged.
+STUB_CXXFLAGS ?= $(TSF_CXXFLAGS) -DGTV_ENGINE_DLL_FILE=$(ENGINE_DLL_NAME)
 
 # --- Injected TSF engine: statically linked glib -------------------------
 # gtv_engine.dll is loaded by Windows into EVERY process that takes text
@@ -54,7 +76,7 @@ GLIB_STATIC_LIBS = -Wl,--start-group \
 # symbol. --defsym aliased it to the function ENTRY, so the indirect call
 # executed code bytes as a pointer (0xc0000005 at the call site, crash-loop
 # explorer.exe). A real data slot holding &wcrtomb is the correct fix.
-GLIB_STATIC_FIXUPS = build/win-static/windows/tsf/wcrtomb_slot.o
+GLIB_STATIC_FIXUPS = $(BUILD_ROOT)/win-static/windows/tsf/wcrtomb_slot.o
 
 # Versioned engine DLL (real text service, lives in ver\<V>\).
 TSF_ENGINE_LDFLAGS ?= -shared -nodefaultlibs windows/tsf/gtv_engine.def $(STATIC_ENGINE_OBJS) $(GLIB_STATIC_LIBS) $(GLIB_STATIC_FIXUPS) -Wl,--allow-multiple-definition -Wl,--exclude-libs,ALL -mwindows
@@ -68,29 +90,47 @@ VERSION ?= $(GTV_VERSION)
 # Inno needs a 4-part numeric version; keep VERSION as X.Y.Z for that.
 VERSION_NUM ?= $(VERSION).0
 
-ENGINE_OBJS = $(ENGINE_SRCS:%.c=build/win/%.o)
-WIN_OBJS = $(WIN_SRCS:%.c=build/win/%.o)
-TSF_STUB_OBJS = $(TSF_STUB_SRCS:%.cpp=build/win/%.o)
+ENGINE_OBJS = $(ENGINE_SRCS:%.c=$(BUILD_ROOT)/win/%.o)
+WIN_OBJS = $(WIN_SRCS:%.c=$(BUILD_ROOT)/win/%.o)
+TSF_STUB_OBJS = $(TSF_STUB_SRCS:%.cpp=$(BUILD_ROOT)/win/%.o)
 # Separate tree for the injected engine (see GLIB_STATIC_DEFS above): the same
 # C sources compiled against the static glib ABI must not be mixed with the
 # shared-glib objects that end up in gotv.exe.
-STATIC_ENGINE_OBJS = $(ENGINE_SRCS:%.c=build/win-static/%.o)
-STATIC_TSF_ENGINE_OBJS = $(TSF_ENGINE_SRCS:%.cpp=build/win-static/%.o)
-RC_OBJ = build/win/windows/resource.o
-STUB_RC_OBJ = build/win/windows/stub.o
-CORE_LIB = build/win/libgotv.a
+STATIC_ENGINE_OBJS = $(ENGINE_SRCS:%.c=$(BUILD_ROOT)/win-static/%.o)
+STATIC_TSF_ENGINE_OBJS = $(TSF_ENGINE_SRCS:%.cpp=$(BUILD_ROOT)/win-static/%.o)
+RC_OBJ = $(BUILD_ROOT)/win/windows/resource.o
+STUB_RC_OBJ = $(BUILD_ROOT)/win/windows/stub.o
+CORE_LIB = $(BUILD_ROOT)/win/libgotv.a
 
-TARGET = build/win/gotv.exe
-TSF_TARGET = build/win/gtv_tsf.dll
-TSF_ENGINE_TARGET = build/win/gtv_engine.dll
-TEST_ENGINE = build/win/test-engine.exe
-TEST_SUPPORT = build/win/test-support.exe
-TEST_VERDIR = build/win/test-verdir.exe
+TARGET = $(BUILD_ROOT)/win/gotv.exe
+TSF_TARGET = $(BUILD_ROOT)/win/gtv_tsf.dll
+TSF_ENGINE_TARGET = $(BUILD_ROOT)/win/gtv_engine.dll
+TEST_ENGINE = $(BUILD_ROOT)/win/test-engine.exe
+TEST_SUPPORT = $(BUILD_ROOT)/win/test-support.exe
+TEST_VERDIR = $(BUILD_ROOT)/win/test-verdir.exe
+
+# DLLs inspected by check-tsf-isolated (overridable for the 32-bit tree).
+TSF_CHECK_DLLS ?= $(TSF_TARGET) $(TSF_ENGINE_TARGET)
 
 TEST_CFLAGS ?= -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Iengine $(shell $(PKG_CONFIG) --cflags gio-2.0)
 TEST_LDFLAGS ?= $(shell $(PKG_CONFIG) --libs gio-2.0) -lm
 
 all: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET)
+
+# 32-bit TSF payload for WOW64 hosts (Zalo and 32-bit Electron/legacy apps).
+# The tray stays 64-bit; only the injected DLLs are built here. Invoke with a
+# separate BUILD_ROOT and the mingw32 toolchain (see ARCH32_MAKE below).
+tsf32: $(TSF_TARGET) $(TSF_ENGINE_TARGET)
+
+# Recursive invocation used by staging(): build the same TSF sources with the
+# 32-bit toolchain into the parallel tree.
+ARCH32_MAKE = env PATH=$(MINGW32_PREFIX)/bin:$$PATH $(MAKE) -f Makefile.win BUILD_ROOT=$(ARCH32_BUILD) \
+             CC=$(MINGW32_CC) CXX=$(MINGW32_CXX) AR=$(MINGW32_AR) \
+             WINDRES=$(MINGW32_WINDRES) PKG_CONFIG=$(MINGW32_PKG_CONFIG) \
+             ENGINE_DLL_NAME=gtv_engine32.dll
+
+tsf32-build:
+	$(ARCH32_MAKE) tsf32
 
 $(TARGET): $(ENGINE_OBJS) $(WIN_OBJS) $(RC_OBJ)
 	@mkdir -p $(dir $@)
@@ -115,34 +155,34 @@ $(TSF_ENGINE_TARGET): $(STATIC_TSF_ENGINE_OBJS) $(STATIC_ENGINE_OBJS) $(GLIB_STA
 # every run and re-installed the same stale payload.
 DEPFLAGS = -MMD -MP
 
-build/win-static/windows/tsf/%.o: windows/tsf/%.cpp
+$(BUILD_ROOT)/win-static/windows/tsf/%.o: windows/tsf/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(STATIC_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
-build/win-static/%.o: %.c
+$(BUILD_ROOT)/win-static/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(STATIC_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
-build/win/windows/stub.o: windows/stub.rc
+$(BUILD_ROOT)/win/windows/stub.o: windows/stub.rc
 	@mkdir -p $(dir $@)
 	$(WINDRES) -Iwindows $< -o $@
 
-build/win/windows/tsf/%.o: windows/tsf/%.cpp
+$(BUILD_ROOT)/win/windows/tsf/%.o: windows/tsf/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(TSF_CXXFLAGS) -c $< -o $@
+	$(CXX) $(STUB_CXXFLAGS) -c $< -o $@
 
 $(CORE_LIB): $(ENGINE_OBJS)
 	@mkdir -p $(dir $@)
 	$(AR) rcs $@ $^
 
-build/win/%.o: %.c
+$(BUILD_ROOT)/win/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 # windows/app.manifest is embedded by resource.rc but is not included from it,
 # so without listing it here a manifest-only edit is silently ignored until an
 # unrelated rebuild or a clean.
-build/win/windows/resource.o: windows/resource.rc windows/app.manifest
+$(BUILD_ROOT)/win/windows/resource.o: windows/resource.rc windows/app.manifest
 	@mkdir -p $(dir $@)
 	$(WINDRES) -Iwindows $< -o $@
 
@@ -173,9 +213,9 @@ TSF_SYSTEM_DLLS = advapi32 bcrypt combase crypt32 dbghelp dnsapi gdi32 gdi32full
                   iphlpapi kernel32 msvcrt netapi32 normaliz ntdll ole32 oleaut32 \
                   powrprof psapi rpcrt4 sechost setupapi shell32 shlwapi user32 \
                   userenv version winhttp winmm wintrust ws2_32
-check-tsf-isolated: $(TSF_TARGET) $(TSF_ENGINE_TARGET)
+check-tsf-isolated: $(TSF_CHECK_DLLS)
 	@fail=0; \
-	for dll in $(TSF_TARGET) $(TSF_ENGINE_TARGET); do \
+	for dll in $(TSF_CHECK_DLLS); do \
 	  while IFS= read -r dep; do \
 	    low=$$(printf '%s' "$$dep" | tr 'A-Z' 'a-z'); \
 	    ok=0; \
@@ -189,13 +229,18 @@ check-tsf-isolated: $(TSF_TARGET) $(TSF_ENGINE_TARGET)
 	done; \
 	if [ "$$fail" = 0 ]; then echo "  ok: TSF DLLs import system DLLs only"; else exit 1; fi
 
+# Same invariant for the 32-bit payload. objdump from the 64-bit toolchain
+# reads PE32 fine; the sub-make builds the DLLs with the mingw32 toolchain.
+check-tsf-isolated32:
+	$(ARCH32_MAKE) TSF_CHECK_DLLS="$(ARCH32_BUILD)/win/gtv_tsf.dll $(ARCH32_BUILD)/win/gtv_engine.dll" check-tsf-isolated
+
 # Staging dir consumed by windows/installer.iss (SourceDir=release-pkg).
 # New-world layout: stable root (stub + current.txt) + versioned
 # payload in ver\<V>\. Updates only ever ADD a new ver dir, so running
 # processes never block the installer: no forced closes, no logoff.
 STAGE = release-pkg
 VERDIR = $(STAGE)/ver/$(VERSION)
-staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated
+staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated check-tsf-isolated32
 	mkdir -p $(STAGE) $(VERDIR)/data
 	# Stage exactly one payload: drop other ver\<V>\ dirs left from previous
 	# packages (the installer would otherwise ship stale payloads).
@@ -206,7 +251,12 @@ staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated
 	# payload now lives under ver/<V>/; root keeps the stub only).
 	rm -rf $(STAGE)/data $(STAGE)/gspawn-win64-helper*.exe $(STAGE)/lib*.dll $(STAGE)/zlib1.dll $(STAGE)/gotv.exe
 	cp $(TSF_TARGET) $(STAGE)/gtv_tsf.dll
+	# 32-bit twin for WOW64 hosts (Zalo): same CLSID/profile, loaded by the
+	# 32-bit registry view. Its engine has a distinct name so both payloads
+	# can live in the same version dir.
+	cp $(ARCH32_BUILD)/win/gtv_tsf.dll $(STAGE)/gtv_tsf32.dll
 	cp $(TARGET) $(TSF_ENGINE_TARGET) $(VERDIR)/
+	cp $(ARCH32_BUILD)/win/gtv_engine.dll $(VERDIR)/gtv_engine32.dll
 	# Older payloads forward to this basename; same binary, no second implementation.
 	cp $(TARGET) $(VERDIR)/gotiengviet.exe
 	changed=1; \
@@ -233,10 +283,10 @@ setup: staging
 	iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STAGE)" windows/installer.iss
 
 clean:
-	rm -rf build/win build/win-static
+	rm -rf build/win build/win-static $(ARCH32_BUILD)
 	rm -rf $(STAGE)
 
 -include $(WIN_OBJS:.o=.d) $(STATIC_ENGINE_OBJS:.o=.d) \
          $(STATIC_TSF_ENGINE_OBJS:.o=.d)
 
-.PHONY: all clean test check-tsf-isolated
+.PHONY: all clean test check-tsf-isolated check-tsf-isolated32 tsf32 tsf32-build
