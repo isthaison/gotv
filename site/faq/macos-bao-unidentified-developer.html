@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cách sửa lỗi macOS báo "Unidentified Developer" khi cài GoTV — FAQ GoTV</title>
+  <meta name="description" content="Hướng dẫn khắc phục cảnh báo Unidentified Developer hoặc App can't be opened vì nhà phát triển chưa xác minh của Apple Gatekeeper khi cài đặt GoTV trên macOS.">
+  <meta name="keywords" content="macos unidentified developer, cài ứng dụng ngoài trên mac, gotv macos, gõ tiếng việt macos, app can't be opened macos">
+  <meta name="author" content="isthaison">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="theme-color" content="#b22222">
+  <link rel="canonical" href="https://isthaison.github.io/gotv/faq/macos-bao-unidentified-developer.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="vi_VN">
+  <meta property="og:site_name" content="GoTV">
+  <meta property="og:title" content="Cách sửa lỗi macOS báo 'Unidentified Developer' khi cài GoTV">
+  <meta property="og:description" content="Hướng dẫn mở ứng dụng GoTV trên macOS khi bị Apple Gatekeeper cảnh báo.">
+  <meta property="og:url" content="https://isthaison.github.io/gotv/faq/macos-bao-unidentified-developer.html">
+  <meta property="og:image" content="https://isthaison.github.io/gotv/og-image.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" sizes="any">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "https://isthaison.github.io/gotv/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "FAQ",
+            "item": "https://isthaison.github.io/gotv/faq/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "macOS báo Unidentified Developer",
+            "item": "https://isthaison.github.io/gotv/faq/macos-bao-unidentified-developer.html"
+          }
+        ]
+      },
+      {
+        "@type": "QAPage",
+        "mainEntity": {
+          "@type": "Question",
+          "name": "Tại sao macOS báo lỗi 'unidentified developer' hoặc không cho mở bộ gõ GoTV và cách khắc phục ra sao?",
+          "text": "Khi tải file .dmg hoặc .app của GoTV về máy Mac và mở lên, hệ điều hành macOS hiển thị hộp thoại chặn với thông báo nhà phát triển chưa được xác minh.",
+          "answerCount": 1,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Đây là cơ chế bảo vệ Apple Gatekeeper đối với các phần mềm mã nguồn mở chưa mua chứng chỉ Apple Developer Certificate trả phí. Cách mở rất đơn giản: Nhấp chuột phải (hoặc giữ phím Control và bấm chuột) vào ứng dụng GoTV trong Finder, chọn Open, sau đó bấm Open một lần nữa trong hộp thoại xác nhận.",
+            "url": "https://isthaison.github.io/gotv/faq/macos-bao-unidentified-developer.html#answer"
+          }
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="../"><span class="badge">T</span> GoTV</a>
+    <nav>
+      <a href="../#tinh-nang">Tính năng</a>
+      <a href="../#cai-dat">Cài đặt</a>
+      <a href="../#tai-ve">Tải về</a>
+      <a href="./" class="hl">FAQ</a>
+      <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../">Trang chủ</a> &rsaquo; <a href="./">FAQ</a> &rsaquo; <span>macOS Unidentified Developer</span>
+    </nav>
+
+    <article class="faq-article" id="answer">
+      <h1>Cách sửa lỗi macOS báo "Unidentified Developer" khi cài GoTV</h1>
+      <div class="faq-meta">Cập nhật lần cuối: 07/11/2026 · Tác giả: GoTV Project (isthaison)</div>
+
+      <h2>1. Vì sao máy Mac hiện thông báo này?</h2>
+      <p>Hệ điều hành macOS tích hợp tính năng bảo mật <strong>Gatekeeper</strong>. Mặc định, macOS chỉ cho phép chạy trực tiếp các ứng dụng tải từ Mac App Store hoặc các ứng dụng đã được ký số (notarized) bằng tài khoản nhà phát triển trả phí của Apple.</p>
+      
+      <p>Vì GoTV là dự án phần mềm mã nguồn mở cộng đồng miễn phí, các phiên bản xem trước (Preview) chưa thực hiện đăng ký chữ ký số Apple thương mại, dẫn đến việc Gatekeeper hiển thị cảnh báo: <em>"GoTV cannot be opened because it is from an unidentified developer"</em>.</p>
+
+      <h2>2. Hướng dẫn mở ứng dụng chỉ với 2 bước</h2>
+
+      <h3>Cách 1: Mở qua menu chuột phải (Nhanh nhất)</h3>
+      <ol>
+        <li>Mở <strong>Finder</strong> và tìm đến ứng dụng GoTV (hoặc trong thư mục <code>~/Library/Input Methods/</code>).</li>
+        <li><strong>Nhấp chuột phải</strong> (hoặc giữ phím <code>Control</code> trên bàn phím và nhấp chuột trái) vào biểu tượng ứng dụng GoTV.</li>
+        <li>Chọn <strong>Open</strong> trên menu ngữ cảnh.</li>
+        <li>Hộp thoại bảo mật sẽ hiện ra với nút <strong>Open</strong> có sẵn. Hãy bấm <strong>Open</strong> để xác nhận. Bạn chỉ cần làm thao tác này đúng 1 lần đầu tiên.</li>
+      </ol>
+
+      <h3>Cách 2: Cấp phép trong Cài đặt hệ thống (System Settings)</h3>
+      <ol>
+        <li>Bấm vào menu <strong>Apple (&fnof;)</strong> ở góc trên cùng bên trái màn hình &rarr; chọn <strong>System Settings</strong>.</li>
+        <li>Chọn mục <strong>Privacy &amp; Security</strong> (Quyền riêng tư &amp; Bảo mật) ở thanh bên trái.</li>
+        <li>Cuộn xuống phần <strong>Security</strong>, bạn sẽ thấy thông báo: <em>"GoTV was blocked from use because it is not from an identified developer"</em>.</li>
+        <li>Bấm vào nút <strong>Open Anyway</strong> (Vẫn mở) và nhập mật khẩu máy Mac để hoàn tất.</li>
+      </ol>
+
+      <a class="back-link" href="./">&larr; Xem tất cả câu hỏi thường gặp (FAQ)</a>
+    </article>
+  </main>
+
+  <footer>
+    <p><strong>GoTV</strong> — MIT License · <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a></p>
+  </footer>
+</body>
+</html>

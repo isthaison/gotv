@@ -56,7 +56,7 @@
         "operatingSystem": ["Linux", "Ubuntu", "Windows 10", "Windows 11", "macOS"],
         "softwareVersion": "0.9.3",
         "datePublished": "2026-09-05",
-        "dateModified": "2026-11-03",
+        "dateModified": "2026-11-07",
         "license": "https://opensource.org/licenses/MIT",
         "inLanguage": "vi",
         "description": "Bộ gõ tiếng Việt Telex/VNI mã nguồn mở cho Windows, Linux và macOS với kiểm tra chính tả, macro/emoji và gợi ý từ điển ngoại tuyến.",
@@ -130,7 +130,7 @@
       <a href="#tinh-nang">Tính năng</a>
       <a href="#cai-dat">Cài đặt</a>
       <a href="#tai-ve">Tải về</a>
-      <a href="#faq">FAQ</a>
+      <a href="faq/">FAQ</a>
       <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a>
     </nav>
   </header>
@@ -200,15 +200,16 @@ sudo ./gtv.sh install</code></pre>
 
     <section id="faq">
       <h2>Câu hỏi thường gặp</h2>
-      <details><summary>GoTV có phải GoTiengViet của Trần Kỳ Nam không?</summary><p>Không. GoTV là dự án độc lập của isthaison, trước đây mang tên GoTiengViet. Từ phiên bản 0.9.0, dự án đổi tên để tránh nhầm lẫn với phần mềm của Trần Kỳ Nam.</p></details>
-      <details><summary>GoTV có liên quan gì đến VTVGo không?</summary><p>Không. GoTV là bộ gõ tiếng Việt Telex/VNI trên máy tính, hoàn toàn không liên quan đến ứng dụng truyền hình VTVGo.</p></details>
-      <details><summary>Khác gì Unikey / EVKey?</summary><p>GoTV dùng một lõi C chung cho cả 3 OS, có chính tả khi gõ (gạch đỏ trên Linux, balloon gợi ý trên Windows/macOS) và gợi ý từ điển offline — những thứ Unikey/EVKey không có. Unikey vẫn gọn nhẹ nếu bạn chỉ cần gõ cơ bản trên Windows.</p></details>
-      <details><summary>Có cần mạng không?</summary><p>Không. Gõ, chính tả, macro/emoji, gợi ý từ điển đều ngoại tuyến. Mạng chỉ dùng khi kiểm tra bản mới / cập nhật từ điển từ GitHub.</p></details>
-      <details><summary>Gõ <code>1</code> ra <code>ă</code> trên Windows?</summary><p>Đó là layout VIE của Windows đặt chữ Việt ở hàng số. GoTV đã ép dịch phím qua layout US nên gõ <code>1</code> ra <code>1</code> đúng. Nếu còn bị: kiểm tra đang dùng bàn phím <strong>GoTV</strong> (không phải Vietnamese Telex của Microsoft) và cập nhật bản mới nhất.</p></details>
-      <details><summary>macOS báo “unidentified developer”?</summary><p>Bản preview chưa ký số Apple. Chuột phải vào app → Open để chấp nhận một lần. Bản ổn định sẽ được ký + notarize.</p></details>
-      <details><summary>Cả câu bị gạch đỏ trong trình duyệt?</summary><p>Không phải GoTV (bộ gõ không vẽ gạch đỏ). Đó là spellchecker tiếng Anh của trình duyệt hoặc Windows gặp chữ Việt — tắt spellcheck ở ô nhập đó hoặc thêm tiếng Việt vào trình duyệt là hết.</p></details>
-      <details><summary>Mất GoTV sau cập nhật Windows?</summary><p>Đăng xuất/đăng nhập lại; nếu chưa thấy: Settings → Time &amp; Language → Language → Options → Add a keyboard → GoTV.</p></details>
-      <details><summary>Cấu hình lưu ở đâu?</summary><p>Linux/macOS: <code>~/.config/gotv/</code> — Windows: <code>%APPDATA%\gotv\</code>. Macro/emoji/từ điển học đều là file text, sửa tay được. <a href="https://github.com/isthaison/gotv/blob/main/docs/config.md" rel="noopener">Chi tiết →</a></p></details>
+      <details id="faq-tran-ky-nam"><summary>GoTV có phải GoTiengViet của Trần Kỳ Nam không?</summary><p>Không. GoTV là dự án độc lập của isthaison, trước đây mang tên GoTiengViet. Từ phiên bản 0.9.0, dự án đổi tên để tránh nhầm lẫn với phần mềm của Trần Kỳ Nam. <a class="faq-link" href="faq/gotv-co-phai-gotiengviet-tran-ky-nam.html">Xem chi tiết bài viết &rarr;</a></p></details>
+      <details id="faq-vtvgo"><summary>GoTV có liên quan gì đến VTVGo không?</summary><p>Không. GoTV là bộ gõ tiếng Việt Telex/VNI trên máy tính, hoàn toàn không liên quan đến ứng dụng truyền hình VTVGo. <a class="faq-link" href="faq/gotv-co-lien-quan-vtvgo-khong.html">Xem chi tiết bài viết &rarr;</a></p></details>
+      <details id="faq-unikey-evkey"><summary>Khác gì Unikey / EVKey?</summary><p>GoTV dùng một lõi C chung cho cả 3 OS, có chính tả khi gõ (gạch đỏ trên Linux, balloon gợi ý trên Windows/macOS) và gợi ý từ điển offline — những thứ Unikey/EVKey không có. Unikey vẫn gọn nhẹ nếu bạn chỉ cần gõ cơ bản trên Windows. <a class="faq-link" href="faq/so-sanh-gotv-voi-unikey-evkey.html">Xem so sánh chi tiết &rarr;</a></p></details>
+      <details id="faq-can-mang"><summary>Có cần mạng không?</summary><p>Không. Gõ, chính tả, macro/emoji, gợi ý từ điển đều ngoại tuyến. Mạng chỉ dùng khi kiểm tra bản mới / cập nhật từ điển từ GitHub. <a class="faq-link" href="faq/gotv-co-can-ket-noi-mang-khong.html">Xem chi tiết &rarr;</a></p></details>
+      <details id="faq-loi-1-ra-a"><summary>Gõ <code>1</code> ra <code>ă</code> trên Windows?</summary><p>Đó là layout VIE của Windows đặt chữ Việt ở hàng số. GoTV đã ép dịch phím qua layout US nên gõ <code>1</code> ra <code>1</code> đúng. Nếu còn bị: kiểm tra đang dùng bàn phím <strong>GoTV</strong> (không phải Vietnamese Telex của Microsoft) và cập nhật bản mới nhất. <a class="faq-link" href="faq/loi-go-1-ra-a-tren-windows.html">Xem hướng dẫn sửa lỗi &rarr;</a></p></details>
+      <details id="faq-macos-unidentified"><summary>macOS báo “unidentified developer”?</summary><p>Bản preview chưa ký số Apple. Chuột phải vào app → Open để chấp nhận một lần. Bản ổn định sẽ được ký + notarize. <a class="faq-link" href="faq/macos-bao-unidentified-developer.html">Xem hướng dẫn chi tiết &rarr;</a></p></details>
+      <details id="faq-gach-do-trinh-duyet"><summary>Cả câu bị gạch đỏ trong trình duyệt?</summary><p>Không phải GoTV (bộ gõ không vẽ gạch đỏ). Đó là spellchecker tiếng Anh của trình duyệt hoặc Windows gặp chữ Việt — tắt spellcheck ở ô nhập đó hoặc thêm tiếng Việt vào trình duyệt là hết. <a class="faq-link" href="faq/tat-gach-do-trinh-duyet-khi-go-tieng-viet.html">Xem cách tắt gạch đỏ &rarr;</a></p></details>
+      <details id="faq-mat-gotv-windows-update"><summary>Mất GoTV sau cập nhật Windows?</summary><p>Đăng xuất/đăng nhập lại; nếu chưa thấy: Settings → Time &amp; Language → Language → Options → Add a keyboard → GoTV. <a class="faq-link" href="faq/mat-gotv-sau-khi-cap-nhat-windows.html">Xem hướng dẫn khôi phục &rarr;</a></p></details>
+      <details id="faq-vi-tri-config"><summary>Cấu hình lưu ở đâu?</summary><p>Linux/macOS: <code>~/.config/gotv/</code> — Windows: <code>%APPDATA%\gotv\</code>. Macro/emoji/từ điển học đều là file text, sửa tay được. <a class="faq-link" href="faq/vi-tri-luu-file-cau-hinh-gotv.html">Xem chi tiết thư mục &rarr;</a></p></details>
+      <p style="margin-top: 1.2rem;"><a class="btn" href="faq/">Xem toàn bộ trung tâm trợ giúp &amp; câu hỏi thường gặp &rarr;</a></p>
     </section>
   </main>
 

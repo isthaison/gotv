@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vị trí lưu file cấu hình, macro và từ điển của GoTV — FAQ GoTV</title>
+  <meta name="description" content="Hướng dẫn chi tiết vị trí lưu trữ file cấu hình config, macro gõ tắt, emoji và từ điển học từ của GoTV trên Windows, Linux và macOS để backup và chỉnh sửa.">
+  <meta name="keywords" content="vị trí lưu config gotv, file gõ tắt macro gotv, appdata roaming gotv, thư mục cấu hình bộ gõ tiếng việt">
+  <meta name="author" content="isthaison">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="theme-color" content="#b22222">
+  <link rel="canonical" href="https://isthaison.github.io/gotv/faq/vi-tri-luu-file-cau-hinh-gotv.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="vi_VN">
+  <meta property="og:site_name" content="GoTV">
+  <meta property="og:title" content="Vị trí lưu file cấu hình, macro và từ điển của GoTV">
+  <meta property="og:description" content="Tìm hiểu đường dẫn lưu trữ cấu hình, gõ tắt macro và từ điển trên các hệ điều hành.">
+  <meta property="og:url" content="https://isthaison.github.io/gotv/faq/vi-tri-luu-file-cau-hinh-gotv.html">
+  <meta property="og:image" content="https://isthaison.github.io/gotv/og-image.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" sizes="any">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "https://isthaison.github.io/gotv/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "FAQ",
+            "item": "https://isthaison.github.io/gotv/faq/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Vị trí lưu file cấu hình GoTV",
+            "item": "https://isthaison.github.io/gotv/faq/vi-tri-luu-file-cau-hinh-gotv.html"
+          }
+        ]
+      },
+      {
+        "@type": "QAPage",
+        "mainEntity": {
+          "@type": "Question",
+          "name": "File cấu hình, bảng gõ tắt macro, biểu tượng emoji và dữ liệu từ điển học từ của GoTV được lưu ở đường dẫn nào trên máy tính?",
+          "text": "Nhiều người dùng muốn sao lưu hoặc chỉnh sửa hàng loạt danh sách gõ tắt macro và từ điển tiếng Việt cá nhân.",
+          "answerCount": 1,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Trên Windows: %APPDATA%\\gotv\\ (thường là C:\\Users\\<Tên_User>\\AppData\\Roaming\\gotv\\). Trên Linux: ~/.config/gotv/. Trên macOS: ~/Library/Application Support/gotv/ hoặc ~/.config/gotv/. Mọi file đều ở định dạng văn bản thuần UTF-8 (plain text) nên bạn có thể mở và chỉnh sửa bằng bất kỳ trình soạn thảo nào như Notepad hoặc VSCode.",
+            "url": "https://isthaison.github.io/gotv/faq/vi-tri-luu-file-cau-hinh-gotv.html#answer"
+          }
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="../"><span class="badge">T</span> GoTV</a>
+    <nav>
+      <a href="../#tinh-nang">Tính năng</a>
+      <a href="../#cai-dat">Cài đặt</a>
+      <a href="../#tai-ve">Tải về</a>
+      <a href="./" class="hl">FAQ</a>
+      <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../">Trang chủ</a> &rsaquo; <a href="./">FAQ</a> &rsaquo; <span>Vị trí lưu file cấu hình</span>
+    </nav>
+
+    <article class="faq-article" id="answer">
+      <h1>Vị trí lưu file cấu hình, macro và từ điển của GoTV</h1>
+      <div class="faq-meta">Cập nhật lần cuối: 07/11/2026 · Tác giả: GoTV Project (isthaison)</div>
+
+      <h2>1. Đường dẫn thư mục theo từng hệ điều hành</h2>
+      <ul>
+        <li>
+          <strong>Trên Windows:</strong><br>
+          Đường dẫn: <code>%APPDATA%\gotv\</code><br>
+          <em>(Mẹo: Bấm phím tắt <code>Win + R</code>, dán <code>%appdata%\gotv</code> rồi nhấn Enter để mở thư mục ngay lập tức).</em>
+        </li>
+        <li>
+          <strong>Trên Linux (Ubuntu, Debian, Fedora...):</strong><br>
+          Đường dẫn: <code>~/.config/gotv/</code>
+        </li>
+        <li>
+          <strong>Trên macOS:</strong><br>
+          Đường dẫn: <code>~/Library/Application Support/gotv/</code> hoặc <code>~/.config/gotv/</code>
+        </li>
+      </ul>
+
+      <h2>2. Danh sách các tệp tin quan trọng bên trong</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Tên tệp</th>
+            <th>Mục đích</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>config</code></td>
+            <td>Lưu cấu hình kiểu gõ (telex / vni), đặt dấu tự do hay truyền thống, bật tắt âm thanh, bật tắt kiểm tra chính tả.</td>
+          </tr>
+          <tr>
+            <td><code>macro.txt</code></td>
+            <td>Bảng từ gõ tắt cá nhân. Định dạng mỗi dòng: <code>từ_viết_tắt=Nội dung đầy đủ</code> (ví dụ: <code>dc=được</code>, <code>cty=Công ty TNHH</code>). Bấm <code>Tab</code> để bung macro.</td>
+          </tr>
+          <tr>
+            <td><code>learned-words.txt</code></td>
+            <td>Danh sách các từ mới mà bộ gõ đã tự học trong quá trình bạn gõ để ưu tiên đưa lên gợi ý từ điển tiếp theo.</td>
+          </tr>
+          <tr>
+            <td><code>learned-corrections.txt</code></td>
+            <td>Bộ nhớ các quy tắc sửa lỗi sai chính tả thường gặp của cá nhân bạn.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. Cách sao lưu (Backup) và chuyển sang máy mới</h2>
+      <p>Tất cả các tệp đều được lưu dưới dạng <strong>văn bản thuần túy (Plain text UTF-8)</strong> mà không bị mã hóa nhị phân hay gắn chặt vào Registry. Bạn chỉ cần sao chép (copy) thư mục <code>gotv</code> này sang USB, Google Drive hoặc lưu trữ đám mây. Khi đổi máy tính mới hoặc cài lại hệ điều hành, dán thư mục này lại là mọi thói quen gõ và từ điển cá nhân đều được giữ nguyên vẹn 100%.</p>
+
+      <a class="back-link" href="./">&larr; Xem tất cả câu hỏi thường gặp (FAQ)</a>
+    </article>
+  </main>
+
+  <footer>
+    <p><strong>GoTV</strong> — MIT License · <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a></p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bị mất biểu tượng GoTV sau khi cập nhật Windows Update — FAQ GoTV</title>
+  <meta name="description" content="Cách lấy lại bộ gõ tiếng Việt GoTV trên thanh Taskbar sau khi Windows 10/11 tự động cập nhật hệ thống (Windows Update) làm mất đăng ký Text Services Framework.">
+  <meta name="keywords" content="mất unikey sau cập nhật windows, mất gotv windows update, khôi phục bàn phím tiếng việt win 11, thêm bộ gõ tiếng việt windows">
+  <meta name="author" content="isthaison">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="theme-color" content="#b22222">
+  <link rel="canonical" href="https://isthaison.github.io/gotv/faq/mat-gotv-sau-khi-cap-nhat-windows.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="vi_VN">
+  <meta property="og:site_name" content="GoTV">
+  <meta property="og:title" content="Bị mất biểu tượng GoTV sau khi cập nhật Windows Update">
+  <meta property="og:description" content="Hướng dẫn kích hoạt lại và khôi phục GoTV sau các bản cập nhật lớn của Windows.">
+  <meta property="og:url" content="https://isthaison.github.io/gotv/faq/mat-gotv-sau-khi-cap-nhat-windows.html">
+  <meta property="og:image" content="https://isthaison.github.io/gotv/og-image.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" sizes="any">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "https://isthaison.github.io/gotv/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "FAQ",
+            "item": "https://isthaison.github.io/gotv/faq/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Mất GoTV sau khi cập nhật Windows",
+            "item": "https://isthaison.github.io/gotv/faq/mat-gotv-sau-khi-cap-nhat-windows.html"
+          }
+        ]
+      },
+      {
+        "@type": "QAPage",
+        "mainEntity": {
+          "@type": "Question",
+          "name": "Tại sao sau khi máy tính Windows 10/11 khởi động lại hoặc tự động cập nhật Windows Update thì không thấy biểu tượng GoTV và không gõ được tiếng Việt?",
+          "text": "Nhiều người dùng gặp hiện tượng sau khi cài đặt các bản cập nhật lớn của Windows thì phím tắt Win + Space không còn thấy GoTV nữa.",
+          "answerCount": 1,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Các bản cập nhật Windows Update đôi khi làm mới danh sách dịch vụ Text Services Framework (TSF). Bạn có thể khôi phục bằng cách đăng xuất (Sign out) tài khoản Windows rồi đăng nhập lại, hoặc vào Windows Settings -> Time & Language -> Language -> Options -> Add a keyboard và chọn GoTV, hoặc chạy lại bộ cài đặt gotv-*-x64-setup.exe để tự động đăng ký lại DLL.",
+            "url": "https://isthaison.github.io/gotv/faq/mat-gotv-sau-khi-cap-nhat-windows.html#answer"
+          }
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="../"><span class="badge">T</span> GoTV</a>
+    <nav>
+      <a href="../#tinh-nang">Tính năng</a>
+      <a href="../#cai-dat">Cài đặt</a>
+      <a href="../#tai-ve">Tải về</a>
+      <a href="./" class="hl">FAQ</a>
+      <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../">Trang chủ</a> &rsaquo; <a href="./">FAQ</a> &rsaquo; <span>Mất GoTV sau cập nhật Windows</span>
+    </nav>
+
+    <article class="faq-article" id="answer">
+      <h1>Bị mất biểu tượng GoTV sau khi cập nhật Windows Update?</h1>
+      <div class="faq-meta">Cập nhật lần cuối: 07/11/2026 · Tác giả: GoTV Project (isthaison)</div>
+
+      <h2>1. Nguyên nhân</h2>
+      <p>Khi Windows cập nhật các phiên bản tích lũy hoặc bản nâng cấp tính năng lớn (ví dụ: Windows 11 23H2, 24H2...), hệ điều hành thường thiết lập lại một số nhánh đăng ký trong Registry của hệ thống phân phối ngôn ngữ (Text Services Framework - TSF). Điều này có thể làm ẩn tạm thời bàn phím của bên thứ ba khỏi thanh chọn ngôn ngữ Taskbar.</p>
+
+      <h2>2. Các bước khôi phục đơn giản</h2>
+
+      <h3>Bước 1: Đăng xuất và đăng nhập lại Windows (Sign Out)</h3>
+      <p>Đa phần các trường hợp, chỉ cần đăng xuất tài khoản Windows của bạn (bấm nút Start &rarr; nhấp vào avatar của bạn &rarr; chọn <strong>Sign out</strong>) rồi đăng nhập lại là TSF subsystem sẽ tự động nhận diện lại GoTV.</p>
+
+      <h3>Bước 2: Thêm lại GoTV trong Cài đặt Windows</h3>
+      <ol>
+        <li>Mở <strong>Settings</strong> (phím tắt <code>Windows + I</code>).</li>
+        <li>Vào mục <strong>Time &amp; Language</strong> &rarr; <strong>Language &amp; Region</strong>.</li>
+        <li>Chọn gói ngôn ngữ bạn đang dùng (ví dụ: <em>English (United States)</em> hoặc <em>Tiếng Việt</em>), bấm vào dấu 3 chấm <code>...</code> &rarr; chọn <strong>Language options</strong>.</li>
+        <li>Cuộn xuống phần <strong>Keyboards</strong> &rarr; bấm <strong>Add a keyboard</strong>.</li>
+        <li>Tìm và nhấp chọn <strong>GoTV</strong> trong danh sách.</li>
+      </ol>
+
+      <h3>Bước 3: Chạy lại file cài đặt GoTV</h3>
+      <p>Nếu hai cách trên vẫn chưa kích hoạt lại được, bạn chỉ cần tải lại hoặc mở file cài đặt <code>gotv-*-x64-setup.exe</code> đã tải trước đó và cài đặt đè. Bộ cài đặt sẽ tự động đăng ký lại các tệp DLL TSF 32-bit và 64-bit mà không làm mất cấu hình cá nhân hay từ điển tự học của bạn.</p>
+
+      <a class="back-link" href="./">&larr; Xem tất cả câu hỏi thường gặp (FAQ)</a>
+    </article>
+  </main>
+
+  <footer>
+    <p><strong>GoTV</strong> — MIT License · <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a></p>
+  </footer>
+</body>
+</html>

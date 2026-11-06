@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bộ gõ GoTV có cần kết nối mạng không? — FAQ GoTV</title>
+  <meta name="description" content="Giải thích chi tiết về tính năng ngoại tuyến 100% của bộ gõ tiếng Việt GoTV: gõ phím, kiểm tra chính tả, macro, từ điển không cần mạng, bảo mật quyền riêng tư.">
+  <meta name="keywords" content="gotv có cần mạng không, bộ gõ offline, bộ gõ an toàn không gửi dữ liệu, bàn phím tiếng việt riêng tư">
+  <meta name="author" content="isthaison">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow">
+  <meta name="theme-color" content="#b22222">
+  <link rel="canonical" href="https://isthaison.github.io/gotv/faq/gotv-co-can-ket-noi-mang-khong.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="vi_VN">
+  <meta property="og:site_name" content="GoTV">
+  <meta property="og:title" content="Bộ gõ GoTV có cần kết nối mạng không?">
+  <meta property="og:description" content="Tìm hiểu cơ chế hoạt động offline 100% và bảo mật dữ liệu bàn phím của GoTV.">
+  <meta property="og:url" content="https://isthaison.github.io/gotv/faq/gotv-co-can-ket-noi-mang-khong.html">
+  <meta property="og:image" content="https://isthaison.github.io/gotv/og-image.png">
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" sizes="any">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Trang chủ",
+            "item": "https://isthaison.github.io/gotv/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "FAQ",
+            "item": "https://isthaison.github.io/gotv/faq/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Bộ gõ GoTV có cần kết nối mạng không?",
+            "item": "https://isthaison.github.io/gotv/faq/gotv-co-can-ket-noi-mang-khong.html"
+          }
+        ]
+      },
+      {
+        "@type": "QAPage",
+        "mainEntity": {
+          "@type": "Question",
+          "name": "Bộ gõ tiếng Việt GoTV có cần kết nối mạng Internet để hoạt động không?",
+          "text": "Nhiều người dùng lo lắng bộ gõ tiếng Việt có thể gửi dữ liệu phím bấm về máy chủ hoặc cần Internet để gợi ý từ điển.",
+          "answerCount": 1,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Không. GoTV hoạt động ngoại tuyến (offline) 100%. Tất cả thuật toán gõ Telex/VNI, bộ kiểm tra chính tả, gợi ý từ điển và gõ tắt Macro đều chạy trực tiếp trên máy của bạn. Kết nối mạng duy nhất chỉ được dùng khi bạn kiểm tra và tải bản cập nhật mới từ GitHub.",
+            "url": "https://isthaison.github.io/gotv/faq/gotv-co-can-ket-noi-mang-khong.html#answer"
+          }
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="../"><span class="badge">T</span> GoTV</a>
+    <nav>
+      <a href="../#tinh-nang">Tính năng</a>
+      <a href="../#cai-dat">Cài đặt</a>
+      <a href="../#tai-ve">Tải về</a>
+      <a href="./" class="hl">FAQ</a>
+      <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="../">Trang chủ</a> &rsaquo; <a href="./">FAQ</a> &rsaquo; <span>GoTV có cần mạng không?</span>
+    </nav>
+
+    <article class="faq-article" id="answer">
+      <h1>Bộ gõ GoTV có cần kết nối mạng không?</h1>
+      <div class="faq-meta">Cập nhật lần cuối: 07/11/2026 · Tác giả: GoTV Project (isthaison)</div>
+
+      <p><strong>Câu trả lời ngắn gọn: KHÔNG. GoTV hoạt động ngoại tuyến (Offline) 100%.</strong></p>
+
+      <h2>Các tính năng chạy hoàn toàn trên máy của bạn:</h2>
+      <ul>
+        <li><strong>Gõ tiếng Việt Telex và VNI:</strong> Bộ quy tắc chuyển đổi dấu và ghép âm tiết được biên dịch trực tiếp từ ngôn ngữ C, xử lý cực nhanh trong bộ nhớ RAM mà không cần gọi API mạng nào.</li>
+        <li><strong>Kiểm tra chính tả:</strong> Quy tắc âm tiết và bảng từ điển (~7.000 từ phổ biến) nằm sẵn trong ổ đĩa cứng của bạn.</li>
+        <li><strong>Gợi ý từ điển &amp; Tự học từ:</strong> GoTV tự động lưu các từ bạn hay gõ vào file text cục bộ (<code>learned-words.txt</code>). Dữ liệu này chỉ nằm trên máy bạn và không bao giờ được tải lên bất kỳ máy chủ nào.</li>
+        <li><strong>Gõ tắt Macro &amp; Emoji:</strong> Danh sách viết tắt được đọc trực tiếp từ file cấu hình trên máy tính.</li>
+      </ul>
+
+      <h2>Khi nào GoTV sử dụng mạng?</h2>
+      <p>GoTV chỉ sử dụng kết nối mạng trong trường hợp duy nhất: <strong>Kiểm tra và tải bản phát hành cập nhật (Update Check)</strong> từ kho lưu trữ chính thức của GitHub (<code>github.com/isthaison/gotv</code>). Tính năng này hoàn toàn minh bạch và an toàn.</p>
+
+      <h2>Bảo đảm quyền riêng tư tuyệt đối</h2>
+      <p>Bộ gõ là nơi tiếp nhận mọi thông tin nhạy cảm của bạn: từ mật khẩu, tài khoản ngân hàng đến tin nhắn cá nhân. Vì GoTV là <strong>phần mềm nguồn mở (Open Source)</strong>, bất kỳ lập trình viên nào cũng có thể kiểm tra toàn bộ mã nguồn của chúng tôi trên GitHub để xác thực rằng phần mềm không chứa bất kỳ dòng mã theo dõi (keylogger) hay gửi trộm dữ liệu nào.</p>
+
+      <a class="back-link" href="./">&larr; Xem tất cả câu hỏi thường gặp (FAQ)</a>
+    </article>
+  </main>
+
+  <footer>
+    <p><strong>GoTV</strong> — MIT License · <a href="https://github.com/isthaison/gotv" rel="noopener">GitHub</a></p>
+  </footer>
+</body>
+</html>
