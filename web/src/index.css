@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --red: #b22222;
+    --bg: #faf7f2;
+    --ink: #2b2320;
+    --line: #e8ded4;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
