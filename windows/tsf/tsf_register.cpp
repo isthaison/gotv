@@ -82,18 +82,11 @@ STDAPI DllRegisterServer(void)
             0);
         pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_VIETNAMESE, GUID_GtvProfile, TRUE);
 
-        // Some Windows apps only activate TIPs registered for the current
-        // input language. Keep the Vietnamese profile, and also expose the
-        // same keyboard under en-US for systems/apps that never switch to vi-VN.
-        pProfiles->AddLanguageProfile(CLSID_GtvTextService,
-            GTV_LANG_ENGLISH,
-            GUID_GtvProfile,
-            GTV_TSF_DESC,
-            (ULONG)wcslen(GTV_TSF_DESC),
-            szModule,
-            (ULONG)wcslen(szModule),
-            0);
-        pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile, TRUE);
+        // GoTV is a Vietnamese input method only: ensure it is never registered
+        // or enabled under English (0x0409), which would create an unwanted
+        // "ENG English (United States) - GoTV" entry in the Windows keyboard switcher.
+        pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile, FALSE);
+        pProfiles->RemoveLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile);
         pProfiles->Release();
     }
 

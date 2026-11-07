@@ -390,6 +390,12 @@ static void add_tsf_profiles(GPtrArray *out, LANGID langid, GHashTable *seen) {
                     g_free(cs);
                     g_free(pf);
                 }
+                /* GoTV is a Vietnamese input method; never offer it under English */
+                if ((pr.langid == 0x0409 || PRIMARYLANGID(pr.langid) == LANG_ENGLISH) &&
+                    strstr(tip, "E3B0C442") != NULL) {
+                    g_free(tip);
+                    continue;
+                }
                 if (g_hash_table_contains(seen, tip)) { g_free(tip); continue; }
 
                 gchar *name = NULL;

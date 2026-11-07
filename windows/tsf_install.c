@@ -229,23 +229,17 @@ static void ensure_profiles_registered(void) {
  * HKCU delete works unelevated; HKLM needs
  * admin (see gtv_tsf_register_elevated). Missing keys are fine. */
 static void remove_stale_en_profile_tree(HKEY root) {
-    wchar_t leaf[MAX_PATH], parent[MAX_PATH];
-    LONG rc_leaf, rc_parent;
-    swprintf(leaf, MAX_PATH, L"%ls\\0x00000409\\%ls",
-             GTV_TSF_PROFILE_BASE, GTV_TSF_PROFILE_GUID_STR);
-    swprintf(parent, MAX_PATH, L"%ls\\0x00000409", GTV_TSF_PROFILE_BASE);
-    rc_leaf = RegDeleteKeyW(root, leaf);
-    rc_parent = RegDeleteKeyW(root, parent);
-    if (rc_leaf == ERROR_SUCCESS)
-        log_msg("Removed stale en-US profile leaf (root=%p)", (void *)root);
-    if (rc_parent == ERROR_SUCCESS)
-        log_msg("Removed stale en-US profile key (root=%p)", (void *)root);
-    /* A leftover en-US profile makes the switcher offer GoTV twice, so make
-     * the failure visible instead of letting it pass silently. */
-    if (rc_leaf != ERROR_SUCCESS && rc_leaf != ERROR_FILE_NOT_FOUND)
-        log_msg("Failed to remove stale en-US profile leaf (rc=%ld)", (long)rc_leaf);
-    if (rc_parent != ERROR_SUCCESS && rc_parent != ERROR_FILE_NOT_FOUND)
-        log_msg("Failed to remove stale en-US profile key (rc=%ld)", (long)rc_parent);
+    const wchar_t *bases[] = {
+        GTV_TSF_PROFILE_BASE,
+        L"SOFTWARE\\WOW6432Node\\Microsoft\\CTF\\TIP\\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\\LanguageProfile"
+    };
+    for (size_t b = 0; b < sizeof(bases) / sizeof(bases[0]); b++) {
+        wchar_t leaf[MAX_PATH], parent[MAX_PATH];
+        swprintf(leaf, MAX_PATH, L"%ls\\0x00000409\\%ls", bases[b], GTV_TSF_PROFILE_GUID_STR);
+        swprintf(parent, MAX_PATH, L"%ls\\0x00000409", bases[b]);
+        RegDeleteKeyW(root, leaf);
+        RegDeleteKeyW(root, parent);
+    }
 }
 
 /* Ensure BOTH keyboard and textservice categories are registered under
@@ -338,6 +332,9 @@ static void enable_profiles_via_api(void) {
         log_msg("EnableLanguageProfile lang=0x%04x hr=0x%08lx", (unsigned)langs[i],
                 (unsigned long)hr);
     }
+    /* Ensure GoTV is disabled and removed under 0x0409 (English) */
+    pProfiles->lpVtbl->EnableLanguageProfile(pProfiles, &clsid, 0x0409, &guidProfile, FALSE);
+    pProfiles->lpVtbl->RemoveLanguageProfile(pProfiles, &clsid, 0x0409, &guidProfile);
     pProfiles->lpVtbl->Release(pProfiles);
 
     /* Register both categories via the official API as well. */

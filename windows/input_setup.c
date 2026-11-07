@@ -23,7 +23,7 @@
 #define GTV_TIP_VI "042a:{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}{D4C5B6A7-1E2F-4A3B-8C9D-0E1F2A3B4C5D}"
 #define GTV_TIP_EN "0409:{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}{D4C5B6A7-1E2F-4A3B-8C9D-0E1F2A3B4C5D}"
 #define GTV_TIP_US "0409:00000409"
-#define GTV_INPUT_SETUP_REVISION "7"
+#define GTV_INPUT_SETUP_REVISION "8"
 
 static void setup_log(const gchar *fmt, ...) {
     gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
@@ -81,11 +81,12 @@ static const char *setup_script(void) {
     return "$ErrorActionPreference='SilentlyContinue';"
            "$l=Get-WinUserLanguageList;"
            "$c=$false;"
-           /* English: drop the GoTV TIP, keep the plain US keyboard */
+           /* English: drop any GoTV TIP, keep the plain US keyboard */
            "foreach($x in $l){"
-           "  if($x.LanguageTag -eq 'en-US'){"
-           "    if($x.InputMethodTips -contains '" GTV_TIP_EN "'){[void]$x.InputMethodTips.Remove('" GTV_TIP_EN "');$c=$true}"
-           "    if($x.InputMethodTips -notcontains '" GTV_TIP_US "'){$x.InputMethodTips.Add('" GTV_TIP_US "');$c=$true}}}"
+           "  if($x.LanguageTag -match '^en'){"
+           "    for($j=$x.InputMethodTips.Count-1;$j -ge 0;$j--){"
+           "      if($x.InputMethodTips[$j] -match 'E3B0C442'){[void]$x.InputMethodTips.RemoveAt($j);$c=$true}}"
+           "    if($x.InputMethodTips.Count -eq 0){$x.InputMethodTips.Add('" GTV_TIP_US "');$c=$true}}}"
            /* Drop every vi entry: rebuilt below with GoTV as the only TIP */
            "for($i=$l.Count-1;$i-ge 0;$i--){"
            "  if($l[$i].LanguageTag -match '^vi'){$l.RemoveAt($i);$c=$true}}"
@@ -94,7 +95,7 @@ static const char *setup_script(void) {
            "$vi[0].InputMethodTips.Add('" GTV_TIP_VI "');"
            "$l.Add($vi[0]);"
            "if($c){Set-WinUserLanguageList $l -Force};"
-           /* Verify: en-US (if present) has US but not GoTV; vi has GoTV sole */
+           /* Verify: English (if present) has no GoTV; vi has GoTV sole */
            "$l2=Get-WinUserLanguageList;"
            "$ok=$true;"
            "$vi2=@($l2 | Where-Object{$_.LanguageTag -match '^vi'});"
@@ -102,9 +103,8 @@ static const char *setup_script(void) {
            "elseif($vi2[0].InputMethodTips.Count -ne 1){$ok=$false}"
            "elseif($vi2[0].InputMethodTips[0] -ne '" GTV_TIP_VI "'){$ok=$false}"
            "foreach($x in $l2){"
-           "  if($x.LanguageTag -eq 'en-US'){"
-           "    if($x.InputMethodTips -contains '" GTV_TIP_EN "'){$ok=$false}"
-           "    if($x.InputMethodTips -notcontains '" GTV_TIP_US "'){$ok=$false}}}"
+           "  if($x.LanguageTag -match '^en'){"
+           "    foreach($t in $x.InputMethodTips){if($t -match 'E3B0C442'){$ok=$false}}}}"
            "if($ok){exit 0}else{exit 1}";
 }
 
