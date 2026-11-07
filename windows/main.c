@@ -61,11 +61,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 gtv_app_set_input_method(new_mode);
             } else if (lParam == WM_RBUTTONUP) {
                 gtv_tray_show_menu(hwnd);
-            } else if (lParam == WM_LBUTTONDBLCLK) {
-                gtv_setup_show(hwnd);
             } else if (lParam == NIN_BALLOONUSERCLICK) {
                 if (!gtv_update_balloon_clicked())
                     gtv_tray_apply_pending();
+            }
+            break;
+        }
+        case WM_COMMAND: {
+            int id = LOWORD(wParam);
+            if (id == ID_TRAY_SETTINGS) {
+                gtv_setup_show(hwnd);
             }
             break;
         }
@@ -212,7 +217,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!primary) {
         HWND existing = FindWindowA(WINDOW_CLASS_NAME, NULL);
         if (existing) {
-            gtv_setup_show(existing);
+            SetForegroundWindow(existing);
+            PostMessage(existing, WM_COMMAND, MAKEWPARAM(ID_TRAY_SETTINGS, 0), 0);
         }
         if (hMutex) CloseHandle(hMutex);
         return 0;

@@ -79,9 +79,12 @@ static void pin_dialog_font(HWND hwnd) {
     EnumChildWindows(hwnd, SetChildFont, (LPARAM)fixed);
 }
 
+static HWND s_hwndSetup = NULL;
+
 static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_INITDIALOG: {
+            s_hwndSetup = hwnd;
             /* Every visible string is set here in UTF-16 converted from
              * UTF-8: the .rc file carries ASCII placeholders only, so the
              * dialog renders Vietnamese correctly no matter which codepage
@@ -168,6 +171,7 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 }
 
                 gtv_app_save_config();
+                gtv_tray_update_icon();
 
                 EndDialog(hwnd, IDOK);
                 return TRUE;
@@ -231,6 +235,7 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             return TRUE;
 
         case WM_DESTROY: {
+            s_hwndSetup = NULL;
             HFONT fixed = (HFONT)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
             if (fixed)
                 DeleteObject(fixed);
@@ -241,6 +246,10 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 }
 
 void gtv_setup_show(HWND parent) {
+    if (s_hwndSetup && IsWindow(s_hwndSetup)) {
+        SetForegroundWindow(s_hwndSetup);
+        return;
+    }
     HINSTANCE hinst = GetModuleHandle(NULL);
     DialogBoxW(hinst, MAKEINTRESOURCEW(IDD_SETUP_DIALOG), parent, SetupDlgProc);
 }
