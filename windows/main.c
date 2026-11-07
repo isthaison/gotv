@@ -245,7 +245,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     /* 2b. Attach GoTV to Vietnamese (Win+Space switcher).
      * Async worker; setup-revision stamped, additive-only. */
+#ifndef GTV_STORE_BUILD
     gtv_input_setup_ensure_async();
+#endif
 
     /* 3. Initialize GoTV config */
     gtv_init();
@@ -294,8 +296,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     /* 5. Initialize Tray Icon (typing is handled natively by Windows TSF) */
     gtv_tray_init(g_app.hwnd_main);
 
+    /* Store submissions are updated through their versioned Store listing. */
+#ifndef GTV_STORE_BUILD
     /* Daily self-update check against GitHub releases (throttled). */
     gtv_update_check_async(g_app.hwnd_main, FALSE);
+#endif
 
     /* 6. Main Message Loop */
     MSG msg;

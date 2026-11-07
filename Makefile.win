@@ -22,6 +22,9 @@ MINGW32_AR ?= $(MINGW32_PREFIX)/bin/ar
 MINGW32_WINDRES ?= $(MINGW32_PREFIX)/bin/windres
 MINGW32_PKG_CONFIG ?= $(MINGW32_PREFIX)/bin/pkg-config
 ARCH32_BUILD ?= build/win32
+STORE_BUILD ?= 0
+STORE_BUILD_ROOT ?= build/win-store
+STORE_STAGE ?= release-pkg-store
 
 include mk/common.mk
 
@@ -29,6 +32,9 @@ GLIB_CFLAGS := $(shell $(PKG_CONFIG) --cflags gio-2.0)
 GLIB_LIBS := $(shell $(PKG_CONFIG) --libs gio-2.0)
 
 CFLAGS ?= -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Iengine $(GLIB_CFLAGS)
+ifeq ($(STORE_BUILD),1)
+CFLAGS += -DGTV_STORE_BUILD
+endif
 # -loleaut32: windows/keyboard.c calls SysFreeString (BSTR) for the TSF profiles.
 LDFLAGS ?= $(GLIB_LIBS) -lm -mwindows -luser32 -lshell32 -ladvapi32 -lole32 -loleaut32 -luuid -lcomctl32
 
@@ -243,7 +249,7 @@ check-tsf-isolated32:
 # New-world layout: stable root (stub + current.txt) + versioned
 # payload in ver\<V>\. Updates only ever ADD a new ver dir, so running
 # processes never block the installer: no forced closes, no logoff.
-STAGE = release-pkg
+STAGE ?= release-pkg
 VERDIR = $(STAGE)/ver/$(VERSION)
 staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated check-tsf-isolated32
 	mkdir -p $(STAGE) $(VERDIR)/data
@@ -285,11 +291,24 @@ staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated check-t
 setup: staging
 	iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STAGE)" windows/installer.iss
 
+# The Store build disables the GitHub app updater and uses a separate staging
+# tree so it cannot overwrite the normal installer payload.
+store-staging:
+	$(MAKE) -f Makefile.win STORE_BUILD=1 BUILD_ROOT=$(STORE_BUILD_ROOT) \
+		ARCH32_BUILD=$(STORE_BUILD_ROOT)/win32 STAGE=$(STORE_STAGE) staging
+
+# Store direct-download submissions use a separate, versioned installer.
+# Sign every PE in $(STORE_STAGE) with a Microsoft-trusted certificate before
+# compiling this installer; the Store policy requires all packaged PE files
+# and the installer itself to be signed.
+store-setup: store-staging
+	MSYS2_ARG_CONV_EXCL="*" iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STORE_STAGE)" /DStoreSubmission windows/installer.iss
+
 clean:
-	rm -rf build/win build/win-static $(ARCH32_BUILD)
-	rm -rf $(STAGE)
+	rm -rf build/win build/win-static $(ARCH32_BUILD) $(STORE_BUILD_ROOT)
+	rm -rf $(STAGE) $(STORE_STAGE)
 
 -include $(WIN_OBJS:.o=.d) $(STATIC_ENGINE_OBJS:.o=.d) \
          $(STATIC_TSF_ENGINE_OBJS:.o=.d)
 
-.PHONY: all clean test check-tsf-isolated check-tsf-isolated32 tsf32 tsf32-build
+.PHONY: all clean test check-tsf-isolated check-tsf-isolated32 tsf32 tsf32-build store-staging store-setup

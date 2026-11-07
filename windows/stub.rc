@@ -9,13 +9,6 @@
  * that goes backwards is never installed: the machine keeps the old stub
  * forever and every later stub fix is silently dropped.
  *
- * 0.8.20 (ec70211) did change tsf_register.cpp - register under Vietnamese
- * instead of English - but reset this to "1", reasoning that v1 already
- * registered VI-only. That skips exactly the machines that had the
- * intervening v2: 1.0 < 2.0, so Inno kept the stale stub and no subsequent
- * stub fix could land. Going to 3, the next value above anything ever
- * shipped, restores monotonicity.
- *
  * Deliberately independent from the app GTV_VERSION. */
 #define GTV_STUB_VERSION "3"
 #define GTV_STUB_VERSION_NUM 3,0,0,0

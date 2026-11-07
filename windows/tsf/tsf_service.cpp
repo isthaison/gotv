@@ -10,8 +10,13 @@ CGtvTextService::CGtvTextService() :
     m_dwTextLayoutSinkCookie(TF_INVALID_COOKIE),
     m_pLayoutContext(NULL),
     m_pComposition(NULL),
-    m_pEngine(NULL)
+    m_pEngine(NULL),
+    m_fEnabled(TRUE),
+    m_sessionCompOk(FALSE),
+    m_sessionSelOk(FALSE)
 {
+    memset(&m_sessionCompRect, 0, sizeof(m_sessionCompRect));
+    memset(&m_sessionSelRect, 0, sizeof(m_sessionSelRect));
     ReloadConfig();
     DllAddRef();
 }

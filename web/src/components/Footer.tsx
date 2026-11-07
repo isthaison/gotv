@@ -18,6 +18,7 @@ export const Footer: React.FC<FooterProps> = ({ basePath = '/gotv/' }) => {
         <div className="flex flex-wrap justify-center gap-6 mb-4 font-medium">
           <a href={basePath} className="hover:text-red-700 transition">Trang chủ</a>
           <a href={`${basePath}faq/`} className="hover:text-red-700 transition">Câu hỏi thường gặp (FAQ)</a>
+          <a href={`${basePath}privacy.html`} className="hover:text-red-700 transition">Quyền riêng tư / Privacy</a>
           <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" className="hover:text-red-700 transition inline-flex items-center gap-1">
             <GithubIcon className="w-3.5 h-3.5" /> Mã nguồn GitHub
           </a>

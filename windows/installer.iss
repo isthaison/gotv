@@ -1,13 +1,13 @@
-﻿; GoTV versioned installer (Inno Setup 6).
+; GoTV versioned installer (Inno Setup 6).
 ; Built by CI: make -f Makefile.win setup VERSION=<x.y.z>
 ;   iscc.exe /Q "/DAppVersion=<x.y.z>" "/DAppVerNum=<x.y.z.0>" /DSourceDir=..\release-pkg windows/installer.iss
 ; Output: gotv-<x.y.z>-x64-setup.exe (per-user, no admin needed).
 
 #ifndef AppVersion
-  #define AppVersion "0.9.8"
+  #define AppVersion "0.9.9"
 #endif
 #ifndef AppVerNum
-  #define AppVerNum "0.9.8.0"
+  #define AppVerNum "0.9.9.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release-pkg"
@@ -35,7 +35,15 @@ DefaultDirName={localappdata}\Programs\GoTV
 UsePreviousAppDir=yes
 PrivilegesRequired=lowest
 OutputDir=..
+#ifdef StoreSubmission
+OutputBaseFilename=gotv-{#AppVersion}-x64-store-setup
+#else
 OutputBaseFilename=gotv-{#AppVersion}-x64-setup
+#endif
+#ifdef StoreSigning
+SignTool=store
+SignedUninstaller=yes
+#endif
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -64,7 +72,11 @@ english.StartupDesc=Start with Windows
 english.DesktopDesc=Create a desktop icon
 
 [Tasks]
+#ifdef StoreSubmission
+Name: "startup"; Description: "{cm:StartupDesc}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+#else
 Name: "startup"; Description: "{cm:StartupDesc}"; GroupDescription: "{cm:AdditionalIcons}"
+#endif
 Name: "desktopicon"; Description: "{cm:DesktopDesc}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
@@ -108,7 +120,11 @@ Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\gtv_tsf32.dll"""; F
 ; per-user Register/AddLanguageProfile always fail, leaving the keyboard
 ; invisible to Windows. Verb "runas" prompts for admin once.
 ; Skipped on updates (Check): no UAC prompt for day-to-day updates.
+#ifdef StoreSubmission
+Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--register-tsf"; Verb: "runas"; Flags: waituntilterminated shellexec; StatusMsg: "Dang ky keyboard GoTV voi he thong..."; Check: NeedsTsfProfile
+#else
 Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--register-tsf"; Verb: "runas"; Flags: waituntilterminated shellexec skipifsilent; StatusMsg: "Dang ky keyboard GoTV voi he thong..."; Check: NeedsTsfProfile
+#endif
 ; Takeover: the new payload asks any running tray to exit gracefully.
 Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--takeover"; Description: "{cm:LaunchProgram,GoTV}"; Flags: nowait postinstall skipifsilent
 

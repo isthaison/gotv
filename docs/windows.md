@@ -15,6 +15,47 @@ Native Windows 10/11 (x64). Gõ bằng **TSF Text Service** (stub `gtv_tsf.dll` 
 - Code signing: bản release ký self-signed cert (RSA 4096, 1 năm) — bypass SmartScreen trên大部分 Windows. Nếu cert chưa cấu hình, bản unsigned vẫn hoạt động bình thường nhưng SmartScreen có thể hiện cảnh báo lần đầu chạy.
 - Chẩn đoán: `%LOCALAPPDATA%\gotv\update.log` (mọi bước check/tải/cài của updater).
 
+## Microsoft Store
+
+GoTV hiện dùng TSF text service được nạp bên trong các ứng dụng khác. Vì vậy không
+thể chỉ bọc bản hiện tại thành MSIX: MSIX desktop không hỗ trợ công bố in-process
+extensions cho tiến trình ngoài package ([hướng dẫn đóng gói desktop của
+Microsoft](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-prepare)).
+Hướng phù hợp là gửi Microsoft Store liên kết tải trực tiếp tới bộ cài `.exe`
+độc lập theo [chính sách 10.2.9](https://learn.microsoft.com/en-us/windows/apps/publish/store-policies#1029).
+
+Tạo bộ cài riêng bằng `make -f Makefile.win store-setup`. Tên file có hậu tố
+`-store-setup.exe`; bộ cài GitHub thông thường không bị thay đổi. Khi khai báo
+trong Partner Center, cấu hình tham số cài đặt
+`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-` để cài đặt không hiện wizard.
+Trang chính sách quyền riêng tư công khai dùng cho listing: [GoTV Privacy Policy](https://isthaison.github.io/gotv/privacy.html).
+Lần đầu cài có thể hiện UAC để đăng ký TSF; prompt này được Store cho phép.
+Đăng ký TSF vẫn chạy trong chế độ silent để bàn phím GoTV hoạt động sau khi cài.
+Ở bản Store, tự cập nhật ứng dụng từ GitHub và lựa chọn khởi động elevated bị
+ẩn; người dùng nhận bản ứng dụng mới qua listing Store. Khởi động thường vẫn có
+thể bật chủ động trong cài đặt, nhưng mặc định bị tắt khi cài silent.
+GoTV không tự thay đổi danh sách ngôn ngữ/bàn phím của Windows ở lần chạy đầu;
+người dùng thêm GoTV qua **Bàn phím (Win+Space)...** trong menu khay để giữ quyền
+chủ động với thiết lập Windows.
+
+Đây mới là đầu ra cài đặt, chưa đủ điều kiện gửi Store: Store yêu cầu URL tải
+theo phiên bản, installer độc lập, và cả installer lẫn mọi file PE bên trong
+phải được ký bằng chứng thư code-signing có chuỗi tin cậy tới CA thuộc Microsoft
+Trusted Root Program. Chữ ký self-signed hiện tại không đáp ứng điều kiện này.
+Mỗi phiên bản cần URL/file mới trong Partner Center; cần tài khoản Partner
+Center và chứng thư phù hợp trước khi phát hành.
+
+CI luôn build riêng payload Store (`release-pkg-store`) và installer. Để CI tạo
+bản có thể nộp, cấu hình repository variable `STORE_SIGNING_ENABLED=true` cùng
+Actions secrets `STORE_SIGNING_CERT_PFX_B64` (PFX base64) và
+`STORE_SIGNING_CERT_PASSWORD` (mật khẩu PFX), dùng chứng thư code-signing có
+chuỗi tin cậy tới CA được Microsoft chấp nhận. CI ký và xác minh từng `.exe`/
+`.dll` trong payload, rồi dùng Inno Setup ký cả installer và uninstaller;
+artifact và release asset Store chỉ
+được xuất khi bật signing. Nếu chưa cấu hình, CI chỉ build bản unsigned để kiểm
+tra đóng gói, không xuất bản như installer Store. Có thể chạy
+`make -f Makefile.win store-staging` để chỉ tạo payload Store riêng.
+
 ## Dùng hằng ngày
 
 - **Menu khay**: Bảng điều khiển, Bàn phím (Win+Space)..., Telex/VNI, chính tả, chuẩn dấu,

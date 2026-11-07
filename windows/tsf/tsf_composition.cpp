@@ -99,6 +99,7 @@ private:
                 m_pService->m_pComposition = pComp;
                 if (m_text && m_len > 0) {
                     pRange->SetText(ec, 0, m_text, m_len);
+                    pComp->ShiftEnd(ec, pRange);
                     // Move caret to end of range
                     ITfRange *pRangeEnd = NULL;
                     if (SUCCEEDED(pRange->Clone(&pRangeEnd))) {
@@ -108,7 +109,10 @@ private:
                         sel.style.ase = TF_AE_NONE;
                         sel.style.fInterimChar = FALSE;
                         m_pContext->SetSelection(ec, 1, &sel);
+                        m_pService->CaptureCaretInSession(ec, m_pContext, pRange, pRangeEnd);
                         pRangeEnd->Release();
+                    } else {
+                        m_pService->CaptureCaretInSession(ec, m_pContext, pRange, NULL);
                     }
                 }
             }
@@ -127,6 +131,7 @@ private:
 
         HRESULT hr = pRange->SetText(ec, 0, m_text ? m_text : L"", m_len);
         if (SUCCEEDED(hr)) {
+            m_pService->m_pComposition->ShiftEnd(ec, pRange);
             ITfRange *pRangeEnd = NULL;
             if (SUCCEEDED(pRange->Clone(&pRangeEnd))) {
                 pRangeEnd->Collapse(ec, TF_ANCHOR_END);
@@ -135,7 +140,10 @@ private:
                 sel.style.ase = TF_AE_NONE;
                 sel.style.fInterimChar = FALSE;
                 m_pContext->SetSelection(ec, 1, &sel);
+                m_pService->CaptureCaretInSession(ec, m_pContext, pRange, pRangeEnd);
                 pRangeEnd->Release();
+            } else {
+                m_pService->CaptureCaretInSession(ec, m_pContext, pRange, NULL);
             }
         }
         pRange->Release();
@@ -177,6 +185,9 @@ HRESULT CGtvTextService::UpdateCompositionText(ITfContext *pic, const wchar_t *t
         CEditSession *pSession = new CEditSession(this, pic, EDIT_START_COMPOSITION, text, len);
         HRESULT hrSession = E_FAIL;
         HRESULT hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
+        if (hr == TF_E_SYNCHRONOUS || hrSession == TF_E_SYNCHRONOUS) {
+            hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &hrSession);
+        }
         pSession->Release();
         return SUCCEEDED(hr) ? hrSession : hr;
     }
@@ -184,6 +195,9 @@ HRESULT CGtvTextService::UpdateCompositionText(ITfContext *pic, const wchar_t *t
     CEditSession *pSession = new CEditSession(this, pic, EDIT_UPDATE_TEXT, text, len);
     HRESULT hrSession = E_FAIL;
     HRESULT hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
+    if (hr == TF_E_SYNCHRONOUS || hrSession == TF_E_SYNCHRONOUS) {
+        hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &hrSession);
+    }
     pSession->Release();
     return SUCCEEDED(hr) ? hrSession : hr;
 }
@@ -194,6 +208,9 @@ HRESULT CGtvTextService::EndComposition(ITfContext *pic, BOOL commit)
     CEditSession *pSession = new CEditSession(this, pic, commit ? EDIT_END_COMPOSITION : EDIT_CANCEL_COMPOSITION);
     HRESULT hrSession = E_FAIL;
     HRESULT hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_SYNC | TF_ES_READWRITE, &hrSession);
+    if (hr == TF_E_SYNCHRONOUS || hrSession == TF_E_SYNCHRONOUS) {
+        hr = pic->RequestEditSession(m_tfClientId, pSession, TF_ES_ASYNCDONTCARE | TF_ES_READWRITE, &hrSession);
+    }
     pSession->Release();
     return SUCCEEDED(hr) ? hrSession : hr;
 }

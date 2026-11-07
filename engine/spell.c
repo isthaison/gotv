@@ -64,26 +64,16 @@ gboolean spell_word_valid(const char *utf8){
     }
 
     gboolean has_mark = FALSE;
-    for(glong i=0; i<len; i++){
-        CharInfo *info = get_info(ucs[i]);
-        if(info && (info->diacritic != DIAC_NONE || info->tone != TONE_NONE)){
-            has_mark = TRUE; break;
-        }
-        if(ucs[i] == 0x0111 || ucs[i] == 0x0110){ has_mark = TRUE; break; }
-    }
-    if(!has_mark){
-        gunichar last_c = bare_lower(ucs[len-1]);
-        if(last_c == 'w' || last_c == 'f' || last_c == 'j' || last_c == 'z'){
-            g_free(ucs); return FALSE;
-        }
-        g_free(ucs); return TRUE;
-    }
-
     glong first_v = -1, last_v = -1;
     int v_count = 0;
     int tone = TONE_NONE;
 
     for(glong i=0; i<len; i++){
+        CharInfo *info = get_info(ucs[i]);
+        if(info && (info->diacritic != DIAC_NONE || info->tone != TONE_NONE)){
+            has_mark = TRUE;
+        }
+        if(ucs[i] == 0x0111 || ucs[i] == 0x0110){ has_mark = TRUE; }
         if(is_vowel(ucs[i])){
             if(first_v == -1) first_v = i;
             last_v = i;
@@ -94,6 +84,50 @@ gboolean spell_word_valid(const char *utf8){
             if(tone != TONE_NONE && tone != t){ g_free(ucs); return FALSE; }
             tone = t;
         }
+    }
+
+    if(!has_mark){
+        for(glong i=0; i<len; i++){
+            gunichar c = bare_lower(ucs[i]);
+            if(c == 'w' || c == 'f' || c == 'j' || c == 'z'){
+                g_free(ucs); return FALSE;
+            }
+        }
+        if(v_count == 0){
+            /* Allow valid multi-consonant onsets while typing (ch, gh, gi,
+             * kh, ng, ngh, nh, ph, qu, th, tr); flag vowel-less typos such
+             * as khng, thnh, chnh, vng, trng. */
+            gboolean ok_onset = is_valid_onset(ucs, len);
+            g_free(ucs);
+            return ok_onset;
+        }
+        glong eff_v = first_v;
+        if(first_v == 1 && bare_lower(ucs[0]) == 'g' && bare_lower(ucs[1]) == 'i' && len > 2 && is_vowel(ucs[2])){
+            eff_v = 2;
+        } else if(first_v == 1 && bare_lower(ucs[0]) == 'q' && bare_lower(ucs[1]) == 'u' && len > 2 && is_vowel(ucs[2])){
+            eff_v = 2;
+        }
+        if(!is_valid_onset(ucs, eff_v)){
+            g_free(ucs); return FALSE;
+        }
+        for(glong i=eff_v; i<=last_v; i++){
+            if(!is_vowel(ucs[i])){ g_free(ucs); return FALSE; }
+        }
+        glong u_coda_len = len - 1 - last_v;
+        if(u_coda_len > 2){
+            g_free(ucs); return FALSE;
+        }
+        if(u_coda_len == 2){
+            char u_coda[4] = {
+                (char)bare_lower(ucs[last_v + 1]),
+                (char)bare_lower(ucs[last_v + 2]),
+                0
+            };
+            if(!is_valid_coda(u_coda, 2)){
+                g_free(ucs); return FALSE;
+            }
+        }
+        g_free(ucs); return TRUE;
     }
 
     if(v_count == 0){ g_free(ucs); return FALSE; }

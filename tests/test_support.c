@@ -180,6 +180,18 @@ static void test_spelling(void) {
      * vẫn do từ điển sửa và được nhớ vào learned-corrections.txt. */
     g_assert_true(spell_word_valid("ngha"));
     g_assert_true(spell_word_valid("ge"));
+    /* Vowel-less multi-consonant onsets are valid while typing, but vowel-less
+     * or malformed onset typos are rejected even without diacritics. */
+    g_assert_true(spell_word_valid("ng"));
+    g_assert_true(spell_word_valid("ngh"));
+    g_assert_true(spell_word_valid("th"));
+    g_assert_false(spell_word_valid("khng"));
+    g_assert_false(spell_word_valid("thnh"));
+    g_assert_false(spell_word_valid("chnh"));
+    g_assert_false(spell_word_valid("vng"));
+    g_assert_false(spell_word_valid("thnah"));
+    g_assert_false(spell_word_valid("tahnh"));
+    g_assert_false(spell_word_valid("truogn"));
 
     /* Disabled suggestions return nothing, even for known typos. */
     GtvConfig config={.suggest_enabled=FALSE};
@@ -289,6 +301,25 @@ static void test_dict(void) {
     gtv_dict_correct("chao", out, 5);
     g_assert_cmpuint(out->len, >, 0);
     g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "chào");
+    g_ptr_array_set_size(out, 0);
+    /* Damerau-Levenshtein transposition & onset/diacritic affinity ranking. */
+    gtv_dict_correct("kông", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "không");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("thnàh", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "thành");
+    g_ptr_array_set_size(out, 0);
+    /* Dictionary membership and diacritic-preserving prefix completion. */
+    g_assert_true(gtv_dict_contains("được"));
+    g_assert_false(gtv_dict_contains("khoog"));
+    gtv_dict_complete("câ", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    for (guint i = 0; i < out->len; i++) {
+        const gchar *w = g_ptr_array_index(out, i);
+        g_assert_false(g_str_has_prefix(w, "ca"));
+    }
     g_ptr_array_unref(out);
     /* A corrupt download never poisons suggestions: unparsable content
      * yields an empty table, and the loader falls back to the seed. */

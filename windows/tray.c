@@ -156,10 +156,14 @@ void gtv_tray_show_menu(HWND hwnd) {
     UINT start_flag = (startup_mode == GTV_STARTUP_USER) ? MF_CHECKED : MF_UNCHECKED;
     gtv_win_menu_add_utf8(hmenu, "Khởi động cùng Windows", start_flag, ID_TRAY_STARTUP);
 
+#ifndef GTV_STORE_BUILD
     UINT admin_flag = (startup_mode == GTV_STARTUP_ADMIN) ? MF_CHECKED : MF_UNCHECKED;
     gtv_win_menu_add_utf8(hmenu, "Khởi động với quyền admin", admin_flag, ID_TRAY_STARTUP_ADMIN);
+#endif
 
+#ifndef GTV_STORE_BUILD
     gtv_win_menu_add_utf8(hmenu, "Kiểm tra cập nhật...", 0, ID_TRAY_UPDATE);
+#endif
     gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
     gtv_win_menu_add_utf8(hmenu, "Thoát", 0, ID_TRAY_EXIT);
 
@@ -201,6 +205,7 @@ void gtv_tray_show_menu(HWND hwnd) {
             }
             break;
         }
+#ifndef GTV_STORE_BUILD
         case ID_TRAY_STARTUP_ADMIN: {
             GtvStartupMode mode = gtv_startup_get();
             if (mode == GTV_STARTUP_ADMIN)
@@ -212,6 +217,7 @@ void gtv_tray_show_menu(HWND hwnd) {
         case ID_TRAY_UPDATE:
             gtv_update_check_async(hwnd, TRUE);
             break;
+#endif
         case ID_TRAY_EXIT:
             PostQuitMessage(0);
             break;

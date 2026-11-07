@@ -67,6 +67,7 @@ gchar *gtv_data_path(const gchar *name);
 /* Bundled + GitHub-updated dictionary (engine/dict.c). */
 gchar *gtv_dict_user_path(void);
 void gtv_dict_invalidate(void);
+gboolean gtv_dict_contains(const gchar *word);
 void gtv_dict_complete(const gchar *prefix, GPtrArray *out, guint max);
 void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max);
 /* File-backed learned vocabulary (engine/learn.c), shared by all platforms. */

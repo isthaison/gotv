@@ -69,9 +69,13 @@ public:
     void ToggleEnabled();
 
     ITfComposition *GetComposition() const { return m_pComposition; }
+    ITfThreadMgr *GetThreadMgr() const { return m_pThreadMgr; }
+    TfClientId GetClientId() const { return m_tfClientId; }
     GtvEngine *GetEngine() const { return m_pEngine; }
     BOOL GetCaretRect(ITfContext *pic, RECT *rc, GTV_CARET_SOURCE *src);
     void RequestDeferredCaret(ITfContext *pic, guint generation);
+    void CaptureCaretInSession(TfEditCookie ec, ITfContext *pic, ITfRange *compRange, ITfRange *selRange);
+    void ConsumeSessionCaret(RECT *comp, BOOL *comp_ok, RECT *sel, BOOL *sel_ok);
 
     void AdviseTextLayoutSink(ITfContext *pic);
     void UnadviseTextLayoutSink(void);
@@ -87,6 +91,10 @@ private:
     ITfComposition *m_pComposition;
     GtvEngine *m_pEngine;
     BOOL m_fEnabled;
+    RECT m_sessionCompRect;
+    RECT m_sessionSelRect;
+    BOOL m_sessionCompOk;
+    BOOL m_sessionSelOk;
 
     BOOL InitKeyEventSink();
     void UninitKeyEventSink();

@@ -242,6 +242,12 @@ ${JSON.stringify(schema, null, 2)}
     </image:image>
   </url>
   <url>
+    <loc>https://isthaison.github.io/gotv/privacy.html</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://isthaison.github.io/gotv/faq/</loc>
     <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>

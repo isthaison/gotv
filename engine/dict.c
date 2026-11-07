@@ -379,8 +379,67 @@ gchar *gtv_dict_pack_tag(const gchar *id) {
     return tag;
 }
 
-/* Completions: accent-exact prefix first, then accent-folded prefix
- * (thong matches thông), each capped; mirrors gtv_learned_completions. */
+/* Check whether an exact word exists in the active dictionary store. */
+gboolean gtv_dict_contains(const gchar *word) {
+    if (!word || !*word) return FALSE;
+    gchar *lower = gtv_word_key(word);
+    if (!lower) return FALSE;
+    gchar *folded = gtv_fold_accents(lower);
+    if (!folded) {
+        g_free(lower);
+        return FALSE;
+    }
+    gboolean found = FALSE;
+    const DictStore *ds = gtv_dict_get();
+    if (ds && ds->entries && ds->entries->len > 0) {
+        guint lo = 0, hi = ds->entries->len;
+        while (lo < hi) {
+            guint mid = lo + (hi - lo) / 2;
+            DictEntry *e = ds->entries->pdata[mid];
+            int c = strcmp(e->folded, folded);
+            if (c < 0) lo = mid + 1;
+            else hi = mid;
+        }
+        for (guint i = lo; i < ds->entries->len; i++) {
+            DictEntry *e = ds->entries->pdata[i];
+            if (strcmp(e->folded, folded) != 0) break;
+            if (strcmp(e->word, lower) == 0) {
+                found = TRUE;
+                break;
+            }
+        }
+    }
+    g_free(folded);
+    g_free(lower);
+    return found;
+}
+
+/* Check if every diacritic/stroke in `prefix_lower` (e.g. â, ă, đ, ơ, ư)
+ * is preserved at the same character position in `cand_word` (ignoring tone
+ * differences so "câ" matches "cần", "cấp", "câu"). */
+static gboolean prefix_diacritics_match(const gchar *prefix_lower, const gchar *cand_word) {
+    const gchar *pa = prefix_lower;
+    const gchar *pb = cand_word;
+    while (*pa && *pb) {
+        gunichar ca = g_utf8_get_char(pa);
+        gunichar cb = g_utf8_get_char(pb);
+        if (bare_lower(ca) != bare_lower(cb)) return FALSE;
+        int da = get_diac(ca);
+        int db = get_diac(cb);
+        if (da != DIAC_NONE && da != db) return FALSE;
+        int ta = get_tone(ca);
+        int tb = get_tone(cb);
+        if (ta != TONE_NONE && ta != tb) return FALSE;
+        pa = g_utf8_next_char(pa);
+        pb = g_utf8_next_char(pb);
+    }
+    return *pa == '\0';
+}
+
+/* Completions:
+ *   1. Accent-exact prefix first (g_str_has_prefix(e->word, lower))
+ *   2. Diacritic-preserving prefix (e.g. "câ" -> "cần", "cấp")
+ *   3. Accent-folded prefix (e.g. "thong" -> "thông") when input is unaccented */
 void gtv_dict_complete(const gchar *prefix, GPtrArray *out, guint max) {
     if (!prefix || !*prefix || !out || max == 0) return;
     gchar *lower = gtv_word_key(prefix);
@@ -390,6 +449,13 @@ void gtv_dict_complete(const gchar *prefix, GPtrArray *out, guint max) {
         g_free(lower);
         return;
     }
+    gboolean has_non_ascii = FALSE;
+    for (const gchar *p = lower; *p; p++) {
+        if ((guchar)*p >= 0x80) {
+            has_non_ascii = TRUE;
+            break;
+        }
+    }
     const DictStore *ds = gtv_dict_get();
     if (ds && ds->entries) {
         for (guint i = 0; i < ds->entries->len && out->len < max; i++) {
@@ -398,25 +464,38 @@ void gtv_dict_complete(const gchar *prefix, GPtrArray *out, guint max) {
             if (g_str_has_prefix(e->word, lower))
                 add_candidate_unique(out, e->word);
         }
-        for (guint i = 0; i < ds->entries->len && out->len < max; i++) {
-            DictEntry *e = ds->entries->pdata[i];
-            if (!strcmp(e->word, lower)) continue;
-            if (!g_str_has_prefix(e->word, lower) &&
-                g_str_has_prefix(e->folded, folded_prefix))
-                add_candidate_unique(out, e->word);
+        if (has_non_ascii && out->len < max) {
+            for (guint i = 0; i < ds->entries->len && out->len < max; i++) {
+                DictEntry *e = ds->entries->pdata[i];
+                if (!strcmp(e->word, lower)) continue;
+                if (!g_str_has_prefix(e->word, lower) &&
+                    g_str_has_prefix(e->folded, folded_prefix) &&
+                    prefix_diacritics_match(lower, e->word))
+                    add_candidate_unique(out, e->word);
+            }
+        }
+        if (!has_non_ascii && out->len < max) {
+            for (guint i = 0; i < ds->entries->len && out->len < max; i++) {
+                DictEntry *e = ds->entries->pdata[i];
+                if (!strcmp(e->word, lower)) continue;
+                if (!g_str_has_prefix(e->word, lower) &&
+                    g_str_has_prefix(e->folded, folded_prefix))
+                    add_candidate_unique(out, e->word);
+            }
         }
     }
     g_free(folded_prefix);
     g_free(lower);
 }
 
-/* Byte Levenshtein with early exit past cap. Folded forms are lowercase
- * ASCII-ish, so byte distance tracks character distance. */
+/* Byte Damerau-Levenshtein (Optimal String Alignment) with early exit past cap.
+ * Folded forms are lowercase ASCII, so byte distance tracks character distance.
+ * Adjacent transpositions (ab <-> ba, e.g. hcọ, thnàh, truogn) cost 1. */
 static guint edit_distance_cap(const gchar *a, const gchar *b, guint cap) {
     gsize na = strlen(a), nb = strlen(b);
     if (na > nb + cap || nb > na + cap) return cap + 1;
-    /* Two rows; lengths are short words (<= 64 by gtv_word_key). */
-    guint prev[65], cur[65];
+    /* Three rows for transposition; lengths are <= 64 by gtv_word_key. */
+    guint prev2[65], prev[65], cur[65];
     if (na > 64 || nb > 64) return cap + 1;
     for (gsize j = 0; j <= nb; j++) prev[j] = (guint)j;
     for (gsize i = 1; i <= na; i++) {
@@ -427,31 +506,65 @@ static guint edit_distance_cap(const gchar *a, const gchar *b, guint cap) {
             guint del = prev[j] + 1, ins = cur[j - 1] + 1, sub = prev[j - 1] + cost;
             guint m = del < ins ? del : ins;
             m = m < sub ? m : sub;
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) {
+                guint trans = prev2[j - 2] + 1;
+                if (trans < m) m = trans;
+            }
             cur[j] = m;
             if (m < row_min) row_min = m;
         }
         if (row_min > cap) return cap + 1;
+        memcpy(prev2, prev, (nb + 1) * sizeof(guint));
         memcpy(prev, cur, (nb + 1) * sizeof(guint));
     }
     return prev[nb];
 }
 
+/* Score how well a candidate preserves the user's already-typed diacritics
+ * (â, ă, ê, ô, ơ, ư, đ) and tones. */
+static guint compute_mark_affinity(const gchar *typed_lower, const gchar *cand_word) {
+    guint score = 0;
+    for (const gchar *pa = typed_lower; *pa; pa = g_utf8_next_char(pa)) {
+        gunichar ca = g_utf8_get_char(pa);
+        int da = get_diac(ca);
+        int ta = get_tone(ca);
+        if (da == DIAC_NONE && ta == TONE_NONE) continue;
+        gunichar ba = bare_lower(ca);
+        for (const gchar *pb = cand_word; *pb; pb = g_utf8_next_char(pb)) {
+            gunichar cb = g_utf8_get_char(pb);
+            if (bare_lower(cb) != ba) continue;
+            if (da != DIAC_NONE && get_diac(cb) == da) score += 2;
+            if (ta != TONE_NONE && get_tone(cb) == ta) score += 1;
+            break;
+        }
+    }
+    return score;
+}
+
 typedef struct {
     const gchar *word;
     guint dist;
+    guint first_rank;    /* 0 = same 1st char, 1 = c/k onset pair, 2 = other */
+    guint mark_affinity; /* higher = better match for typed diacritics/tones */
     gsize len_diff;
+    gsize prefix_match;  /* shared folded prefix length */
 } CorrectCand;
 
 static gint correct_cmp(gconstpointer a, gconstpointer b) {
     const CorrectCand *ca = a, *cb = b;
     if (ca->dist != cb->dist) return ca->dist < cb->dist ? -1 : 1;
+    if (ca->first_rank != cb->first_rank) return ca->first_rank < cb->first_rank ? -1 : 1;
+    if (ca->mark_affinity != cb->mark_affinity)
+        return ca->mark_affinity > cb->mark_affinity ? -1 : 1;
     if (ca->len_diff != cb->len_diff) return ca->len_diff < cb->len_diff ? -1 : 1;
+    if (ca->prefix_match != cb->prefix_match)
+        return ca->prefix_match > cb->prefix_match ? -1 : 1;
     return strcmp(ca->word, cb->word);
 }
 
-/* Corrections for a misspelled word: folded edit distance <= 2, ranked by
- * distance, then length closeness, then alphabetically. Accent variants
- * (distance 0, different word: hoa -> hòa) count as candidates. */
+/* Corrections for a misspelled word: folded Damerau-Levenshtein distance <= 2,
+ * ranked by distance, onset/first-letter match, diacritic/tone affinity,
+ * length closeness, shared prefix length, then alphabetically. */
 void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
     if (!word || !*word || !out || max == 0) return;
     gchar *lower = gtv_word_key(word);
@@ -482,7 +595,18 @@ void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
             guint d = edit_distance_cap(folded, e->folded, 2);
             if (d <= 2) {
                 if (d == 0) has_dist_zero = TRUE;
-                CorrectCand c = { e->word, d, diff };
+                guint first_rank = 2;
+                if (folded[0] && e->folded[0] == folded[0]) {
+                    first_rank = 0;
+                } else if ((folded[0] == 'k' && e->folded[0] == 'c') ||
+                           (folded[0] == 'c' && e->folded[0] == 'k')) {
+                    first_rank = 1;
+                }
+                guint mark_aff = has_non_ascii ? compute_mark_affinity(lower, e->word) : 0;
+                gsize pfx = 0;
+                while (folded[pfx] && e->folded[pfx] && folded[pfx] == e->folded[pfx])
+                    pfx++;
+                CorrectCand c = { e->word, d, first_rank, mark_aff, diff, pfx };
                 g_array_append_val(cands, c);
             }
         }

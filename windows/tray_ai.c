@@ -4,9 +4,6 @@
 #include "update.h"
 #include "internal.h"
 
-typedef struct { gchar *word; } AiJob;
-
-static volatile LONG ai_in_flight = 0;
 static CRITICAL_SECTION learned_lock;
 static GHashTable *w_learned_words = NULL;
 static GHashTable *w_learned_fixes = NULL;
@@ -43,17 +40,11 @@ static void w_learned_ensure(void) {
 }
 
 void gtv_tray_suggest_balloon(const gchar *typed, const gchar *correction) {
-    gtv_update_disown_balloon();
-    g_free(pending_typed);
-    g_free(pending_fix);
-    pending_typed = pending_fix = NULL;
-    if (!typed || !*typed || !correction || !*correction) return;
-    pending_typed = g_strdup(typed);
-    pending_fix = g_strdup(correction);
-    pending_ai_generation = ai_word_generation;
-    gchar *msg = g_strdup_printf("\"%s\" có thể bạn muốn gõ \"%s\"?", typed, correction);
-    gtv_tray_balloon("GoTV gợi ý", msg);
-    g_free(msg);
+    /* Disabled: spelling and typo suggestions are shown directly in the
+     * inline TSF candidate popup at the caret while typing, rather than
+     * popping up Windows tray toast/balloon notifications after Space. */
+    (void)typed;
+    (void)correction;
 }
 
 static void copy_to_clipboard(const gchar *utf8) {
@@ -163,43 +154,7 @@ void gtv_tray_ai_word(gchar *word) {
         return;
     }
     InterlockedIncrement(&ai_word_generation);
-    if (g_app.config.spellcheck && g_app.config.suggest_enabled && gtv_tray_should_check(word))
-        gtv_tray_check_spelling_async(word);
     g_free(word);
-}
-
-static gpointer ai_worker(gpointer data) {
-    AiJob *job = data;
-    GtvConfig cfg = {0};
-    cfg.suggest_enabled = TRUE;
-    GPtrArray *sugs = gtv_suggest_combined(&cfg, "", job->word, TRUE);
-    gchar *fix = NULL;
-    if (sugs && sugs->len > 0 && g_strcmp0(sugs->pdata[0], job->word) != 0)
-        fix = g_strdup(sugs->pdata[0]);
-    if (sugs) g_ptr_array_unref(sugs);
-    if (!fix) {
-        EnterCriticalSection(&learned_lock);
-        w_learned_ensure();
-        fix = gtv_fixes_lookup(w_learned_fixes, job->word);
-        LeaveCriticalSection(&learned_lock);
-        if (fix && !g_strcmp0(fix, job->word)) {
-            g_free(fix);
-            fix = NULL;
-        }
-    }
-    if (fix && g_app.hwnd_main) {
-        GtvAiResult *res = g_new(GtvAiResult, 1);
-        res->typed = job->word;
-        job->word = NULL;
-        res->fix = fix;
-        fix = NULL;
-        PostMessage(g_app.hwnd_main, WM_GTV_AI_RESULT, 0, (LPARAM)res);
-    }
-    g_free(fix);
-    g_free(job->word);
-    g_free(job);
-    InterlockedExchange(&ai_in_flight, 0);
-    return NULL;
 }
 
 gboolean gtv_tray_should_check(const gchar *word) {
@@ -215,20 +170,5 @@ gboolean gtv_tray_should_check(const gchar *word) {
 }
 
 void gtv_tray_check_spelling_async(const gchar *word) {
-    if (!word || InterlockedCompareExchange(&ai_in_flight, 1, 0) != 0) return;
-    AiJob *job = g_new0(AiJob, 1);
-    job->word = g_strdup(word);
-    if (!job->word) {
-        g_free(job);
-        InterlockedExchange(&ai_in_flight, 0);
-        return;
-    }
-    GThread *th = g_thread_new("gtv-ai-check", ai_worker, job);
-    if (!th) {
-        g_free(job->word);
-        g_free(job);
-        InterlockedExchange(&ai_in_flight, 0);
-        return;
-    }
-    g_thread_unref(th);
+    (void)word;
 }

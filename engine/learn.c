@@ -130,8 +130,10 @@ gboolean gtv_fixes_learn(GHashTable *map,const gchar *bad_word,const gchar *good
     if(!map)return FALSE;
     gchar *bad=gtv_word_key(bad_word),*good=gtv_word_key(good_word);
     if(!bad || !good || !strcmp(bad,good)){g_free(bad);g_free(good);return FALSE;}
-    if(g_hash_table_size(map)>=GTV_LEARNED_FIXES_MAX || g_hash_table_contains(map,bad)){g_free(bad);g_free(good);return FALSE;}
-    g_hash_table_insert(map,bad,good);
+    const gchar *existing = g_hash_table_lookup(map, bad);
+    if(existing && !strcmp(existing, good)){g_free(bad);g_free(good);return FALSE;}
+    if(!existing && g_hash_table_size(map)>=GTV_LEARNED_FIXES_MAX){g_free(bad);g_free(good);return FALSE;}
+    g_hash_table_replace(map,bad,good);
     return TRUE;
 }
 gchar *gtv_fixes_lookup(GHashTable *map,const gchar *word){

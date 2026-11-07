@@ -44,6 +44,19 @@ Windows (MSYS2 MinGW, hoặc `gtv ...` từ cmd):
 ./gtv.sh uninstall                 # gỡ silent + dọn Run/task/profile thừa
 ```
 
+Store direct-download installer (Windows/MSYS2 with Inno Setup):
+
+```sh
+make -f Makefile.win store-setup  # gotv-X.Y.Z-x64-store-setup.exe
+make -f Makefile.win store-staging # payload riêng tại release-pkg-store/
+```
+
+The Store variant is separate from the GitHub installer and disables the
+GitHub self-updater. `store-setup` creates an unsigned local installer; sign
+every `.exe`/`.dll` in `release-pkg-store/` and the installer itself with a
+Microsoft-trusted code-signing certificate before submission. CI signing
+configuration is documented in [Windows Store distribution](windows.md#microsoft-store).
+
 macOS: `./gtv.sh package` (zip `GoTV.app`), `./gtv.sh install` (chép vào
 `~/Library/Input Methods`), `./gtv.sh uninstall` (xóa app, giữ `~/.config`).
 
