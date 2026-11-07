@@ -21,7 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({ basePath = '/gotv/', active = 'h
             T
           </span>
           <span>GoTV</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold ml-1">v0.9.5</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold ml-1">v0.9.6</span>
         </a>
 
         <nav className="flex items-center gap-6 text-sm font-medium text-stone-600">

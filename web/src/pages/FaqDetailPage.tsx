@@ -23,7 +23,7 @@ export const FaqDetailPage: React.FC<FaqDetailPageProps> = ({ faq, basePath = '/
           <span>&rsaquo;</span>
           <a href={`${basePath}faq/`} className="hover:text-red-700">FAQ</a>
           <span>&rsaquo;</span>
-          <span className="text-stone-900 font-bold truncate max-w-[240px] sm:max-w-none">{faq.question}</span>
+          <span className="text-stone-900 font-bold truncate max-w-60 sm:max-w-none">{faq.question}</span>
         </nav>
 
         {/* Article Box */}

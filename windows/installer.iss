@@ -4,10 +4,10 @@
 ; Output: gotv-<x.y.z>-x64-setup.exe (per-user, no admin needed).
 
 #ifndef AppVersion
-  #define AppVersion "0.9.5"
+  #define AppVersion "0.9.6"
 #endif
 #ifndef AppVerNum
-  #define AppVerNum "0.9.5.0"
+  #define AppVerNum "0.9.6.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release-pkg"
@@ -47,9 +47,10 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; screen) and hangs in /VERYSILENT (unanswerable dialog).
 CloseApplications=no
 WizardStyle=modern
+DisableDirPage=yes
 DisableProgramGroupPage=yes
+DisableReadyPage=yes
 UninstallDisplayIcon={app}\ver\{#AppVersion}\gotv.exe
-LicenseFile=..\LICENSE
 SetupIconFile=icons\gotv.ico
 ShowLanguageDialog=no
 

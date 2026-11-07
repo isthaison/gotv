@@ -131,10 +131,11 @@ static gpointer setup_worker(gpointer data) {
 
     size_t cmdlen = wcslen(ps_path) + wcslen((WCHAR *)wscript) + 256;
     WCHAR *cmd = g_new0(WCHAR, cmdlen);
-    /* Bypass policy for this one signed-off command line; no profile,
-     * non-interactive, hidden window. */
+    /* No profile, non-interactive, hidden window. Do NOT use -ExecutionPolicy Bypass
+     * as that triggers corporate EDR/Antivirus heuristics (CL.Downloader!gen74).
+     * Get/Set-WinUserLanguageList are built-in cmdlets and do not require bypass. */
     swprintf(cmd, cmdlen,
-             L"\"%ls\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"%ls\"",
+             L"\"%ls\" -NoProfile -NonInteractive -Command \"%ls\"",
              ps_path, (WCHAR *)wscript);
     g_free(wscript);
 

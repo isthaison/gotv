@@ -458,7 +458,7 @@ static gchar *ps_run(const gchar *script, gint *exit_code, GError **error) {
     }
     size_t cmdlen = wcslen(ps_path) + wcslen((WCHAR *)wscript) + 128;
     WCHAR *cmd = g_new0(WCHAR, cmdlen);
-    swprintf(cmd, cmdlen, L"\"%ls\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"%ls\"",
+    swprintf(cmd, cmdlen, L"\"%ls\" -NoProfile -NonInteractive -Command \"%ls\"",
              ps_path, (WCHAR *)wscript);
     g_free(wscript);
 

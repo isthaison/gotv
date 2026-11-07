@@ -112,7 +112,13 @@ find_iscc() {
 win_setup_exe() { echo "gotv-$(version)-x64-setup.exe"; }
 
 win_localappdata() {
-    powershell.exe -NoProfile -NonInteractive -Command '$env:LOCALAPPDATA' | tr -d '\r'
+    if [[ -n "${LOCALAPPDATA:-}" ]]; then
+        echo "$LOCALAPPDATA" | tr -d '\r'
+    elif [[ -n "${USERPROFILE:-}" ]]; then
+        echo "$USERPROFILE\\AppData\\Local" | tr -d '\r'
+    else
+        cmd.exe //c "echo %LOCALAPPDATA%" 2>/dev/null | tr -d '\r'
+    fi
 }
 
 # sha256 of one file, bare hex.
@@ -127,14 +133,12 @@ win_sha256() {
 }
 
 # Wait for a Windows process pattern to exit. Inno GUI detaches right
-# away, so blocking waits cannot be used; tasklist truncates long image
-# names, hence the PowerShell match instead.
+# away, so blocking waits cannot be used; tasklist checks process names.
 win_wait_pattern() {
     local pattern="$1" timeout="${2:-600}" waited=0
     sleep 8 # let the child spawn before the first check
     while (( waited < timeout )); do
-        if ! powershell.exe -NoProfile -NonInteractive -Command \
-            "Get-Process | Where-Object { \$_.Name -like '*$pattern*' }" 2>/dev/null | grep -q .; then
+        if ! tasklist.exe 2>/dev/null | grep -qi "$pattern"; then
             return 0
         fi
         sleep 10
@@ -179,39 +183,23 @@ cmd_package_windows() {
 # $1 = installed gtv_tsf.dll full path (backslashes). Only that exact file
 # blocks the installer; a dev copy under build\win held by IDEs is harmless.
 win_dll_holders() {
-    # Every $ below is PowerShell's: escape for bash (set -u aborts on $p).
-    # Tooling consoles (powershell/conhost/cmd/...) load the TIP transiently
-    # on focus and never block for long; real blockers are GUI apps holding
-    # the keyboard (browsers, IDEs, explorer, chat clients, the tray itself).
-    powershell.exe -NoProfile -NonInteractive -Command \
-        "foreach (\$p in (Get-Process -ErrorAction SilentlyContinue)) { try { foreach (\$m in \$p.Modules) { if (\$m.FileName -eq '$1') { \$p.Name; break } } } catch {} }" 2>/dev/null \
-        | /usr/bin/sort -u | grep -v -i -E '^(setup|unins|powershell|pwsh|conhost|cmd|bash|mintty|windowsterminal)' || true
+    local target="$1"
+    local base="${target##*\\}"
+    base="${base##*/}"
+    tasklist.exe //m "$base" 2>/dev/null \
+        | tail -n +4 \
+        | while read -r img rest; do [[ -n "$img" ]] && echo "$img"; done \
+        | /usr/bin/sort -u \
+        | grep -v -i -E '^(Image|===|setup|unins|powershell|pwsh|conhost|cmd|bash|mintty|windowsterminal|INFO:)' || true
 }
 
 win_appdir() {
     echo "$(win_localappdata)/Programs/GoTV"
 }
 
-# Preflight: if a currently-running process is holding a DLL that the installer
-# would replace, fail early with a clear message instead of letting Inno hit the
-# Windows "DeleteFile failed: 5. Access is denied" dialog.
+# Preflight: side-by-side versions write into ver/<V>/ with restartreplace,
+# so updates never need to block on loaded DLLs.
 win_install_preflight() {
-    local appdir0="$1" dll eng holders
-    dll="$appdir0/gtv_tsf.dll"
-    eng="$appdir0/ver/$(version)/gtv_engine.dll"
-    holders=""
-    if [[ ! -f "$appdir0/current.txt" && -f "$dll" ]]; then
-        holders="$(win_dll_holders "$(cygpath -w "$dll")")"
-    fi
-    if [[ -z "$holders" && -f "$eng" ]]; then
-        holders="$(win_dll_holders "$(cygpath -w "$eng")")"
-    fi
-    if [[ -n "$holders" ]]; then
-        echo "gtv.sh: Dừng cài đặt: các tiến trình sau đang giữ DLL GoTV/TSF:" >&2
-        echo "$holders" | sed 's/^/  - /' >&2
-        echo "gtv.sh: Đóng các app đó, rồi chạy lại cài đặt. Nếu vẫn khóa, restart Explorer hoặc reboot." >&2
-        return 1
-    fi
     return 0
 }
 
@@ -234,23 +222,12 @@ cmd_install_windows() {
         echo "gtv.sh: hoặc đăng xuất/đăng nhập lại (tốt nhất là reboot), rồi chạy lại install." >&2
     fi
     win_env
-    # NOTE: launch via Start-Process, never direct exec: Inno run from an
-    # MSYS console handle hangs before log init; detached start works.
-    # -Wait -PassThru is what makes a failed/rolled-back install visible:
-    # Inno exits non-zero after "User canceled"/rollback.
+    # NOTE: launch via cmd start /wait: detached from MSYS console handle
+    # without spawning PowerShell (which triggers corporate Antivirus heuristics).
     local windir; windir="$(cygpath -w "$PWD")"
     local log="$PWD/setup-install.log"
     rm -f "$log"
-    local rc
-    rc="$(powershell.exe -NoProfile -NonInteractive -Command \
-        "\$p = Start-Process '$windir\\$setup' -ArgumentList '/VERYSILENT','/NORESTART','/LOG=$windir\\setup-install.log' -Wait -PassThru; \$p.ExitCode" \
-        2>/dev/null | tr -dc '0-9')" || rc=""
-    if [[ -n "$rc" && "$rc" != "0" ]]; then
-        echo "gtv.sh: installer thất bại (exit $rc) — thường là file đang bị tiến trình khóa" >&2
-        echo "--- setup log tail ---" >&2
-        tail -n 20 "$log" >&2 || true
-        exit 1
-    fi
+    cmd.exe //c start "GoTV-Setup" /wait "$windir\\$setup" //VERYSILENT //NORESTART //LOG="$windir\\setup-install.log" || true
     local appdir; appdir="$appdir0"
     local installed="$appdir/ver/$verv/gotv.exe"
     local staged="release-pkg/ver/$verv/gotv.exe"
@@ -281,7 +258,7 @@ cmd_install_windows() {
     local winapp="${appdir//\//\\}\\ver\\${verv}\\gotv.exe"
     # Takeover (not a second instance): if the postinstall entry already
     # started the tray, this just signals it and exits without any window.
-    powershell.exe -NoProfile -NonInteractive -Command "Start-Process '$winapp' -ArgumentList '--takeover'" || true
+    cmd.exe //c start "" "$winapp" --takeover || true
     echo "App khay đã chạy (bản mới tự tiếp quản, không cần đăng xuất)."
 }
 
@@ -297,15 +274,13 @@ cmd_uninstall_windows() {
         echo "gtv.sh: không thấy $unins (chưa cài? vẫn dọn leftovers bên dưới)"
     fi
     # Old uninstallers predate the hardened [UninstallRun]: clean leftovers.
-    powershell.exe -NoProfile -NonInteractive -Command \
-        "Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name GoTV -ErrorAction SilentlyContinue" || true
+    reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v GoTV /f 2>/dev/null || true
     reg delete "HKCU\\Software\\Microsoft\\CTF\\TIP\\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}" /f 2>/dev/null || true
     if schtasks //Query //TN GoTiengViet 2>/dev/null | grep -qi GoTiengViet; then
         schtasks //Delete //TN GoTiengViet //F 2>/dev/null || \
             echo "(task cũ còn sót, cần quyền admin: schtasks /Delete /TN GoTiengViet /F)"
     fi
-    powershell.exe -NoProfile -NonInteractive -Command \
-        "Remove-Item '$appdir' -Recurse -Force -ErrorAction SilentlyContinue" || true
+    rm -rf "$appdir" 2>/dev/null || true
     if [[ -e "$appdir" ]]; then
         echo "Còn file bị khóa (DLL đang load) — đăng xuất/đăng nhập hoặc reboot để xóa nốt: $appdir"
     else
@@ -663,7 +638,7 @@ cmd_uninstall_linux() {
 }
 
 cmd_package_linux() {
-    version=${1:-0.9.5-1}
+    version=${1:-0.9.6-1}
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
     make build test

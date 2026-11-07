@@ -37,6 +37,7 @@ static DWORD WINAPI takeover_watcher(LPVOID param) {
     HWND hwnd = (HWND)param;
     HANDLE ev = CreateEventW(NULL, FALSE, FALSE, TAKEOVER_EVENT_NAME);
     if (!ev) return 1;
+    ResetEvent(ev);
     for (;;) {
         if (WaitForSingleObject(ev, INFINITE) != WAIT_OBJECT_0) break;
         PostMessageA(hwnd, WM_CLOSE, 0, 0);
