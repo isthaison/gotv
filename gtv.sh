@@ -45,7 +45,6 @@ Usage: $PROG <command> [args]   (OS detected: $OS)
                       linux: sudo $PROG install (DESTDIR=... to stage only)
                       windows: build setup.exe + silent install + start app
                       mac: copy GoTV.app to ~/Library/Input Methods
-  install-ollama    legacy alias (Ollama suggestions removed; dictionary is built in)
   uninstall         remove installed files + registry/task/profile leftovers
   package [VER]     OS-native installer (linux: .deb | windows: setup.exe | mac: .zip)
   bump X.Y.Z ["notes"]  bump version everywhere (single writer)
@@ -186,70 +185,11 @@ win_dll_holders() {
     # the keyboard (browsers, IDEs, explorer, chat clients, the tray itself).
     powershell.exe -NoProfile -NonInteractive -Command \
         "foreach (\$p in (Get-Process -ErrorAction SilentlyContinue)) { try { foreach (\$m in \$p.Modules) { if (\$m.FileName -eq '$1') { \$p.Name; break } } } catch {} }" 2>/dev/null \
-        | sort -u | grep -v -i -E '^(setup|unins|powershell|pwsh|conhost|cmd|bash|mintty|windowsterminal)' || true
-}
-
-# One-time migration helper: rename the held flat-layout gtv_tsf.dll aside
-# (loaded images can be renamed even when they cannot be deleted/replaced),
-# so the installer lays a fresh stub without closing anything. Running apps
-# keep the old mapping under the new name; the tray deletes the spare when
-# free (engine/verdir.c). Falls back to the holder gate when rename fails.
-legacy_friendly_swap() {
-    local appdir0="$1" dll old
-    dll="$appdir0/gtv_tsf.dll"
-    old="$appdir0/gtv_tsf.prev.dll"
-    if [[ ! -f "$dll" ]]; then return 0; fi
-    rm -f "$old" 2>/dev/null || true
-    if mv -f "$dll" "$old" 2>/dev/null; then
-        echo "Đã dời gtv_tsf.dll cũ sang gtv_tsf.prev.dll (app đang mở giữ bản cũ, bản mới cài cạnh)."
-        return 0
-    fi
-    legacy_holder_gate "$appdir0" || return 1
-    return 0
-}
-
-# Legacy migration gate: the flat layout's gtv_tsf.dll (full engine) gets
-# replaced by the stable stub once, so holders must be gone first.
-# Prints holder names; returns 0 when free (or check impossible).
-# $1 = app dir (MSYS path). Only used when current.txt is absent.
-legacy_holder_gate() {
-    local appdir0="$1" dllpath holders
-    dllpath="${appdir0//\//\\}\\gtv_tsf.dll"
-    holders="$(win_dll_holders "$dllpath")"
-    # Only explorer left: a fresh explorer hasn't loaded the TIP yet, so
-    # restarting it (taskbar flashes once) usually frees the DLL.
-    if [[ "$holders" == "explorer" ]]; then
-        echo "Chỉ còn Explorer giữ DLL — restart Explorer rồi cài tiếp..."
-        powershell.exe -NoProfile -NonInteractive -Command \
-            "Stop-Process -Name explorer -Force" 2>/dev/null || true
-        sleep 8
-        holders="$(win_dll_holders "$dllpath")"
-    fi
-    if [[ -n "$holders" ]]; then
-        echo "gtv_tsf.dll đang bị giữ bởi:" >&2
-        echo "$holders" | sed 's/^/  - /' >&2
-        echo "Đóng các app đó (lưu việc trước), restart Explorer nếu cần," >&2
-        echo "rồi chạy lại. Kẹt cứng (OpenCode/IDE giữ DLL) -> reboot rồi cài ngay." >&2
-        if [[ -t 0 ]]; then
-            echo "Enter để kiểm tra lại, Ctrl+C để dừng..." >&2
-            read -r _
-            holders="$(win_dll_holders "$dllpath")"
-            [[ -z "$holders" ]] || { echo "Vẫn còn tiến trình giữ DLL, dừng cài." >&2; return 1; }
-        else
-            return 1
-        fi
-    fi
-    return 0
+        | /usr/bin/sort -u | grep -v -i -E '^(setup|unins|powershell|pwsh|conhost|cmd|bash|mintty|windowsterminal)' || true
 }
 
 win_appdir() {
-    local root; root="$(win_localappdata)/Programs"
-    # The legacy directory is ours only when the versioned TSF layout exists.
-    if [[ -f "$root/GoTiengViet/current.txt" && -f "$root/GoTiengViet/gtv_tsf.dll" ]]; then
-        echo "$root/GoTiengViet"
-    else
-        echo "$root/GoTV"
-    fi
+    echo "$(win_localappdata)/Programs/GoTV"
 }
 
 # Preflight: if a currently-running process is holding a DLL that the installer
@@ -260,7 +200,7 @@ win_install_preflight() {
     dll="$appdir0/gtv_tsf.dll"
     eng="$appdir0/ver/$(version)/gtv_engine.dll"
     holders=""
-    if [[ -f "$dll" ]]; then
+    if [[ ! -f "$appdir0/current.txt" && -f "$dll" ]]; then
         holders="$(win_dll_holders "$(cygpath -w "$dll")")"
     fi
     if [[ -z "$holders" && -f "$eng" ]]; then
@@ -293,14 +233,6 @@ cmd_install_windows() {
         echo "gtv.sh: (còn sót từ lần cài bị hủy). Cần đóng hết app đang dùng bàn phím" >&2
         echo "gtv.sh: hoặc đăng xuất/đăng nhập lại (tốt nhất là reboot), rồi chạy lại install." >&2
     fi
-    # New-world layout (current.txt present) only ADDS a ver\<V>\ payload dir,
-    # so loaded files can never block the installer: no holder gate, no
-    # forced closes, no logoff. The gate below stays for the one-time
-    # migration from the legacy flat layout (old gtv_tsf.dll gets replaced
-    # by the stable stub).
-    if [[ ! -f "$appdir0/current.txt" && -d "$appdir0" ]]; then
-        legacy_friendly_swap "$appdir0" || return 1
-    fi
     win_env
     # NOTE: launch via Start-Process, never direct exec: Inno run from an
     # MSYS console handle hangs before log init; detached start works.
@@ -322,7 +254,7 @@ cmd_install_windows() {
     local appdir; appdir="$appdir0"
     local installed="$appdir/ver/$verv/gotv.exe"
     local staged="release-pkg/ver/$verv/gotv.exe"
-    if [[ ! -f "$installed" && ! -f "$appdir/gotv.exe" ]]; then
+    if [[ ! -f "$installed" ]]; then
         echo "gtv.sh: install thất bại (thiếu payload $verv trong $appdir)" >&2
         echo "--- setup log tail ---" >&2
         tail -n 20 "$log" >&2 || true
@@ -346,14 +278,7 @@ cmd_install_windows() {
         fi
     fi
     echo "Đã cài: $appdir"
-    # Startup entries point at the versioned tray (stale ones self-forward);
-    # fall back to the legacy flat path when upgrading an old install.
-    local winapp
-    if [[ -f "$appdir/ver/$verv/gotv.exe" ]]; then
-        winapp="${appdir//\//\\}\\ver\\${verv}\\gotv.exe"
-    else
-        winapp="${appdir//\//\\}\\gotv.exe"
-    fi
+    local winapp="${appdir//\//\\}\\ver\\${verv}\\gotv.exe"
     # Takeover (not a second instance): if the postinstall entry already
     # started the tray, this just signals it and exits without any window.
     powershell.exe -NoProfile -NonInteractive -Command "Start-Process '$winapp' -ArgumentList '--takeover'" || true
@@ -738,7 +663,7 @@ cmd_uninstall_linux() {
 }
 
 cmd_package_linux() {
-    version=${1:-0.9.4-1}
+    version=${1:-0.9.5-1}
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
     make build test
@@ -855,11 +780,6 @@ cmd_bump() {
     echo "--- done (review with: git diff --stat) ---"
 }
 
-cmd_install_ollama() {
-    echo "gtv.sh: Ollama suggestions were removed; word suggestions now come"
-    echo "from the built-in offline dictionary (data/dict-vi.txt). Nothing to install."
-}
-
 command="${1:-help}"
 case "$command" in
     build)   shift; cmd_build "$@" ;;
@@ -867,10 +787,9 @@ case "$command" in
     vet)     cmd_vet ;;
     clean)   cmd_clean ;;
     install) cmd_install ;;
-    install-ollama) cmd_install_ollama ;;
     uninstall) cmd_uninstall ;;
     package) shift; cmd_package "${1:-}" ;;
     bump)    shift; cmd_bump "${1:?Usage: $PROG bump X.Y.Z [\"notes\"]}" "${2:-}" ;;
     help|--help|-h) cmd_help ;;
-    *) echo "Unknown command '$command'. Usage: $PROG <build|test|vet|clean|install|install-ollama|uninstall|package|bump|help>" >&2; exit 1 ;;
+    *) echo "Unknown command '$command'. Usage: $PROG <build|test|vet|clean|install|uninstall|package|bump|help>" >&2; exit 1 ;;
 esac

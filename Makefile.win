@@ -25,16 +25,21 @@ ARCH32_BUILD ?= build/win32
 
 include mk/common.mk
 
-CFLAGS ?= -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Iengine $(shell $(PKG_CONFIG) --cflags gio-2.0)
-# -loleaut32: windows/keyboard.c calls SysFreeString (BSTR) for the TSF profiles.
-LDFLAGS ?= $(shell $(PKG_CONFIG) --libs gio-2.0) -lm -mwindows -luser32 -lshell32 -ladvapi32 -lole32 -loleaut32 -luuid -lcomctl32
+GLIB_CFLAGS := $(shell $(PKG_CONFIG) --cflags gio-2.0)
+GLIB_LIBS := $(shell $(PKG_CONFIG) --libs gio-2.0)
 
-TSF_CXXFLAGS ?= -O2 -g -std=c++14 -Wall -Wextra -Wno-unused-parameter -Iengine -Iwindows/tsf $(shell $(PKG_CONFIG) --cflags gio-2.0)
+CFLAGS ?= -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Iengine $(GLIB_CFLAGS)
+# -loleaut32: windows/keyboard.c calls SysFreeString (BSTR) for the TSF profiles.
+LDFLAGS ?= $(GLIB_LIBS) -lm -mwindows -luser32 -lshell32 -ladvapi32 -lole32 -loleaut32 -luuid -lcomctl32
+
+TSF_CXXFLAGS ?= -O2 -g -std=c++14 -Wall -Wextra -Wno-unused-parameter -Iengine -Iwindows/tsf $(GLIB_CFLAGS)
 # Stable stub (registered once, almost never replaced): pure Win32, not even a
 # runtime DLL, so it always loads - see the note on the injected engine below.
 STUB_LDFLAGS ?= -shared windows/tsf/gtv_tsf.def -lole32 -loleaut32 -luuid -ladvapi32 -luser32 -mwindows -static-libgcc -static-libstdc++
 # Only stub_loader.cpp consumes this; tsf_register.cpp is shared unchanged.
 STUB_CXXFLAGS ?= $(TSF_CXXFLAGS) -DGTV_ENGINE_DLL_FILE=$(ENGINE_DLL_NAME)
+
+
 
 # --- Injected TSF engine: statically linked glib -------------------------
 # gtv_engine.dll is loaded by Windows into EVERY process that takes text
@@ -124,7 +129,7 @@ tsf32: $(TSF_TARGET) $(TSF_ENGINE_TARGET)
 
 # Recursive invocation used by staging(): build the same TSF sources with the
 # 32-bit toolchain into the parallel tree.
-ARCH32_MAKE = env PATH=$(MINGW32_PREFIX)/bin:$$PATH $(MAKE) -f Makefile.win BUILD_ROOT=$(ARCH32_BUILD) \
+ARCH32_MAKE = env "PATH=$(MINGW32_PREFIX)/bin:$$PATH" $(MAKE) -f Makefile.win BUILD_ROOT=$(ARCH32_BUILD) \
              CC=$(MINGW32_CC) CXX=$(MINGW32_CXX) AR=$(MINGW32_AR) \
              WINDRES=$(MINGW32_WINDRES) PKG_CONFIG=$(MINGW32_PKG_CONFIG) \
              ENGINE_DLL_NAME=gtv_engine32.dll
@@ -257,8 +262,6 @@ staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated check-t
 	cp $(ARCH32_BUILD)/win/gtv_tsf.dll $(STAGE)/gtv_tsf32.dll
 	cp $(TARGET) $(TSF_ENGINE_TARGET) $(VERDIR)/
 	cp $(ARCH32_BUILD)/win/gtv_engine.dll $(VERDIR)/gtv_engine32.dll
-	# Older payloads forward to this basename; same binary, no second implementation.
-	cp $(TARGET) $(VERDIR)/gotiengviet.exe
 	changed=1; \
 	while [ "$$changed" = 1 ]; do \
 	  changed=0; \

@@ -1,13 +1,13 @@
-; GoTV versioned installer (Inno Setup 6).
+﻿; GoTV versioned installer (Inno Setup 6).
 ; Built by CI: make -f Makefile.win setup VERSION=<x.y.z>
 ;   iscc.exe /Q "/DAppVersion=<x.y.z>" "/DAppVerNum=<x.y.z.0>" /DSourceDir=..\release-pkg windows/installer.iss
 ; Output: gotv-<x.y.z>-x64-setup.exe (per-user, no admin needed).
 
 #ifndef AppVersion
-  #define AppVersion "0.9.4"
+  #define AppVersion "0.9.5"
 #endif
 #ifndef AppVerNum
-  #define AppVerNum "0.9.4.0"
+  #define AppVerNum "0.9.5.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release-pkg"
@@ -107,7 +107,7 @@ Filename: "{syswow64}\regsvr32.exe"; Parameters: "/s ""{app}\gtv_tsf32.dll"""; F
 ; per-user Register/AddLanguageProfile always fail, leaving the keyboard
 ; invisible to Windows. Verb "runas" prompts for admin once.
 ; Skipped on updates (Check): no UAC prompt for day-to-day updates.
-Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--register-tsf"; Verb: "runas"; Flags: runhidden waituntilterminated shellexec; StatusMsg: "Dang ky keyboard GoTV voi he thong..."; Check: NeedsTsfProfile
+Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--register-tsf"; Verb: "runas"; Flags: waituntilterminated shellexec skipifsilent; StatusMsg: "Dang ky keyboard GoTV voi he thong..."; Check: NeedsTsfProfile
 ; Takeover: the new payload asks any running tray to exit gracefully.
 Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Parameters: "--takeover"; Description: "{cm:LaunchProgram,GoTV}"; Flags: nowait postinstall
 
@@ -152,12 +152,6 @@ end;
 
 function NeedsTsfProfile(): Boolean;
 begin
-  { Re-run elevated TSF registration when the Vietnamese profile is missing
-    or the stale English profile is still present —
-    one UAC prompt, then never again. }
   Result := not RegKeyExists(HKEY_LOCAL_MACHINE,
     'SOFTWARE\Microsoft\CTF\TIP\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\LanguageProfile\0x0000042a');
-  if not Result then
-    Result := RegKeyExists(HKEY_LOCAL_MACHINE,
-      'SOFTWARE\Microsoft\CTF\TIP\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\LanguageProfile\0x00000409');
 end;
