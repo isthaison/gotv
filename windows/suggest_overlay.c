@@ -258,8 +258,8 @@ static void overlay_paint(HWND hwnd) {
         } else {
             SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT));
         }
-        swprintf(label, sizeof(label) / sizeof(label[0]), L"%lu  %ls",
-                 (unsigned long)(i + 1), s_overlay.candidates[i]);
+        swprintf(label, sizeof(label) / sizeof(label[0]), L"%ls",
+                 s_overlay.candidates[i]);
         label[(sizeof(label) / sizeof(label[0])) - 1] = L'\0';
         row.left += indent;
         DrawTextW(dc, label, -1, &row,

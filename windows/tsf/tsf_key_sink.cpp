@@ -151,15 +151,10 @@ STDMETHODIMP CGtvTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPAR
         return S_OK;
     }
 
-    /* Suggestion navigation/selection (mirror IBus): Up/Down move, 1-5
-     * accept in Telex mode (in VNI digits are tone keys). Eaten only while
-     * the popup is visible. */
+    /* Suggestion navigation: Up/Down move (Tab accepts).
+     * Number keys 1-5 are NOT eaten so users can type numbers freely (e.g. an5).
+     * Eaten only while the popup is visible. */
     if ((wParam == VK_UP || wParam == VK_DOWN) && gtv_suggest_visible()) {
-        *pfEaten = TRUE;
-        return S_OK;
-    }
-    if (wParam >= '1' && wParam <= '5' && !(GetKeyState(VK_SHIFT) & 0x8000) &&
-        m_pEngine && m_pEngine->mode == GTV_TELEX && gtv_suggest_visible()) {
         *pfEaten = TRUE;
         return S_OK;
     }
@@ -258,17 +253,9 @@ STDMETHODIMP CGtvTextService::OnKeyDown(ITfContext *pic, WPARAM wParam, LPARAM l
         return S_OK;
     }
 
-    // Suggestion highlight navigation/selection (eaten in OnTestKeyDown).
+    // Suggestion highlight navigation (eaten in OnTestKeyDown; Tab accepts).
     if ((wParam == VK_UP || wParam == VK_DOWN) && gtv_suggest_visible()) {
         gtv_suggest_move_cursor(wParam == VK_DOWN ? 1 : -1);
-        *pfEaten = TRUE;
-        return S_OK;
-    }
-    if (wParam >= '1' && wParam <= '5' && !(GetKeyState(VK_SHIFT) & 0x8000) &&
-        m_pEngine && m_pEngine->mode == GTV_TELEX && gtv_suggest_visible()) {
-        gint idx = (gint)(wParam - '1');
-        if (idx < gtv_suggest_count())
-            gtv_suggest_accept_index(this, pic, idx);
         *pfEaten = TRUE;
         return S_OK;
     }

@@ -81,6 +81,15 @@ int main(int argc,char **argv) {
     g_assert_cmpstr(e->candidates[0],==,"thông");
     e->config.suggest_enabled=FALSE;
     g_assert_cmpint(e->n_candidates,<=,5);
+    /* Number keys 1..5 must NOT select candidates in Telex mode (e.g. typing an5). */
+    ibus_gotv_engine_reset(e);
+    e->mode_telex=TRUE;e->config.suggest_enabled=TRUE;
+    g_assert_true(ibus_gotv_engine_process_key_event(engine,IBUS_a,0,0));
+    g_assert_true(ibus_gotv_engine_process_key_event(engine,IBUS_n,0,0));
+    for(guint i=0;i<150 && !e->n_candidates;i++){while(g_main_context_iteration(NULL,FALSE));g_usleep(10000);}
+    ibus_gotv_engine_process_key_event(engine,IBUS_5,0,0);
+    g_assert_cmpstr(e->preedit->str,!=,"ảnh");
+    e->config.suggest_enabled=FALSE;
     /* Only explicitly accepted dictionary candidates are persisted. */
     g_assert_false(word_valid(e,"kông"));
     e->candidates_from_dict=FALSE;learn_candidate(e,"kông");

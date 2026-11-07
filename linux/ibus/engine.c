@@ -390,6 +390,7 @@ static gboolean ibus_gotv_engine_process_key_event(IBusEngine *engine, guint key
             learn_candidate(e,e->candidates[e->cand_cursor]);
             g_string_assign(e->preedit, e->candidates[e->cand_cursor]);
             push_preedit(e, engine, e->preedit->len, TRUE);
+            hide_suggest(e, engine);
             return TRUE;
         }
         if(e->preedit->len>0){
@@ -404,29 +405,10 @@ static gboolean ibus_gotv_engine_process_key_event(IBusEngine *engine, guint key
         }
         return FALSE;
     }
-    // 1..5 chọn nhanh, Up/Down di chuyển, Esc bỏ bảng gợi ý.
-    // Không có Enter ở đây: Enter phải commit nguyên chữ đang gõ, không
-    // được áp gợi ý/emoji (xem nhánh commit literal cuối hàm). Nhánh này chạy
-    // trước nên chỉ cần bỏ Enter là Enter rơi xuống đúng chỗ đó.
+    // Up/Down di chuyển con trỏ gợi ý, Esc bỏ bảng gợi ý (chọn bằng Tab).
+    // Phím số 1..5 không bắt để tránh nuốt số khi gõ (vd: an5, test1...).
+    // Enter commit nguyên chữ đang gõ.
     if(e->n_candidates>0 && e->candidates){
-        if(e->mode_telex && ((keyval>=IBUS_1 && keyval<=IBUS_5) || (keyval>=IBUS_KP_1 && keyval<=IBUS_KP_5))){
-            int idx = (keyval>=IBUS_1 && keyval<=IBUS_5) ? (keyval - IBUS_1) : (keyval - IBUS_KP_1);
-            if(idx < e->n_candidates){
-                learn_candidate(e,e->candidates[idx]);
-                g_string_assign(e->preedit, e->candidates[idx]);
-                gchar *word=expand_emoji(e->preedit->str);
-                if(!word) word=g_strdup(e->preedit->str);
-                update_context(e, word);
-                IBusText *t=ibus_text_new_from_string(word);
-                g_free(word);
-                commit_and_remember(engine,t);
-                ibus_gotv_engine_reset(e);
-                IBusText *empty=ibus_text_new_from_string("");
-                ibus_engine_update_preedit_text(engine,empty,0,FALSE);
-                hide_suggest(e, engine);
-                return TRUE;
-            }
-        }
         if(keyval==IBUS_Up || keyval==IBUS_Down){
             if(keyval==IBUS_Down) e->cand_cursor=(e->cand_cursor+1)%e->n_candidates;
             else e->cand_cursor=(e->cand_cursor+e->n_candidates-1)%e->n_candidates;
