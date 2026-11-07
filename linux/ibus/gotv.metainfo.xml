@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.4" date="2026-11-07">
+      <description>
+        <p>Bỏ chọn gợi ý bằng phím số 1-5 (tránh nuốt số khi gõ như an5), điều hướng Up/Down và chọn bằng Tab; nâng cấp web SSG React 19 và Tailwind v4.</p>
+      </description>
+    </release>
     <release version="0.9.3" date="2026-10-31">
       <description>
         <p>Hỗ trợ gõ tiếng Việt trên ứng dụng 32-bit (Zalo) và sửa lỗi vị trí khung gợi ý trên trình duyệt và ứng dụng Electron</p>
