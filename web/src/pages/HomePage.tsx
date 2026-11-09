@@ -40,7 +40,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               className="inline-flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-3 rounded-xl transition shadow-md hover:shadow-lg text-sm sm:text-base"
             >
               <Download className="w-5 h-5" />
-              <span>Tải bản mới nhất (v0.9.6)</span>
+              <span>Tải bản mới nhất (v0.9.9)</span>
             </a>
             <a
               href="https://github.com/isthaison/gotv"

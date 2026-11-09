@@ -51,7 +51,7 @@ jobs:
             VER="${GITHUB_REF#refs/tags/v}"
           else
             VER="$(sed -n 's/^#define GTV_VERSION "\(.*\)"/\1/p' windows/version.h)"
-            [ -n "$VER" ] || VER="0.9.8"
+            [ -n "$VER" ] || VER="0.9.9"
           fi
           VERNUM="$(echo "$VER" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/').0"
           case "$VERNUM" in
@@ -71,6 +71,11 @@ jobs:
         run: |
           make -f Makefile.win staging
 
+      - name: Stage Store installer tree
+        shell: msys2 {0}
+        run: |
+          make -f Makefile.win store-staging
+
       - name: Build versioned installer
         shell: msys2 {0}
         env:
@@ -78,6 +83,54 @@ jobs:
         run: |
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" /Q "/DAppVersion=$APP_VERSION" "/DAppVerNum=$APP_VERNUM" "/DSourceDir=..\\release-pkg" windows/installer.iss
           ls -la gotv-*-x64-setup.exe
+
+      - name: Build Store direct-download installer
+        shell: powershell
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc /Q "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg-store' /DStoreSubmission windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+          Get-Item "gotv-$env:APP_VERSION-x64-store-setup.exe" | Select-Object Name,Length
+
+      # Store submission files must use a certificate chaining to a CA in
+      # Microsoft's Trusted Root Program. Configure the repository variable
+      # and secrets documented in docs/windows.md; never use the self-signed
+      # GitHub release certificate for this package.
+      - name: Sign and verify Store package
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true'
+        shell: powershell
+        env:
+          STORE_SIGNING_CERT_PFX_B64: ${{ secrets.STORE_SIGNING_CERT_PFX_B64 }}
+          STORE_SIGNING_CERT_PASSWORD: ${{ secrets.STORE_SIGNING_CERT_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:STORE_SIGNING_CERT_PFX_B64) -or
+              [string]::IsNullOrWhiteSpace($env:STORE_SIGNING_CERT_PASSWORD)) {
+            throw 'Store signing is enabled but the signing certificate secrets are not configured.'
+          }
+          $certPath = Join-Path $env:RUNNER_TEMP 'gotv-store-signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:STORE_SIGNING_CERT_PFX_B64))
+            .\tools\sign-windows-binaries.ps1 -Path release-pkg-store -CertificatePath $certPath -Password $env:STORE_SIGNING_CERT_PASSWORD
+            $env:STORE_SIGNING_CERT_PATH = $certPath
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+            $signScript = Join-Path $PWD 'tools\sign-inno-output.ps1'
+            $signCommand = 'powershell.exe -NoProfile -File $q' + $signScript + '$q $f'
+            & $iscc /Q "/Sstore=$signCommand" "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg-store' /DStoreSubmission /DStoreSigning windows\installer.iss
+            if ($LASTEXITCODE -ne 0) { throw "Signed Store installer compile failed with exit code $LASTEXITCODE" }
+            .\tools\sign-windows-binaries.ps1 -Path "gotv-$env:APP_VERSION-x64-store-setup.exe" -CertificatePath $certPath -Password $env:STORE_SIGNING_CERT_PASSWORD -VerifyOnly
+          } finally {
+            Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\STORE_SIGNING_CERT_PATH -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload signed Store installer
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gotv-windows-store-installer
+          path: gotv-*-x64-store-setup.exe
+          if-no-files-found: error
 
       # ── Code signing (self-signed cert + osslsigncode) ────────────
       - name: Sign installer with self-signed cert
@@ -123,5 +176,13 @@ jobs:
             gotv-*-x64-setup.exe
             gotiengviet-*-x64-setup.exe
             data/dict-*.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Store Release Asset (on Tag)
+        if: startsWith(github.ref, 'refs/tags/v') && vars.STORE_SIGNING_ENABLED == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gotv-*-x64-store-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

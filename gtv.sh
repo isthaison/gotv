@@ -745,6 +745,23 @@ cmd_bump() {
     done
     if [[ -f site/index.html ]]; then
         sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$ver\"/" site/index.html
+        sed -i -E "s/>v[0-9]+\.[0-9]+\.[0-9]+</>v$ver</g" site/index.html
+        sed -i -E "s/\(v[0-9]+\.[0-9]+\.[0-9]+\)/(v$ver)/g" site/index.html
+    fi
+    if [[ -f web/package.json ]]; then
+        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$ver\"/" web/package.json
+    fi
+    if [[ -f web/package-lock.json ]]; then
+        sed -i '1,15 s/"version": "[^"]*"/"version": "'"$ver"'"/' web/package-lock.json
+    fi
+    if [[ -f web/scripts/prerender.js ]]; then
+        sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$ver\"/" web/scripts/prerender.js
+    fi
+    if [[ -f web/src/components/Navbar.tsx ]]; then
+        sed -i -E "s/>v[0-9]+\.[0-9]+\.[0-9]+</>v$ver</g" web/src/components/Navbar.tsx
+    fi
+    if [[ -f web/src/pages/HomePage.tsx ]]; then
+        sed -i -E "s/\(v[0-9]+\.[0-9]+\.[0-9]+\)/(v$ver)/g" web/src/pages/HomePage.tsx
     fi
 
     echo "--- bumped $old -> $ver ---"

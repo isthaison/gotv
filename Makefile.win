@@ -135,7 +135,11 @@ tsf32: $(TSF_TARGET) $(TSF_ENGINE_TARGET)
 
 # Recursive invocation used by staging(): build the same TSF sources with the
 # 32-bit toolchain into the parallel tree.
-ARCH32_MAKE = env "PATH=$(MINGW32_PREFIX)/bin:$$PATH" $(MAKE) -f Makefile.win BUILD_ROOT=$(ARCH32_BUILD) \
+ARCH32_MAKE = env "PATH=$(MINGW32_PREFIX)/bin:$$PATH" \
+             "PKG_CONFIG_PATH=$(MINGW32_PREFIX)/lib/pkgconfig:$(MINGW32_PREFIX)/share/pkgconfig" \
+             "PKG_CONFIG_SYSTEM_INCLUDE_PATH=$(MINGW32_PREFIX)/include" \
+             "PKG_CONFIG_SYSTEM_LIBRARY_PATH=$(MINGW32_PREFIX)/lib" \
+             $(MAKE) -f Makefile.win BUILD_ROOT=$(ARCH32_BUILD) \
              CC=$(MINGW32_CC) CXX=$(MINGW32_CXX) AR=$(MINGW32_AR) \
              WINDRES=$(MINGW32_WINDRES) PKG_CONFIG=$(MINGW32_PKG_CONFIG) \
              ENGINE_DLL_NAME=gtv_engine32.dll

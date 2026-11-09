@@ -1,4 +1,4 @@
-; GoTV versioned installer (Inno Setup 6).
+﻿; GoTV versioned installer (Inno Setup 6).
 ; Built by CI: make -f Makefile.win setup VERSION=<x.y.z>
 ;   iscc.exe /Q "/DAppVersion=<x.y.z>" "/DAppVerNum=<x.y.z.0>" /DSourceDir=..\release-pkg windows/installer.iss
 ; Output: gotv-<x.y.z>-x64-setup.exe (per-user, no admin needed).
