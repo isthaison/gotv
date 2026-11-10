@@ -170,11 +170,11 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-4 font-semibold text-stone-900">🍎 macOS</td>
-                  <td className="p-4 font-mono text-xs text-stone-600">.dmg / .pkg / .zip</td>
+                  <td className="p-4 font-semibold text-stone-900">🍎 macOS (Apple Silicon &amp; Intel)</td>
+                  <td className="p-4 font-mono text-xs text-stone-600">gotv-*-macos.pkg / .dmg</td>
                   <td className="p-4">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                      🧪 Thử nghiệm
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Ổn định (Native IMK)
                     </span>
                   </td>
                 </tr>

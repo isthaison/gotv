@@ -36,7 +36,7 @@ export const OsSelector: React.FC = () => {
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          🍎 macOS (Preview)
+          🍎 macOS (Native IMK)
         </button>
       </div>
 
@@ -47,7 +47,7 @@ export const OsSelector: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-red-50/60 p-4 rounded-xl border border-red-100">
               <div>
                 <h4 className="font-bold text-stone-900 text-base">Bộ cài đặt GoTV cho Windows</h4>
-                <p className="text-xs text-stone-600">Hỗ trợ Windows 10 & 11 (TSF 64-bit & WOW64 32-bit cho Zalo). Không cần quyền Admin.</p>
+                <p className="text-xs text-stone-600">Hỗ trợ Windows 10 &amp; 11 (TSF 64-bit &amp; WOW64 32-bit cho Zalo). Không cần quyền Admin.</p>
               </div>
               <a
                 href="https://github.com/isthaison/gotv/releases/latest"
@@ -103,8 +103,8 @@ sudo ./gtv.sh install`}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-stone-50 p-4 rounded-xl border border-stone-200">
               <div>
-                <h4 className="font-bold text-stone-900 text-base">Bản thử nghiệm cho macOS (.dmg / .pkg)</h4>
-                <p className="text-xs text-stone-600">Dành cho macOS Monterey, Ventura, Sonoma và Sequoia.</p>
+                <h4 className="font-bold text-stone-900 text-base">Bộ cài đặt GoTV cho macOS (.pkg / .dmg)</h4>
+                <p className="text-xs text-stone-600">Chuẩn Apple InputMethodKit (IMK), hỗ trợ macOS Monterey, Ventura, Sonoma &amp; Sequoia.</p>
               </div>
               <a
                 href="https://github.com/isthaison/gotv/releases/latest"
@@ -112,17 +112,21 @@ sudo ./gtv.sh install`}
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-5 py-2.5 rounded-xl transition shadow-sm text-sm shrink-0"
               >
-                <Download className="w-4 h-4" /> Tải về cho macOS
+                <Download className="w-4 h-4" /> Tải gotv-*-macos.pkg / .dmg
               </a>
             </div>
             <div className="text-sm text-stone-600 space-y-2">
               <p className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Cài đặt vào thư mục <code>~/Library/Input Methods/</code>.</span>
+                <span>Chạy gói cài đặt <code>.pkg</code> (hoặc kéo <code>GoTV.app</code> vào <code>/Library/Input Methods/</code>).</span>
               </p>
               <p className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Mở lần đầu: Chuột phải &rarr; <strong>Open</strong> để bỏ qua Gatekeeper (unidentified developer).</span>
+                <span>Vào <strong>System Settings &rarr; Keyboard &rarr; Input Sources</strong> &rarr; Bấm dấu <strong>+</strong> &rarr; Chọn <strong>Vietnamese &rarr; GoTV</strong>.</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                <span>Chuẩn native Apple IMK: Gõ mượt mà không gạch chân, hỗ trợ Terminal (Ghostty, iTerm2, Kitty...), có thanh ứng viên gợi ý Candidate List.</span>
               </p>
             </div>
           </div>
