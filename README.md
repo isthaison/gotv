@@ -134,7 +134,6 @@ ibus-setup-gotv --cli      # terminal
 
 Dự án phát triển hoàn toàn vì cộng đồng và rất trân trọng mọi sự chung tay:
 - Xem **[Hướng dẫn đóng góp (CONTRIBUTING.md)](CONTRIBUTING.md)** để biết cách gửi báo cáo lỗi, đóng góp từ điển, macro hoặc mã nguồn.
-- Tài liệu bài viết mẫu cho cộng đồng: **[docs/community-posts.md](docs/community-posts.md)**.
 - Thảo luận và góp ý tính năng mới tại **[GitHub Discussions](https://github.com/isthaison/gotv/discussions)** hoặc [GitHub Issues](https://github.com/isthaison/gotv/issues).
 - Mọi đóng góp code cần vượt qua kiểm thử: `./gtv.sh test` (Linux/macOS) hoặc `.\gtv.cmd test` (Windows).
 
