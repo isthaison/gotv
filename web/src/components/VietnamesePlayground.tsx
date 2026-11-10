@@ -20,15 +20,13 @@ import {
 } from '../engine/gotvWasmEngine';
 
 export const VietnamesePlayground: React.FC = () => {
-  const [text, setText] = useState('Gõ tiếng Việt cực nhanh với GoTV! Hãy gõ thử: duocjwd -> được');
+  const [text, setText] = useState('');
   const [mode, setMode] = useState<GtvMode>('telex');
   const [modern, setModern] = useState<boolean>(true);
   const [enabled, setEnabled] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [analysis, setAnalysis] = useState<SyllableAnalysis | null>(() =>
-    analyzeSyllable('được')
-  );
+  const [analysis, setAnalysis] = useState<SyllableAnalysis | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const simulationTimeoutRef = useRef<number | null>(null);
@@ -122,16 +120,15 @@ export const VietnamesePlayground: React.FC = () => {
   const handleClear = () => {
     setText('');
     setAnalysis(null);
-    if (textareaRef.current) {
+    if (textareaRef.current && window.innerWidth >= 768) {
       textareaRef.current.focus();
     }
   };
 
   const handleReset = () => {
-    const defaultSentence = 'Gõ tiếng Việt cực nhanh với GoTV! Hãy gõ thử: duocjwd -> được';
-    setText(defaultSentence);
-    setAnalysis(analyzeSyllable('được'));
-    if (textareaRef.current) {
+    setText('');
+    setAnalysis(null);
+    if (textareaRef.current && window.innerWidth >= 768) {
       textareaRef.current.focus();
     }
   };
@@ -157,10 +154,12 @@ export const VietnamesePlayground: React.FC = () => {
         setIsSimulating(false);
         updateCurrentWordAnalysis(baseText + buf.join(''), (baseText + buf.join('')).length);
         if (textareaRef.current) {
-          textareaRef.current.focus();
           const len = (baseText + buf.join('')).length;
           textareaRef.current.selectionStart = len;
           textareaRef.current.selectionEnd = len;
+          if (window.innerWidth >= 768) {
+            textareaRef.current.focus();
+          }
         }
         return;
       }
@@ -309,10 +308,10 @@ export const VietnamesePlayground: React.FC = () => {
           onKeyDown={handleKeyDown}
           onChange={handleTextChange}
           onSelect={handleSelect}
-          placeholder="Nhấp vào đây và bắt đầu gõ thử (ví dụ: duocjwd -> được)..."
+          placeholder="Gõ tiếng Việt cực nhanh với GoTV! Hãy gõ thử: duocjwd -> được"
           rows={3}
           disabled={isSimulating}
-          className="w-full bg-stone-950 border border-stone-800 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 pb-12 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-base leading-relaxed resize-none shadow-inner transition"
+          className="w-full bg-stone-950 border border-stone-800 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 pb-12 text-stone-100 placeholder-stone-500 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-base leading-relaxed resize-none shadow-inner transition"
         />
 
         {/* Text Actions Floating in Editor */}
@@ -393,8 +392,9 @@ export const VietnamesePlayground: React.FC = () => {
           <button
             onClick={handleReset}
             className="text-stone-500 hover:text-stone-300 text-[11px] transition active:scale-95"
+            title="Xóa sạch nội dung đang gõ"
           >
-            Đặt lại mẫu
+            Xóa sạch
           </button>
         </div>
 

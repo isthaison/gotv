@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { VietnamesePlayground } from '../components/VietnamesePlayground';
@@ -13,23 +13,29 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.location.hash) {
+      window.scrollTo(0, 0);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#faf7f2] text-[#2b2320]">
       <Navbar basePath={basePath} active="home" />
 
-      <main className="flex-1 max-w-5xl mx-auto px-4 py-8 w-full">
+      <main className="flex-1 max-w-5xl mx-auto px-4 py-4 sm:py-8 w-full">
         {/* Hero Section */}
-        <section className="text-center py-12 md:py-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-100 text-red-800 text-xs font-bold mb-6">
+        <section className="text-center py-4 sm:py-10 md:py-16">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-100 text-red-800 text-xs font-bold mb-3 sm:mb-6">
             <Sparkles className="w-4 h-4 text-red-600" />
             <span>Mã nguồn mở 100% · Lõi C thuần · Hoạt động ngoại tuyến</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-stone-900 leading-tight mb-4">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-stone-900 leading-tight mb-3 sm:mb-4">
             Bộ gõ tiếng Việt <span className="text-red-700">Telex/VNI</span><br className="hidden sm:inline" /> cho Windows, Linux &amp; macOS
           </h1>
 
-          <p className="text-stone-600 max-w-2xl mx-auto text-base sm:text-lg mb-8 leading-relaxed">
+          <p className="text-stone-600 max-w-2xl mx-auto text-sm sm:text-base md:text-lg mb-5 sm:mb-8 leading-relaxed">
             Một lõi C duy nhất — gõ <code>duocjwd</code> ra <strong>được</strong> ở mọi nơi. 
             Kiểm tra chính tả ngoại tuyến, gợi ý từ điển offline, macro gõ tắt &amp; emoji.
           </p>

@@ -11,6 +11,14 @@ if (typeof document !== 'undefined') {
   document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
   document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
   document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+  // Ensure fresh page load starts at the top unless an anchor hash is specified
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+  if (!window.location.hash) {
+    window.scrollTo(0, 0);
+  }
 }
 
 const rootElement = document.getElementById('root');
