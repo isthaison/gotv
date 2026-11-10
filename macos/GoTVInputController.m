@@ -27,83 +27,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
 #define kIMKLocateCandidatesBelowHint 1
 #endif
 
-/* Detect terminal clients: Ghostty, iTerm2, Kitty, Terminal.app, WezTerm, Alacritty, Warp, Rex, Zed */
-static BOOL isTerminalClient(id client) {
-    NSString *bundleId = nil;
-    if (client && [client respondsToSelector:@selector(bundleIdentifier)]) {
-        @try {
-            bundleId = [client bundleIdentifier];
-        } @catch (NSException *e) {
-            (void)e;
-        }
-    }
-    if (!bundleId) {
-        NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
-        bundleId = [front bundleIdentifier];
-    }
-    if (!bundleId) return NO;
-
-    if ([bundleId isEqualToString:@"com.apple.Terminal"] ||
-        [bundleId isEqualToString:@"com.googlecode.iterm2"] ||
-        [bundleId isEqualToString:@"com.mitchellh.ghostty"] ||
-        [bundleId isEqualToString:@"net.kovidgoyal.kitty"] ||
-        [bundleId isEqualToString:@"com.github.wez.wezterm"] ||
-        [bundleId isEqualToString:@"io.alacritty"] ||
-        [bundleId isEqualToString:@"co.zeit.hyper"] ||
-        [bundleId isEqualToString:@"com.warp.Warp-Terminal"] ||
-        [bundleId isEqualToString:@"dev.zed.Zed"] ||
-        [bundleId rangeOfString:@"terminal" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-        [bundleId rangeOfString:@"iterm" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-        [bundleId rangeOfString:@"ghostty" options:NSCaseInsensitiveSearch].location != NSNotFound ||
-        [bundleId rangeOfString:@"kitty" options:NSCaseInsensitiveSearch].location != NSNotFound) {
-        return YES;
-    }
-    return NO;
-}
-
-/* Smart direct-replacement for terminal apps: finds the longest common prefix between
- * `before` and `after`, deletes only the differing suffix, and inserts the new suffix.
- * This guarantees zero text flickering and allows shell autocompletions (zsh, fish)
- * to receive every keystroke immediately in real time. */
-static void replaceTerminalText(id sender, const gchar *before, const gchar *after) {
-    if (!sender) return;
-    if (!before) before = "";
-    if (!after) after = "";
-
-    glong lenBefore = g_utf8_strlen(before, -1);
-
-    const gchar *pBefore = before;
-    const gchar *pAfter = after;
-    glong commonCount = 0;
-
-    while (*pBefore && *pAfter) {
-        gunichar c1 = g_utf8_get_char(pBefore);
-        gunichar c2 = g_utf8_get_char(pAfter);
-        if (c1 != c2) break;
-        commonCount++;
-        pBefore = g_utf8_next_char(pBefore);
-        pAfter = g_utf8_next_char(pAfter);
-    }
-
-    glong toDelete = lenBefore - commonCount;
-    for (glong i = 0; i < toDelete; i++) {
-        if ([sender respondsToSelector:@selector(deleteBackward:)]) {
-            [sender deleteBackward:nil];
-        } else {
-            [sender insertText:@"\x7f" replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
-        }
-    }
-
-    if (*pAfter) {
-        NSString *toInsert = [[[NSString alloc] initWithBytes:pAfter
-                                                       length:strlen(pAfter)
-                                                     encoding:NSUTF8StringEncoding] autorelease];
-        if (toInsert && [toInsert length] > 0) {
-            [sender insertText:toInsert replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
-        }
-    }
-}
-
 @interface GoTVInputController ()
 {
     GtvEngine *engine;
@@ -485,8 +408,9 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
     [currentCandidates removeAllObjects];
 }
 
-/* Render marked text with NSUnderlineStyleNone so terminals that do render
- * marked text will not display an intrusive underline. */
+/* Apple IMK Standard: Renders marked text as NSAttributedString with NSUnderlineStyleNone.
+ * This adheres 100% to Apple's Cocoa Text Input specification while cleanly eliminating
+ * the intrusive underline across all apps (Terminals, TextEdit, Browsers). */
 - (void)showBuffer:(id)sender
 {
     gchar *buf = gtv_engine_buffer(engine);
@@ -546,12 +470,13 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
          replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
 }
 
-/* Fix for Issue #3: Never wipe composition buffer in terminal apps
- * (Ghostty, iTerm2, Kitty) where markedRange may be 0 or NSNotFound. */
+/* Apple IMK Standard: Only reconcile if the client actively reports a valid
+ * markedRange location whose length was cleared externally. If mr.location is
+ * NSNotFound (e.g. client does not report markedRange or user unchecked marked text
+ * in terminal profile), do NOT destroy the composition buffer! */
 - (void)reconcileMarkedText:(id)sender
 {
     if (!composing) return;
-    if (isTerminalClient(sender)) return;
     @try {
         NSRange mr = [sender markedRange];
         if (mr.location != NSNotFound && mr.length == 0) {
@@ -577,13 +502,14 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
     }
     NSString *text = (NSString *)string;
 
+    /* Handle single character keystrokes */
     if ([text length] == 1) {
         unichar c = [text characterAtIndex:0];
         if (c < 0x20 || (c >= 0xD800 && c <= 0xDFFF)) {
             return NO;
         }
 
-        // Candidate selection via 1..5 keys
+        // Candidate selection via 1..5 keys if candidate list is visible
         if (candidates && [candidates isVisible] && [currentCandidates count] > 0) {
             if (c >= '1' && c <= '5') {
                 NSUInteger idx = (NSUInteger)(c - '1');
@@ -602,6 +528,7 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
         }
     }
 
+    /* Multi-char input (paste, emoji picker): flush any composition and pass through */
     if ([text length] != 1) {
         if (composing) {
             [self commitBuffer:sender];
@@ -618,37 +545,12 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
         return NO;
     }
 
-    /* TERMINAL APP DIRECT MODE (Ghostty, iTerm2, Kitty, Terminal.app, Warp):
-     * Directly inserts and replaces characters via smart common-prefix diffing.
-     * No preedit underline, no lag, zero flicker, and shell autocompletion works instantly! */
-    if (isTerminalClient(sender)) {
-        gchar *before = gtv_engine_buffer(engine);
-        guint backspaces = 0;
-        gchar *commit = gtv_engine_process(engine, ch, &backspaces);
-
-        if (commit) {
-            replaceTerminalText(sender, before, "");
-            NSString *ns = [self utf8String:commit];
-            g_free(commit);
-            if (ns) {
-                [sender insertText:ns replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
-            }
-            gtv_engine_reset(engine);
-            composing = NO;
-        } else {
-            gchar *after = gtv_engine_buffer(engine);
-            replaceTerminalText(sender, before, after);
-            composing = (after && *after) ? YES : NO;
-            g_free(after);
-        }
-        g_free(before);
-        return YES;
-    }
-
-    /* STANDARD APP MARKED-TEXT MODE (Browsers, Notes, Word, Slack, etc.) */
+    /* 100% Apple IMK Standard: Processes input through the engine and uses
+     * insertText: on syllable/word boundaries or setMarkedText: during composition. */
     guint backspaces = 0;
     gchar *commit = gtv_engine_process(engine, ch, &backspaces);
-    (void)backspaces;
+    (void)backspaces; /* IMK edits via ranges; no artificial Backspace injection needed. */
+
     if (commit) {
         NSString *ns = [self utf8String:commit];
         g_free(commit);
@@ -679,42 +581,24 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
             [currentCandidates removeAllObjects];
         }
         if (composing) {
-            if (isTerminalClient(sender)) {
-                gtv_engine_reset(engine);
-                composing = NO;
-            } else {
-                [self clearComposition:sender];
-            }
+            [self clearComposition:sender];
             return YES;
         }
         return NO;
     }
 
-    /* Backward delete */
+    /* Backward delete edits the composition */
     if ([sel isEqualToString:@"deleteBackward:"] ||
         [sel isEqualToString:@"deleteWordBackward:"] ||
         [sel isEqualToString:@"deleteToBeginningOfLine:"]) {
         if (!composing) return NO;
-
-        if (isTerminalClient(sender)) {
-            gchar *before = gtv_engine_buffer(engine);
-            guint backspaces = 0;
-            gtv_engine_process(engine, '\b', &backspaces);
-            gchar *after = gtv_engine_buffer(engine);
-            replaceTerminalText(sender, before, after);
-            composing = (after && *after) ? YES : NO;
-            g_free(before);
-            g_free(after);
-            return YES;
-        }
-
         guint backspaces = 0;
         gtv_engine_process(engine, '\b', &backspaces);
         [self showBuffer:sender];
         return YES;
     }
 
-    /* Tab key */
+    /* Tab key: expands candidate #1 or macro/emoji */
     if ([sel isEqualToString:@"insertTab:"]) {
         if (candidates && [candidates isVisible] && [currentCandidates count] > 0) {
             NSString *chosen = [currentCandidates objectAtIndex:0];
@@ -722,25 +606,6 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
             return YES;
         }
         if (!composing) return NO;
-
-        if (isTerminalClient(sender)) {
-            gchar *before = gtv_engine_buffer(engine);
-            guint backspaces = 0;
-            gchar *macro = gtv_engine_process(engine, '\t', &backspaces);
-            if (macro) {
-                replaceTerminalText(sender, before, macro);
-                g_free(macro);
-                gtv_engine_reset(engine);
-                composing = NO;
-                g_free(before);
-                return YES;
-            }
-            g_free(before);
-            gtv_engine_reset(engine);
-            composing = NO;
-            return NO;
-        }
-
         guint backspaces = 0;
         gchar *macro = gtv_engine_process(engine, '\t', &backspaces);
         if (macro) {
@@ -757,7 +622,7 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
         return NO;
     }
 
-    /* Arrow keys & movement */
+    /* Navigation and editing commands: commit composition first, then let through */
     if ([sel hasPrefix:@"insert"] || [sel hasPrefix:@"delete"] ||
         [sel hasPrefix:@"move"] || [sel hasPrefix:@"transpose"] ||
         [sel hasPrefix:@"indent"] || [sel hasPrefix:@"change"]) {
@@ -766,12 +631,7 @@ static void replaceTerminalText(id sender, const gchar *before, const gchar *aft
             [currentCandidates removeAllObjects];
         }
         if (composing) {
-            if (isTerminalClient(sender)) {
-                gtv_engine_reset(engine);
-                composing = NO;
-            } else {
-                [self commitBuffer:sender];
-            }
+            [self commitBuffer:sender];
         }
     }
     return NO;

@@ -235,7 +235,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
 @end
 
 /* -------------------------------------------------------------------------
- * GtvPreferencesWindow: Full preferences panel for GoTV on macOS
+ * GtvPreferencesWindow: Full preferences panel for GoTV on macOS (Apple IMK)
  * ------------------------------------------------------------------------- */
 @interface GtvPreferencesWindow : NSObject {
     NSWindow *window;
@@ -243,7 +243,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSButton *modernCheck;
     NSButton *spellCheck;
     NSButton *suggestCheck;
-    NSButton *terminalDirectCheck;
     NSButton *viDictCheck;
     NSButton *enDictCheck;
     NSButton *cDictCheck;
@@ -269,7 +268,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
 - (void)show {
     if (!window) {
-        NSRect frame = NSMakeRect(0, 0, 480, 500);
+        NSRect frame = NSMakeRect(0, 0, 480, 470);
         window = [[NSWindow alloc] initWithContentRect:frame
                                              styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask)
                                                backing:NSBackingStoreBuffered
@@ -278,7 +277,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [window setReleasedWhenClosed:NO];
         NSView *view = [window contentView];
 
-        int y = 455;
+        int y = 425;
 
         // Group 1: Kiểu gõ (Telex / VNI)
         NSTextField *lMode = [NSTextField labelWithString:@"Kiểu gõ chính:"];
@@ -295,9 +294,9 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
         y -= 45;
 
-        // Group 2: Tùy chọn gõ dấu
-        NSTextField *lTone = [NSTextField labelWithString:@"Quy tắc dấu & Chính tả:"];
-        [lTone setFrame:NSMakeRect(20, y, 200, 22)];
+        // Group 2: Tùy chọn gõ dấu & Chính tả
+        NSTextField *lTone = [NSTextField labelWithString:@"Quy tắc dấu & Chính tả (Apple IMK):"];
+        [lTone setFrame:NSMakeRect(20, y, 300, 22)];
         [lTone setFont:[NSFont boldSystemFontOfSize:13]];
         [view addSubview:lTone];
 
@@ -320,18 +319,10 @@ extern void GoTVCheckForUpdates(BOOL manual);
         y -= 26;
         suggestCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 420, 22)] autorelease];
         [suggestCheck setButtonType:NSSwitchButton];
-        [suggestCheck setTitle:@"Hiển thị gợi ý từ điển & sửa lỗi gõ sai (Candidate list)"];
+        [suggestCheck setTitle:@"Hiển thị gợi ý từ điển & sửa lỗi chính tả (Candidate list)"];
         [suggestCheck setTarget:self];
         [suggestCheck setAction:@selector(settingChanged:)];
         [view addSubview:suggestCheck];
-
-        y -= 26;
-        terminalDirectCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 420, 22)] autorelease];
-        [terminalDirectCheck setButtonType:NSSwitchButton];
-        [terminalDirectCheck setTitle:@"Chế độ Terminal: Gõ mượt không gạch chân (Ghostty, iTerm2, Kitty)"];
-        [terminalDirectCheck setTarget:self];
-        [terminalDirectCheck setAction:@selector(settingChanged:)];
-        [view addSubview:terminalDirectCheck];
 
         y -= 42;
 
@@ -435,7 +426,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [modernCheck setState:(config.modern ? NSOnState : NSOffState)];
     [spellCheck setState:(config.spellcheck ? NSOnState : NSOffState)];
     [suggestCheck setState:(config.suggest_enabled ? NSOnState : NSOffState)];
-    [terminalDirectCheck setState:NSOnState];
 
     const gchar *langs = config.dicts[0] ? config.dicts : gtv_dict_get_langs();
     [viDictCheck setState:(gtv_dict_lang_enabled(langs, "vi") ? NSOnState : NSOffState)];
