@@ -93,7 +93,7 @@ static void tray_apply_icon_tip(void) {
     }
     nid.hIcon = icon_current;
     gtv_win_copy_utf8(nid.szTip, G_N_ELEMENTS(nid.szTip),
-                      g_app.config.mode == GTV_VNI ? "GoTV — VNI" : "GoTV — Telex");
+                      g_app.config.mode == GTV_VNI ? "GoTV — VNI (Click để đổi Telex)" : "GoTV — Telex (Click để đổi VNI)");
 }
 
 gboolean gtv_tray_init(HWND hwnd) {
@@ -150,6 +150,8 @@ void gtv_tray_show_menu(HWND hwnd) {
 
     UINT modern_flag = g_app.config.modern ? MF_CHECKED : MF_UNCHECKED;
     gtv_win_menu_add_utf8(hmenu, "Đặt dấu chuẩn mới", modern_flag, ID_TRAY_MODERN);
+    UINT suggest_flag = g_app.config.suggest_enabled ? MF_CHECKED : MF_UNCHECKED;
+    gtv_win_menu_add_utf8(hmenu, "Gợi ý từ điển thông minh", suggest_flag, ID_TRAY_SUGGEST);
 
     /* One startup-mode query per menu open: gtv_startup_get() shells out
      * to schtasks, so calling it twice (once per flag) used to blink two
@@ -192,6 +194,10 @@ void gtv_tray_show_menu(HWND hwnd) {
             break;
         case ID_TRAY_SPELLCHECK:
             g_app.config.spellcheck = !g_app.config.spellcheck;
+            gtv_app_save_config();
+            break;
+        case ID_TRAY_SUGGEST:
+            g_app.config.suggest_enabled = !g_app.config.suggest_enabled;
             gtv_app_save_config();
             break;
         case ID_TRAY_MODERN:

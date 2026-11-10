@@ -590,7 +590,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [spellItem setTarget:self];
     [spellItem setState:(isSpell ? NSControlStateValueOn : NSControlStateValueOff)];
 
-    NSMenuItem *sugItem = [m addItemWithTitle:@"Gợi ý từ điển & sửa lỗi" action:@selector(toggleSuggestAction:) keyEquivalent:@""];
+    NSMenuItem *sugItem = [m addItemWithTitle:@"Gợi ý từ điển thông minh" action:@selector(toggleSuggestAction:) keyEquivalent:@""];
     [sugItem setTarget:self];
     [sugItem setState:(suggestEnabled ? NSControlStateValueOn : NSControlStateValueOff)];
 

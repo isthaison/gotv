@@ -86,6 +86,15 @@ async function prerender() {
   <script type="application/ld+json">
 ${JSON.stringify(schema, null, 2)}
   </script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RYVZWF1470"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-RYVZWF1470');
+  </script>
 </head>
 <body class="bg-[#faf7f2] text-[#2b2320]">
   <div id="root">${bodyContent}</div>
