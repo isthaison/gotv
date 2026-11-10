@@ -42,7 +42,7 @@ if not exist "%SETUP%" (
     exit /b 1
 )
 echo Dang cai dat GoTV %VER% vao he thong...
-start "" /wait "%SETUP%" /VERYSILENT /NORESTART
+start "" /wait "%SETUP%" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
 if errorlevel 1 (
     echo gtv.cmd: Cai dat that bai (exit %ERRORLEVEL%)
     exit /b %ERRORLEVEL%
