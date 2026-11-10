@@ -59,7 +59,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
         case WM_TRAY_CALLBACK: {
             if (lParam == WM_LBUTTONUP) {
-                gtv_kbd_toggle_active();
+                GtvMode new_mode = (g_app.config.mode == GTV_TELEX) ? GTV_VNI : GTV_TELEX;
+                gtv_app_set_input_method(new_mode);
             } else if (lParam == WM_LBUTTONDBLCLK) {
                 gtv_setup_show(hwnd);
             } else if (lParam == WM_RBUTTONUP) {
@@ -73,17 +74,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         case WM_GTV_TOGGLE_INPUT:
         case WM_HOTKEY: {
             gtv_kbd_toggle_active();
-            break;
-        }
-        case WM_TIMER: {
-            if (wParam == 1001) {
-                static int s_last_vi = -1;
-                BOOL is_vi = gtv_kbd_is_vietnamese_active();
-                if (s_last_vi != (int)is_vi) {
-                    s_last_vi = (int)is_vi;
-                    gtv_tray_update_icon();
-                }
-            }
             break;
         }
         case WM_COMMAND: {
@@ -288,8 +278,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     g_app.hwnd_main = CreateWindowExA(0, WINDOW_CLASS_NAME, "GoTV Hidden Window",
                                        WS_POPUP, 0, 0, 0, 0,
                                        NULL, NULL, hInstance, NULL);
-
-    SetTimer(g_app.hwnd_main, 1001, 300, NULL);
 
     /* Allow WM_COPYDATA from lower-integrity processes (e.g. sandboxed Chromium/Electron renderers) */
     {

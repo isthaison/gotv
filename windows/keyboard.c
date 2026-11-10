@@ -826,6 +826,8 @@ BOOL gtv_kbd_is_vietnamese_active(void) {
 }
 
 void gtv_kbd_toggle_active(void) {
+    HRESULT hrCo = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
     HWND fg = GetForegroundWindow();
     DWORD tid = fg ? GetWindowThreadProcessId(fg, NULL) : 0;
     HKL hkl = GetKeyboardLayout(tid);
@@ -880,5 +882,7 @@ void gtv_kbd_toggle_active(void) {
         }
     }
 
-    gtv_tray_update_icon();
+    if (SUCCEEDED(hrCo)) {
+        CoUninitialize();
+    }
 }
