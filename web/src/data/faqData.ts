@@ -205,5 +205,29 @@ export const FAQ_ITEMS: FaqItem[] = [
       <p class="mb-2"><code>macro.txt</code>: Danh sách từ gõ tắt cá nhân (ví dụ: <code>cty=Công ty TNHH</code>).</p>
       <p><code>learned-words.txt</code>: Dữ liệu từ vựng bộ gõ đã tự học.</p>
     `
+  },
+  {
+    id: 'terminal-macos',
+    slug: 'loi-go-tieng-viet-terminal-macos',
+    question: 'Cách khắc phục lỗi gõ tiếng Việt trong Terminal trên macOS (Ghostty, iTerm2, Kitty)?',
+    shortAnswer: 'GoTV khắc phục triệt để bằng chuẩn Apple IMK: khử sạch gạch chân phiền toái (NSUnderlineStyleNone), không bao giờ bị mất ký tự hay xóa buffer khi gõ lệnh trong Ghostty, iTerm2, Kitty và Terminal.app.',
+    category: 'troubleshooting',
+    dateModified: '2026-11-10',
+    detailHtml: `
+      <h3 class="text-xl font-bold mt-2 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Hiện tượng lỗi thường gặp</h3>
+      <p class="mb-4">Khi dùng các bộ gõ tiếng Việt thông thường trong các ứng dụng Terminal hiện đại trên macOS (Ghostty, iTerm2, Kitty, Alacritty, WezTerm):</p>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Chữ bị gạch chân gián đoạn:</strong> Khi gõ lệnh (ví dụ <code>git commit -m "..."</code>), các ký tự đang soạn thảo bị gạch chân và che mất gợi ý autocompletion của shell (zsh-autosuggestions, fish).</li>
+        <li><strong>Bị xóa trắng bộ đệm khi tắt marked text:</strong> Nếu người dùng tắt tính năng marked text trong cài đặt Terminal để tránh gạch chân, các bộ gõ khác sẽ xóa trắng sạch toàn bộ từ vừa gõ trên mỗi phím bấm.</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Giải pháp triệt để của GoTV</h3>
+      <p class="mb-4">Từ phiên bản 0.9.9, GoTV áp dụng <strong>100% chuẩn Apple InputMethodKit (IMK)</strong> xử lý tận gốc:</p>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Không gạch chân (NSUnderlineStyleNone):</strong> Bộ gõ gửi chuỗi văn bản với thuộc tính không gạch chân, giữ giao diện dòng lệnh sạch đẹp tuyệt đối.</li>
+        <li><strong>Khử xung đột Marked Range:</strong> Thuật toán kiểm tra an toàn vị trí con trỏ (<code>reconcileMarkedText:</code>), ngay cả khi tắt marked text thì bộ đệm phím vẫn được giữ nguyên vẹn 100%.</li>
+        <li><strong>Không cần cấp quyền Accessibility (TCC):</strong> Tuân thủ Sandbox của macOS, không inject phím giả lập nguy hiểm vào process Terminal.</li>
+      </ul>
+    `
   }
 ];

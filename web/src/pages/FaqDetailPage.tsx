@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { FloatingActionButton } from '../components/FloatingActionButton';
 import { FaqItem, FAQ_ITEMS } from '../data/faqData';
 import { Calendar, User, ArrowLeft, ChevronRight } from 'lucide-react';
 
@@ -81,6 +82,7 @@ export const FaqDetailPage: React.FC<FaqDetailPageProps> = ({ faq, basePath = '/
       </main>
 
       <Footer basePath={basePath} />
+      <FloatingActionButton basePath={basePath} />
     </div>
   );
 };

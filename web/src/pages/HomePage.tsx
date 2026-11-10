@@ -3,6 +3,7 @@ import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { VietnamesePlayground } from '../components/VietnamesePlayground';
 import { OsSelector } from '../components/OsSelector';
+import { FloatingActionButton } from '../components/FloatingActionButton';
 import { FAQ_ITEMS } from '../data/faqData';
 import { Download, ShieldCheck, Cpu, BookMarked, Sparkles, RefreshCw, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -79,7 +80,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               </div>
               <h3 className="font-bold text-lg text-stone-900 mb-2">Chính tả ngoại tuyến (Offline)</h3>
               <p className="text-sm text-stone-600 leading-relaxed">
-                Gạch đỏ khi gõ sai âm tiết trên Linux. Hiển thị balloon gợi ý từ đúng trên Windows/macOS theo quy tắc ngữ pháp tiếng Việt.
+                Gạch đỏ khi gõ sai âm tiết trên Linux. Hiển thị balloon gợi ý từ đúng trên Windows và bảng ứng viên Candidate List trên macOS.
               </p>
             </article>
 
@@ -199,20 +200,23 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
         <section id="faq" className="py-12 border-t border-stone-200">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 inline-block border-b-2 border-red-700 pb-1">
-                Câu hỏi thường gặp
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 mb-2 inline-block border-b-2 border-red-700 pb-1">
+                Câu hỏi thường gặp (FAQ)
               </h2>
-              <p className="text-stone-600 text-sm mt-2">Giải đáp thắc mắc và hướng dẫn xử lý sự cố thường gặp:</p>
+              <p className="text-stone-600 text-sm">
+                Giải đáp nhanh các thắc mắc phổ biến về bản quyền, tính năng và cách xử lý sự cố.
+              </p>
             </div>
             <a
               href={`${basePath}faq/`}
               className="inline-flex items-center gap-1 text-sm font-bold text-red-700 hover:underline"
             >
-              <span>Xem toàn bộ 9 câu hỏi &rarr;</span>
+              <span>Xem toàn bộ trung tâm FAQ</span>
+              <ChevronRight className="w-4 h-4" />
             </a>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {FAQ_ITEMS.slice(0, 5).map((faq) => (
               <details
                 key={faq.id}
@@ -249,6 +253,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
       </main>
 
       <Footer basePath={basePath} />
+      <FloatingActionButton basePath={basePath} />
     </div>
   );
 };

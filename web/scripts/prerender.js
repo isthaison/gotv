@@ -57,10 +57,12 @@ async function prerender() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <meta name="description" content="${description}">
-  <meta name="keywords" content="bộ gõ tiếng việt, gotv, telex, vni, vietnamese input method, ibus vietnamese, unikey alternative, evkey, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos">
+  <meta name="keywords" content="bộ gõ tiếng việt, gotv, telex, vni, vietnamese input method, ibus vietnamese, unikey alternative, evkey, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos, gõ tiếng việt terminal">
   <meta name="author" content="isthaison">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <meta name="googlebot" content="index, follow">
+  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large">
+  <meta name="google-site-verification" content="googled070dcb971278a07">
   <meta name="theme-color" content="#b22222">
   <link rel="canonical" href="${canonical}">
   <link rel="alternate" hreflang="vi" href="${canonical}">
@@ -105,7 +107,15 @@ ${JSON.stringify(schema, null, 2)}
         "name": "GoTV",
         "alternateName": ["Bộ gõ tiếng Việt GoTV", "GoTV Vietnamese Input", "GoTiengViet (isthaison)"],
         "description": "Trang chủ chính thức của bộ gõ tiếng Việt GoTV (Telex/VNI) cho Windows, Linux và macOS.",
-        "inLanguage": "vi"
+        "inLanguage": "vi",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://isthaison.github.io/gotv/faq/?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
       },
       {
         "@type": "SoftwareApplication",
@@ -131,6 +141,20 @@ ${JSON.stringify(schema, null, 2)}
           "name": "isthaison",
           "url": "https://github.com/isthaison"
         }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://isthaison.github.io/gotv/#faqpage",
+        "name": "Câu hỏi thường gặp về Bộ gõ tiếng Việt GoTV",
+        "mainEntity": FAQ_ITEMS.slice(0, 5).map((faq) => ({
+          "@type": "Question",
+          "name": faq.question,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": faq.shortAnswer,
+            "url": `https://isthaison.github.io/gotv/faq/${faq.slug}.html`
+          }
+        }))
       }
     ]
   };
@@ -166,6 +190,21 @@ ${JSON.stringify(schema, null, 2)}
         "name": "Trung tâm trợ giúp & Câu hỏi thường gặp — GoTV",
         "description": "Danh sách các bài viết giải đáp thắc mắc, hướng dẫn xử lý lỗi khi sử dụng bộ gõ tiếng Việt GoTV.",
         "inLanguage": "vi"
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://isthaison.github.io/gotv/faq/#faqpage",
+        "name": "Trung tâm trợ giúp & Câu hỏi thường gặp GoTV",
+        "description": "Tổng hợp toàn bộ câu hỏi thường gặp, hướng dẫn sử dụng và sửa lỗi cho bộ gõ tiếng Việt GoTV.",
+        "mainEntity": FAQ_ITEMS.map((faq) => ({
+          "@type": "Question",
+          "name": faq.question,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": faq.shortAnswer,
+            "url": `https://isthaison.github.io/gotv/faq/${faq.slug}.html`
+          }
+        }))
       }
     ]
   };
