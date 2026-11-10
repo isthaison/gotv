@@ -61,8 +61,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (lParam == WM_LBUTTONUP) {
                 GtvMode new_mode = (g_app.config.mode == GTV_TELEX) ? GTV_VNI : GTV_TELEX;
                 gtv_app_set_input_method(new_mode);
-            } else if (lParam == WM_LBUTTONDBLCLK) {
-                gtv_setup_show(hwnd);
             } else if (lParam == WM_RBUTTONUP) {
                 gtv_tray_show_menu(hwnd);
             } else if (lParam == NIN_BALLOONUSERCLICK) {
