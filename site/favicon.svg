@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="GoTV">
-  <rect width="64" height="64" rx="14" fill="#b22222"/>
-  <text x="32" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#fff">T</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 48 48" role="img" aria-label="GoTV">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E53935"/>
+      <stop offset="1" stop-color="#B71C1C"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="url(#bg)"/>
+  <rect x="2.75" y="2.75" width="42.5" height="42.5" rx="9.25" fill="none" stroke="#7F0000" stroke-width="1.5" opacity="0.55"/>
+  <text x="24" y="34.5" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="26" font-weight="900" fill="#FFFFFF">Ắ</text>
+  <rect x="14" y="38" width="20" height="2.4" rx="1.2" fill="#FFEB3B" opacity="0.95"/>
 </svg>

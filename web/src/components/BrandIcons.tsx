@@ -5,6 +5,50 @@ export interface IconProps {
 }
 
 /**
+ * Official GoTV Application Icon (Glyph Ắ with golden underline on ruby red gradient)
+ */
+export const GoTvAppIcon: React.FC<IconProps> = ({ className = 'w-8 h-8' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-label="GoTV Logo"
+  >
+    <defs>
+      <linearGradient id="gotv-app-bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#E53935" />
+        <stop offset="100%" stopColor="#B71C1C" />
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="44" height="44" rx="10" fill="url(#gotv-app-bg)" />
+    <rect
+      x="2.75"
+      y="2.75"
+      width="42.5"
+      height="42.5"
+      rx="9.25"
+      stroke="#7F0000"
+      strokeWidth="1.5"
+      opacity="0.55"
+    />
+    <text
+      x="24"
+      y="34.5"
+      textAnchor="middle"
+      fontFamily="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+      fontSize="26"
+      fontWeight="900"
+      fill="#FFFFFF"
+    >
+      Ắ
+    </text>
+    <rect x="14" y="38" width="20" height="2.5" rx="1.25" fill="#FFEB3B" opacity="0.95" />
+  </svg>
+);
+
+/**
  * Official Microsoft Windows logo (Simple Icons)
  */
 export const WindowsIcon: React.FC<IconProps> = ({ className = 'w-4 h-4' }) => (
