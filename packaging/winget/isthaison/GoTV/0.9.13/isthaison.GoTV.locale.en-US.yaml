@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+
+PackageIdentifier: isthaison.GoTV
+PackageVersion: 0.9.13
+PackageLocale: en-US
+Publisher: Thai Son (isthaison)
+PublisherUrl: https://github.com/isthaison/gotv
+PublisherSupportUrl: https://github.com/isthaison/gotv/issues
+Author: Thai Son (isthaison)
+PackageName: GoTV
+PackageUrl: https://isthaison.github.io/gotv/
+License: MIT
+LicenseUrl: https://github.com/isthaison/gotv/blob/main/LICENSE
+Copyright: Copyright (c) Thai Son (isthaison)
+CopyrightUrl: https://github.com/isthaison/gotv/blob/main/LICENSE
+ShortDescription: Free, open-source Vietnamese input method (Telex & VNI) using native Windows TSF.
+Description: |-
+  GoTV is a lightweight, open-source Vietnamese keyboard input method engine for Windows 10/11, Linux (IBus), and macOS (InputMethodKit).
+  On Windows, GoTV is built as a pure native Text Services Framework (TSF) Text Service, eliminating the invasive global keyboard hooks used by legacy tools.
+  Features include offline dictionary suggestions, text macros, emojis, and full compatibility with code editors, terminals, and modern browsers without red underline glitches.
+Moniker: gotv
+Tags:
+- vietnamese
+- input-method
+- ime
+- tsf
+- telex
+- vni
+- typing
+ReleaseNotesUrl: https://github.com/isthaison/gotv/releases/tag/v0.9.13
+ManifestType: defaultLocale
+ManifestVersion: 1.12.0

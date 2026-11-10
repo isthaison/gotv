@@ -1,0 +1,27 @@
+name: Đóng góp từ điển (Dictionary Contribution)
+description: Đóng góp thêm từ vựng tiếng Việt hoặc chuyên ngành (Y học, Luật, Lập trình...)
+title: "[Dict]: "
+labels: ["dictionary", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: Đóng góp từ ngữ của bạn giúp bộ gợi ý và kiểm tra chính tả của GoTV thông minh hơn!
+  - type: dropdown
+    id: category
+    attributes:
+      label: Nhóm từ điển
+      options:
+        - Tiếng Việt phổ thông
+        - Thuật ngữ Công nghệ thông tin / Lập trình
+        - Thuật ngữ Y tế / Dược học
+        - Thuật ngữ Kinh tế / Tài chính / Luật
+        - Viết tắt / Macro thông dụng
+    validations:
+      required: true
+  - type: textarea
+    id: words
+    attributes:
+      label: Danh sách từ đề xuất (mỗi từ một dòng)
+      placeholder: "Ví dụ:\nkubernetes\nmicroservice\ncontainerization"
+    validations:
+      required: true

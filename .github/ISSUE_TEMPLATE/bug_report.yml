@@ -1,0 +1,48 @@
+name: Báo lỗi (Bug Report)
+description: Báo cáo lỗi gõ phím, hiển thị hoặc crash trong quá trình sử dụng GoTV
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Cảm ơn bạn đã báo cáo lỗi! Vui lòng cung cấp chi tiết bên dưới để nhóm phát triển có thể tái hiện và khắc phục nhanh nhất.
+  - type: dropdown
+    id: os
+    attributes:
+      label: Hệ điều hành
+      options:
+        - Windows 11 (TSF)
+        - Windows 10 (TSF)
+        - macOS (InputMethodKit)
+        - Linux (Ubuntu/GNOME IBus)
+        - Khác (ghi rõ bên dưới)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Phiên bản GoTV đang dùng
+      placeholder: "Ví dụ: v0.9.13"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Ứng dụng xảy ra lỗi
+      placeholder: "Ví dụ: VS Code, Chrome, Word, Terminal, Zalo..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện lỗi
+      placeholder: "1. Mở ứng dụng...\n2. Gõ từ...\n3. Kết quả hiển thị sai..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong muốn
+      placeholder: "Kỳ vọng gõ ra từ..."
+    validations:
+      required: true

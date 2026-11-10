@@ -59,10 +59,13 @@ Rồi vào **Settings → Keyboard → Input Sources** thêm **GoTV**
 (một nguồn duy nhất; chuyển Telex/VNI trong app indicator hoặc Setup),
 chuyển bằng `Super+Space`. Chi tiết: [docs/dev.md](docs/dev.md).
 
-**Windows 10/11**: tải `gotv-<version>-x64-setup.exe` ở trang
-[Releases](https://github.com/isthaison/gotv/releases/latest) và chạy
-(cài per-user, không cần admin) → đăng xuất/đăng nhập lại → chọn **GoTV** bằng `Win+Space`.
-Chi tiết: [docs/windows.md](docs/windows.md).
+**Windows 10/11**:
+- Cài qua Windows Package Manager (**Winget**):
+  ```cmd
+  winget install isthaison.GoTV
+  ```
+- Hoặc tải trực tiếp bộ cài `gotv-<version>-x64-setup.exe` tại [Releases](https://github.com/isthaison/gotv/releases/latest) (cài đặt per-user nhanh chóng, không bắt buộc quyền admin).
+- Đăng xuất/đăng nhập lại hoặc khởi động app → chuyển đổi bằng phím tắt `Ctrl+Shift` / `Alt+Z` hoặc `Win+Space`. Chi tiết: [docs/windows.md](docs/windows.md).
 
 **macOS**: tải `gotv-<version>-macos.pkg` hoặc `.dmg` ở trang
 [Releases](https://github.com/isthaison/gotv/releases/latest).
@@ -127,11 +130,13 @@ ibus-setup-gotv --cli      # terminal
 - **Crash (Linux):** xem `~/.cache/gotv/crash.log`, báo kèm phiên bản và log liên quan.
 - **Updater (Windows):** xem `%APPDATA%\gotv\update.log`.
 
-## Đóng góp
+## Đóng góp & Cộng đồng (Community & Contributing)
 
-Mời issue/PR: mở issue mô tả lỗi kèm OS + phiên bản + log, hoặc PR nhỏ, test xanh
-(`./gtv.sh test` mọi nền tảng — Windows chạy trong MSYS2 MinGW hoặc `gtv test` từ cmd).
-Chuẩn code: `engine/` thuần C đa nền tảng, adapter riêng từng OS trong `linux/`, `windows/`, `macos/`.
+Dự án phát triển hoàn toàn vì cộng đồng và rất trân trọng mọi sự chung tay:
+- Xem **[Hướng dẫn đóng góp (CONTRIBUTING.md)](CONTRIBUTING.md)** để biết cách gửi báo cáo lỗi, đóng góp từ điển, macro hoặc mã nguồn.
+- Tài liệu bài viết mẫu cho cộng đồng: **[docs/community-posts.md](docs/community-posts.md)**.
+- Thảo luận và góp ý tính năng mới tại **[GitHub Discussions](https://github.com/isthaison/gotv/discussions)** hoặc [GitHub Issues](https://github.com/isthaison/gotv/issues).
+- Mọi đóng góp code cần vượt qua kiểm thử: `./gtv.sh test` (Linux/macOS) hoặc `.\gtv.cmd test` (Windows).
 
 > 💡 **Gợi ý topics cho repo** (mục About → ⚙️): `vietnamese` `tieng-viet` `telex` `vni`
 > `input-method` `ime` `ibus` `tsf` `unikey` `linux` `windows` `macos` `dictionary` `c`
