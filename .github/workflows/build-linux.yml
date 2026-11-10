@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y build-essential pkg-config libglib2.0-dev \
-            libibus-1.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-bin
+            libibus-1.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-bin rpm alien
 
       - name: Build All
         run: make build
@@ -34,23 +34,29 @@ jobs:
           echo "APP_VERSION=${VER}-1" >> "$GITHUB_ENV"
           echo "deb version: ${VER}-1"
 
-      - name: Package .deb
+      - name: Package .deb & .rpm
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           make package VERSION="$APP_VERSION"
           ls -la gotv_*.deb
+          sudo alien -r --scripts gotv_*.deb
+          ls -la *.rpm
 
       - name: Upload Artifact
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: gotv-deb
-          path: gotv_*.deb
+          name: gotv-linux-packages
+          path: |
+            gotv_*.deb
+            *.rpm
 
       - name: Release Asset (on Tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: gotv_*.deb
+          files: |
+            gotv_*.deb
+            *.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

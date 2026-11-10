@@ -211,7 +211,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
                   </div>
                   <div>
                     <h3 className="font-bold text-stone-900 text-sm leading-tight">Linux</h3>
-                    <p className="text-[11px] text-stone-500">Ubuntu, Debian, Fedora, Arch</p>
+                    <p className="text-[11px] text-stone-500">Ubuntu, Debian, CentOS, Fedora, RHEL</p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0">
@@ -221,7 +221,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               </div>
               <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-stone-100">
                 <code className="bg-stone-100 text-stone-700 px-2 py-1 rounded-lg font-mono text-[11px] truncate flex-1 min-w-0">
-                  gotv_*_amd64.deb / tar.gz
+                  gotv_*_amd64.deb / .rpm
                 </code>
                 <a
                   href="https://github.com/isthaison/gotv/releases/latest"
@@ -315,12 +315,12 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
                   <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
                     <span className="inline-flex items-center gap-2">
                       <LinuxIcon className="w-4 h-4 text-amber-600" />
-                      <span>Linux (.deb / tar)</span>
+                      <span>Linux (.deb / .rpm / .tar)</span>
                     </span>
                   </td>
                   <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
                     <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
-                      gotv_*_amd64.deb
+                      gotv_*_amd64.deb / gotv-*.rpm
                     </code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

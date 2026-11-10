@@ -82,31 +82,64 @@ export const OsSelector: React.FC = () => {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-50/60 p-4 rounded-xl border border-amber-200/70">
               <div>
-                <h4 className="font-bold text-stone-900 text-base">Gói cài đặt GoTV cho Linux (.deb / .tar.gz)</h4>
-                <p className="text-xs text-stone-600">Hỗ trợ Ubuntu, Debian, Linux Mint, Pop!_OS, Zorin OS và các bản phân phối IBus / Fcitx5.</p>
+                <h4 className="font-bold text-stone-900 text-base">Gói cài đặt GoTV cho Linux (.deb / .rpm)</h4>
+                <p className="text-xs text-stone-600">Hỗ trợ Ubuntu, Debian, CentOS, RHEL, Fedora, Rocky Linux trên IBus / Fcitx5.</p>
               </div>
-              <a
-                href="https://github.com/isthaison/gotv/releases/latest"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-5 py-2.5 rounded-xl transition shadow-sm text-sm shrink-0"
-              >
-                <Download className="w-4 h-4" /> Tải gotv_*_amd64.deb
-              </a>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <a
+                  href="https://github.com/isthaison/gotv/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-stone-900 hover:bg-stone-800 text-white font-bold px-3.5 py-2 rounded-xl transition shadow-sm text-xs active:scale-95"
+                >
+                  <Download className="w-4 h-4" /> Tải .deb (Ubuntu/Debian)
+                </a>
+                <a
+                  href="https://github.com/isthaison/gotv/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold px-3.5 py-2 rounded-xl transition shadow-sm text-xs active:scale-95"
+                >
+                  <Download className="w-4 h-4" /> Tải .rpm (CentOS/RHEL/Fedora)
+                </a>
+              </div>
             </div>
 
-            <div className="text-sm text-stone-600 space-y-2.5">
+            {/* Quick Install Comparison by Distro */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-stone-700">
+              {/* Ubuntu / Debian box */}
+              <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-sm space-y-2">
+                <div className="font-bold text-sm text-stone-900 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                  <span>Ubuntu / Debian / Linux Mint</span>
+                </div>
+                <p className="text-stone-600 leading-relaxed">
+                  Tải file <code>.deb</code> &rarr; nhấp đúp để cài bằng <em>Software Install</em>, hoặc chạy lệnh:
+                </p>
+                <div className="bg-stone-900 text-emerald-400 p-2.5 rounded-lg font-mono text-[11px] overflow-x-auto">
+                  <code>sudo apt install ./gotv_*_amd64.deb</code>
+                </div>
+              </div>
+
+              {/* CentOS / RHEL / Fedora box */}
+              <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-sm space-y-2">
+                <div className="font-bold text-sm text-stone-900 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                  <span>CentOS / RHEL / Fedora / Rocky</span>
+                </div>
+                <p className="text-stone-600 leading-relaxed">
+                  Tải file <code>.rpm</code> &rarr; cài đặt qua trình quản lý gói DNF hoặc YUM:
+                </p>
+                <div className="bg-stone-900 text-emerald-400 p-2.5 rounded-lg font-mono text-[11px] overflow-x-auto">
+                  <code>sudo dnf install ./gotv-*.x86_64.rpm</code>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-sm text-stone-600 space-y-2 pt-1">
               <p className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                <span><strong>Cách 1 (Giao diện đồ họa):</strong> Tải file <code>.deb</code> về máy &rarr; Nhấp đúp chuột để mở bằng <em>Software Install</em> &rarr; Nhấn <strong>Install</strong>.</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                <span><strong>Cách 2 (Lệnh nhanh):</strong> Mở thư mục chứa file tải về và chạy <code>sudo apt install ./gotv_*_amd64.deb</code>.</span>
-              </p>
-              <p className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                <span>Vào <strong>Settings &rarr; Keyboard &rarr; Input Sources</strong> &rarr; Bấm <strong>+</strong> &rarr; Chọn <strong>Vietnamese (GoTV)</strong>. Khởi động lại IBus nếu cần (<code>ibus restart</code>).</span>
+                <span>Kích hoạt bàn phím: Vào <strong>Settings &rarr; Keyboard &rarr; Input Sources</strong> &rarr; Nhấn <strong>+</strong> &rarr; Chọn <strong>Vietnamese (GoTV)</strong>. Khởi động lại IBus nếu cần (<code>ibus restart</code>).</span>
               </p>
               <p className="flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
@@ -119,16 +152,19 @@ export const OsSelector: React.FC = () => {
               <summary className="p-3 bg-stone-50 text-stone-700 font-semibold cursor-pointer list-none flex items-center justify-between hover:bg-stone-100 transition">
                 <span className="flex items-center gap-1.5">
                   <Terminal className="w-3.5 h-3.5 text-stone-500" />
-                  <span>Dành cho lập trình viên: Biên dịch trực tiếp từ mã nguồn C (Tùy chọn)</span>
+                  <span>Dành cho lập trình viên: Biên dịch mã nguồn trên Ubuntu hoặc CentOS (Tùy chọn)</span>
                 </span>
                 <span className="text-stone-400 group-open:rotate-90 transition transform">&rarr;</span>
               </summary>
               <div className="p-3.5 bg-stone-900 text-stone-200 font-mono text-[11px] overflow-x-auto">
                 <pre className="text-emerald-400">
-{`# Cài thư viện build cần thiết trên Ubuntu/Debian
-sudo apt install build-essential pkg-config libibus-1.0-dev libgtk-3-dev
+{`# 1. Cài thư viện build cần thiết:
+# Trên Ubuntu/Debian:
+sudo apt install build-essential pkg-config libglib2.0-dev libibus-1.0-dev libgtk-3-dev
+# Trên CentOS/RHEL/Fedora:
+sudo dnf install gcc make pkgconfig glib2-devel ibus-devel gtk3-devel
 
-# Tải mã nguồn, biên dịch và cài đặt GoTV
+# 2. Tải mã nguồn, biên dịch và cài đặt GoTV:
 git clone https://github.com/isthaison/gotv.git
 cd gotv
 ./gtv.sh build
