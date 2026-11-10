@@ -84,3 +84,57 @@ const char *gtv_wasm_compose_key(const char *word, gunichar key, int mode, int m
     g_free(res);
     return transform_result_buf;
 }
+
+static char syllable_json_buf[1024];
+
+static void buf_append(char *dest, int *pos, int max_len, const char *src) {
+    if (!src) return;
+    while (*src && *pos < max_len - 1) {
+        dest[(*pos)++] = *src++;
+    }
+    dest[*pos] = '\0';
+}
+
+static void buf_append_int(char *dest, int *pos, int max_len, int val) {
+    char tmp[16];
+    int ti = 0;
+    if (val == 0) tmp[ti++] = '0';
+    while (val > 0) {
+        tmp[ti++] = (char)('0' + (val % 10));
+        val /= 10;
+    }
+    while (ti > 0 && *pos < max_len - 1) {
+        dest[(*pos)++] = tmp[--ti];
+    }
+    dest[*pos] = '\0';
+}
+
+__attribute__((export_name("gtv_wasm_analyze_syllable")))
+const char *gtv_wasm_analyze_syllable(const char *word) {
+    gtv_init();
+    if (!word || !*word) return "{\"valid\":false}";
+    GtvSyllableAnalysis a;
+    if (!gtv_analyze_syllable(word, &a) || !a.is_valid) {
+        return "{\"valid\":false}";
+    }
+
+    int p = 0;
+    syllable_json_buf[0] = '\0';
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "{\"valid\":true,\"word\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), word);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\",\"onset\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), a.onset);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\",\"nucleus\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), a.nucleus);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\",\"coda\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), a.coda);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\",\"tone\":");
+    buf_append_int(syllable_json_buf, &p, sizeof(syllable_json_buf), a.tone);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), ",\"toneName\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), a.tone_name);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\",\"diacName\":\"");
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), a.diac_name);
+    buf_append(syllable_json_buf, &p, sizeof(syllable_json_buf), "\"}");
+
+    return syllable_json_buf;
+}

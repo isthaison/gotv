@@ -124,25 +124,55 @@ gchar* expand_word(const char *word){
     return g_strdup(word);
 }
 
+static gint compare_emoji_match(gconstpointer a, gconstpointer b, gpointer user_data) {
+    const TableEntry *ea = *(const TableEntry **)a;
+    const TableEntry *eb = *(const TableEntry **)b;
+    const gchar *q = (const gchar *)user_data;
+    gsize q_len = strlen(q);
+
+    // Exact matches
+    gboolean a_exact = !strcmp(ea->fold, q);
+    gboolean b_exact = !strcmp(eb->fold, q);
+    if (a_exact != b_exact) return a_exact ? -1 : 1;
+
+    // Colon-normalized exact matches e.g. :smile: for :smile
+    gboolean a_colon_exact = (q[0] == ':' && ea->fold[0] == ':' &&
+                              !strncmp(ea->fold + 1, q + 1, q_len - 1) &&
+                              ea->fold[q_len] == ':' && ea->fold[q_len + 1] == '\0');
+    gboolean b_colon_exact = (q[0] == ':' && eb->fold[0] == ':' &&
+                              !strncmp(eb->fold + 1, q + 1, q_len - 1) &&
+                              eb->fold[q_len] == ':' && eb->fold[q_len + 1] == '\0');
+    if (a_colon_exact != b_colon_exact) return a_colon_exact ? -1 : 1;
+
+    // Shorter code lengths win (e.g. :dog: before :dislike:)
+    gsize la = strlen(ea->fold);
+    gsize lb = strlen(eb->fold);
+    if (la != lb) return (la < lb) ? -1 : 1;
+
+    return strcmp(ea->fold, eb->fold);
+}
+
 GPtrArray* get_emoji_suggestions(const char *prefix){
     GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
     if(!prefix || !*prefix) return out;
     tables_load();
     gchar *lower = g_utf8_strdown(prefix, -1);
-    /* Exact match wins first */
+
+    GPtrArray *matches = g_ptr_array_new();
     for(guint i = 0; i < emoji_entries->len; i++){
         TableEntry *e = emoji_entries->pdata[i];
-        if(!strcmp(e->fold, lower)){
-            add_candidate_unique(out, e->value);
-            break;
+        if(!strcmp(e->fold, lower) || g_str_has_prefix(e->fold, lower)){
+            g_ptr_array_add(matches, e);
         }
     }
-    /* Prefix matches up to 5 */
-    for(guint i = 0; i < emoji_entries->len && out->len < 5; i++){
-        TableEntry *e = emoji_entries->pdata[i];
-        if(g_str_has_prefix(e->fold, lower))
-            add_candidate_unique(out, e->value);
+
+    g_ptr_array_sort_with_data(matches, compare_emoji_match, lower);
+
+    for(guint i = 0; i < matches->len && out->len < 5; i++){
+        TableEntry *e = g_ptr_array_index(matches, i);
+        add_candidate_unique(out, e->value);
     }
+    g_ptr_array_free(matches, TRUE);
     g_free(lower);
     return out;
 }

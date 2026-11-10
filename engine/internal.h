@@ -41,6 +41,18 @@ gboolean apply_tone_at(GArray *word, int pos, int tone);
 gboolean is_valid_coda(const char *coda, int coda_len);
 gboolean is_valid_onset(const gunichar *ucs, glong first_v);
 gboolean spell_word_valid(const char *utf8);
+
+typedef struct {
+    gboolean is_valid;
+    char onset[32];
+    char nucleus[32];
+    char coda[32];
+    int tone;
+    char tone_name[32];
+    char diac_name[64];
+} GtvSyllableAnalysis;
+
+gboolean gtv_analyze_syllable(const char *utf8, GtvSyllableAnalysis *out);
 void add_candidate_unique(GPtrArray *out, const char *cand);
 void auto_promote_diphthong(GArray *buf);
 gboolean telex_transform(GArray *buf, gunichar key, gboolean modern);

@@ -18,6 +18,7 @@ import {
 } from '../engine/gtvEngine';
 import {
   gtvWasmCompose,
+  gtvWasmAnalyzeSyllable,
   isGotvWasmReady,
 } from '../engine/gotvWasmEngine';
 import { getSuggestions, SuggestionItem } from '../engine/suggestEngine';
@@ -50,16 +51,23 @@ export const VietnamesePlayground: React.FC = () => {
     const rawWord = currentText.substring(start, end);
     const trimmedWord = rawWord.trim();
     if (trimmedWord) {
-      // Only run Vietnamese syllable phonology analysis if it looks like a Vietnamese word (not emoji or symbols)
-      const isVietnameseWord =
-        !trimmedWord.startsWith(':') &&
-        !trimmedWord.startsWith(';') &&
-        /^[a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]+$/i.test(trimmedWord);
-
-      if (isVietnameseWord) {
-        setAnalysis(analyzeSyllable(trimmedWord));
+      // Analyze syllable directly from pure C core WebAssembly engine
+      if (isGotvWasmReady()) {
+        const wasmRes = gtvWasmAnalyzeSyllable(trimmedWord);
+        setAnalysis(wasmRes ? {
+          word: trimmedWord,
+          onset: wasmRes.onset || '(Trống)',
+          nucleus: wasmRes.nucleus || '-',
+          coda: wasmRes.coda || '(Trống)',
+          toneName: wasmRes.toneName || 'Không dấu (Ngang)',
+          diacName: wasmRes.diacName || 'Không có',
+        } : null);
       } else {
-        setAnalysis(null);
+        const isVietnameseWord =
+          !trimmedWord.startsWith(':') &&
+          !trimmedWord.startsWith(';') &&
+          /^[a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]+$/i.test(trimmedWord);
+        setAnalysis(isVietnameseWord ? analyzeSyllable(trimmedWord) : null);
       }
 
       if (suggestEnabled) {

@@ -9,6 +9,7 @@ interface WasmExports {
   gtv_wasm_free: (ptr: number) => void;
   gtv_wasm_transform: (inputPtr: number, mode: number, modern: number) => number;
   gtv_wasm_compose_key: (wordPtr: number, key: number, mode: number, modern: number) => number;
+  gtv_wasm_analyze_syllable: (wordPtr: number) => number;
 }
 
 let wasmExports: WasmExports | null = null;
@@ -106,4 +107,45 @@ export function gtvWasmCompose(word: string, keyChar: string, mode: GtvMode = 't
 
   const decoder = new TextDecoder();
   return decoder.decode(updatedMem.subarray(resPtr, end));
+}
+
+export interface WasmSyllableAnalysis {
+  valid: boolean;
+  word?: string;
+  onset?: string;
+  nucleus?: string;
+  coda?: string;
+  tone?: number;
+  toneName?: string;
+  diacName?: string;
+}
+
+/**
+ * Analyzes a Vietnamese syllable directly via the pure C GoTV WebAssembly engine.
+ * Returns null if the word is not a valid Vietnamese syllable or contains non-alphabetic characters.
+ */
+export function gtvWasmAnalyzeSyllable(word: string): WasmSyllableAnalysis | null {
+  if (!word || !wasmExports) return null;
+
+  const encoder = new TextEncoder();
+  const wordBytes = encoder.encode(word.trim() + '\0');
+  const ptr = wasmExports.gtv_wasm_malloc(wordBytes.length);
+
+  const mem = new Uint8Array(wasmExports.memory.buffer);
+  mem.set(wordBytes, ptr);
+
+  const resPtr = wasmExports.gtv_wasm_analyze_syllable(ptr);
+
+  let end = resPtr;
+  const updatedMem = new Uint8Array(wasmExports.memory.buffer);
+  while (updatedMem[end] !== 0) end++;
+
+  const decoder = new TextDecoder();
+  const jsonStr = decoder.decode(updatedMem.subarray(resPtr, end));
+  try {
+    const parsed = JSON.parse(jsonStr) as WasmSyllableAnalysis;
+    return parsed.valid ? parsed : null;
+  } catch {
+    return null;
+  }
 }

@@ -64,3 +64,155 @@ gboolean apply_tone_at(GArray *word, int pos, int tone){
     g_array_index(word,gunichar,pos)=nc;
     return TRUE;
 }
+
+gboolean gtv_analyze_syllable(const char *utf8, GtvSyllableAnalysis *out) {
+    if (!out) return FALSE;
+    memset(out, 0, sizeof(*out));
+    if (!utf8 || !*utf8) return FALSE;
+
+    glong len = 0;
+    gunichar *ucs = g_utf8_to_ucs4(utf8, -1, NULL, &len, NULL);
+    if (!ucs || len <= 0) {
+        if (ucs) g_free(ucs);
+        return FALSE;
+    }
+
+    // Reject non-letters immediately (e.g. colons, punctuation, digits, emojis)
+    for (glong i = 0; i < len; i++) {
+        gunichar c = ucs[i];
+        if (!g_unichar_isalpha(c)) {
+            g_free(ucs);
+            return FALSE;
+        }
+    }
+
+    // Find vowels and tone/diacritics
+    glong first_v = -1;
+    glong last_v = -1;
+    int tone = TONE_NONE;
+    int diac_mask = 0;
+
+    for (glong i = 0; i < len; i++) {
+        gunichar c = ucs[i];
+        if (is_vowel(c)) {
+            /* u in qu is part of onset when another vowel follows */
+            if (i == 1 && bare_lower(ucs[0]) == 'q' && bare_lower(ucs[i]) == 'u' &&
+                i + 1 < len && is_vowel(ucs[i + 1])) {
+                // skip
+            } else {
+                if (first_v == -1) first_v = i;
+                last_v = i;
+            }
+        }
+        int t = get_tone(c);
+        if (t != TONE_NONE) tone = t;
+        int d = get_diac(c);
+        if (d == DIAC_BREVE) diac_mask |= 1;
+        if (d == DIAC_CIRCUMFLEX) diac_mask |= 2;
+        if (d == DIAC_HORN) diac_mask |= 4;
+        if (d == DIAC_STROKE || c == 0x0110 || c == 0x0111) diac_mask |= 8;
+    }
+
+    // If no vowels found: check if it's a valid onset in progress
+    if (first_v == -1) {
+        if (is_valid_onset(ucs, len)) {
+            out->is_valid = TRUE;
+            gchar *u_str = g_ucs4_to_utf8(ucs, len, NULL, NULL, NULL);
+            if (u_str) {
+                strncpy(out->onset, u_str, sizeof(out->onset) - 1);
+                g_free(u_str);
+            }
+            strcpy(out->nucleus, "-");
+            strcpy(out->coda, "-");
+            strcpy(out->tone_name, "Không dấu (Ngang)");
+            strcpy(out->diac_name, (diac_mask & 8) ? "Gạch ngang (đ)" : "Không có");
+            g_free(ucs);
+            return TRUE;
+        }
+        g_free(ucs);
+        return FALSE;
+    }
+
+    // Check onset validity
+    if (first_v > 0 && !is_valid_onset(ucs, first_v)) {
+        g_free(ucs);
+        return FALSE;
+    }
+
+    // All characters between first_v and last_v must be vowels
+    for (glong i = first_v; i <= last_v; i++) {
+        if (!is_vowel(ucs[i])) {
+            g_free(ucs);
+            return FALSE;
+        }
+    }
+
+    // Check coda validity
+    glong coda_len = len - last_v - 1;
+    if (coda_len > 2) {
+        g_free(ucs);
+        return FALSE;
+    }
+    char coda_ascii[3] = {0};
+    for (glong i = 0; i < coda_len; i++) {
+        gunichar c = bare_lower(ucs[last_v + 1 + i]);
+        if (c > 127) {
+            g_free(ucs);
+            return FALSE;
+        }
+        coda_ascii[i] = (char)c;
+    }
+    if (!is_valid_coda(coda_ascii, coda_len)) {
+        g_free(ucs);
+        return FALSE;
+    }
+
+    out->is_valid = TRUE;
+    out->tone = tone;
+
+    // Build onset string
+    if (first_v > 0) {
+        gchar *s = g_ucs4_to_utf8(ucs, first_v, NULL, NULL, NULL);
+        if (s) { strncpy(out->onset, s, sizeof(out->onset) - 1); g_free(s); }
+    } else {
+        strcpy(out->onset, "(Trống)");
+    }
+
+    // Build nucleus string
+    gchar *n_str = g_ucs4_to_utf8(ucs + first_v, last_v - first_v + 1, NULL, NULL, NULL);
+    if (n_str) { strncpy(out->nucleus, n_str, sizeof(out->nucleus) - 1); g_free(n_str); }
+
+    // Build coda string
+    if (coda_len > 0) {
+        gchar *c_str = g_ucs4_to_utf8(ucs + last_v + 1, coda_len, NULL, NULL, NULL);
+        if (c_str) { strncpy(out->coda, c_str, sizeof(out->coda) - 1); g_free(c_str); }
+    } else {
+        strcpy(out->coda, "(Trống)");
+    }
+
+    // Tone name
+    static const char *tone_names[] = {
+        "Không dấu (Ngang)", "Sắc (´)", "Huyền (`)", "Hỏi (?)", "Ngã (~)", "Nặng (.)"
+    };
+    if (tone >= 0 && tone <= 5) {
+        strncpy(out->tone_name, tone_names[tone], sizeof(out->tone_name) - 1);
+    } else {
+        strcpy(out->tone_name, "Không dấu (Ngang)");
+    }
+
+    // Diacritic name
+    out->diac_name[0] = '\0';
+    if (diac_mask & 1) strcat(out->diac_name, "Trăng (ă), ");
+    if (diac_mask & 2) strcat(out->diac_name, "Mũ (â/ê/ô), ");
+    if (diac_mask & 4) strcat(out->diac_name, "Móc (ơ/ư), ");
+    if (diac_mask & 8) strcat(out->diac_name, "Gạch ngang (đ), ");
+    size_t dlen = strlen(out->diac_name);
+    if (dlen >= 2 && out->diac_name[dlen - 2] == ',') {
+        out->diac_name[dlen - 2] = '\0';
+    } else if (dlen == 0) {
+        strcpy(out->diac_name, "Không có");
+    }
+
+    g_free(ucs);
+    return TRUE;
+}

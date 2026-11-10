@@ -523,6 +523,15 @@ static void test_macro_and_emoji(void) {
     g_assert_cmpstr(g_ptr_array_index(s_d, 0), ==, "😀");
     g_ptr_array_unref(s_d);
 
+    /* Test lowercase prefix :d ranks :D first, then shorter code :dog:, then :dislike: */
+    GPtrArray *s_lower_d = get_emoji_suggestions(":d");
+    g_assert_nonnull(s_lower_d);
+    g_assert_cmpuint(s_lower_d->len, >=, 3);
+    g_assert_cmpstr(g_ptr_array_index(s_lower_d, 0), ==, "😀");
+    g_assert_cmpstr(g_ptr_array_index(s_lower_d, 1), ==, "🐶");
+    g_assert_cmpstr(g_ptr_array_index(s_lower_d, 2), ==, "👎");
+    g_ptr_array_unref(s_lower_d);
+
     GPtrArray *s_dash_d = get_emoji_suggestions(":-D");
     g_assert_nonnull(s_dash_d);
     g_assert_cmpuint(s_dash_d->len, >, 0);
