@@ -196,9 +196,9 @@ export const VietnamesePlayground: React.FC = () => {
     { raw: 'duocjwd', label: 'được', desc: 'Dấu tự do cuối từ' },
     { raw: 'tieengs', label: 'tiếng', desc: 'Âm đôi ie + s' },
     { raw: 'vieetj', label: 'việt', desc: 'Âm ee + j' },
-    { raw: 'nguyeenv', label: 'nguyễn', desc: 'Dấu ngã v/x' },
-    { raw: 'thuyeern', label: 'thuyền', desc: 'Âm uyên phức tạp' },
-    { raw: 'hoawcj', label: 'hoặc', desc: 'Âm oặc' },
+    { raw: 'nguyenx', label: 'nguyễn', desc: 'Dấu ngã (x)' },
+    { raw: 'thuyenf', label: 'thuyền', desc: 'Dấu huyền (f)' },
+    { raw: 'hoacwj', label: 'hoặc', desc: 'Âm oặc (hoac + w + j)' },
     { raw: 'toanss', label: 'toans', desc: 'Khôi phục tiếng Anh' },
   ];
 
