@@ -18,6 +18,7 @@
  *     layout variant (00000409 = US, 00020409 = US-International), so the
  *     KLID already tells us which language it belongs to. */
 #include "keyboard.h"
+#include "tray.h"
 #include "engine.h"
 
 #include <windows.h>
@@ -807,4 +808,77 @@ void gtv_kbd_mark_custom(void) {
     gchar *path = kbd_state_path("keyboard-custom");
     g_file_set_contents(path, "1\n", -1, NULL);
     g_free(path);
+}
+
+#ifndef TF_IPPMF_FORSESSION
+#define TF_IPPMF_FORSESSION 0x20000000
+#endif
+#ifndef TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE
+#define TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE 0x00000004
+#endif
+
+BOOL gtv_kbd_is_vietnamese_active(void) {
+    HWND fg = GetForegroundWindow();
+    DWORD tid = fg ? GetWindowThreadProcessId(fg, NULL) : 0;
+    HKL hkl = GetKeyboardLayout(tid);
+    if (!hkl) hkl = GetKeyboardLayout(0);
+    return (LOWORD(hkl) == GTV_LANG_VI);
+}
+
+void gtv_kbd_toggle_active(void) {
+    HWND fg = GetForegroundWindow();
+    DWORD tid = fg ? GetWindowThreadProcessId(fg, NULL) : 0;
+    HKL hkl = GetKeyboardLayout(tid);
+    if (!hkl) hkl = GetKeyboardLayout(0);
+    LANGID current_lang = LOWORD(hkl);
+
+    ITfInputProcessorProfileMgr *mgr = NULL;
+    HRESULT hr = CoCreateInstance(&CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
+                                 &IID_ITfInputProcessorProfileMgr, (void **)&mgr);
+    if (SUCCEEDED(hr) && mgr) {
+        IEnumTfInputProcessorProfiles *pEnum = NULL;
+        if (SUCCEEDED(mgr->lpVtbl->EnumProfiles(mgr, 0, &pEnum)) && pEnum) {
+            TF_INPUTPROCESSORPROFILE list[16];
+            ULONG count = 0;
+            while (count < 16 && pEnum->lpVtbl->Next(pEnum, 1, &list[count], NULL) == S_OK) {
+                count++;
+            }
+            pEnum->lpVtbl->Release(pEnum);
+
+            if (count >= 2) {
+                ULONG targetIdx = 0;
+                if (current_lang == GTV_LANG_VI) {
+                    for (ULONG i = 0; i < count; i++) {
+                        if (list[i].langid != GTV_LANG_VI) {
+                            targetIdx = i;
+                            break;
+                        }
+                    }
+                } else {
+                    for (ULONG i = 0; i < count; i++) {
+                        if (list[i].langid == GTV_LANG_VI) {
+                            targetIdx = i;
+                            break;
+                        }
+                    }
+                }
+
+                const TF_INPUTPROCESSORPROFILE *next = &list[targetIdx];
+                mgr->lpVtbl->ActivateProfile(mgr, next->dwProfileType, next->langid,
+                                            &next->clsid, &next->guidProfile, next->hkl,
+                                            TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+
+                if (fg) {
+                    PostMessage(fg, WM_INPUTLANGCHANGEREQUEST, 0, (LPARAM)next->hkl);
+                }
+            }
+        }
+        mgr->lpVtbl->Release(mgr);
+    } else {
+        if (fg) {
+            PostMessage(fg, WM_INPUTLANGCHANGEREQUEST, INPUTLANGCHANGE_FORWARD, 0);
+        }
+    }
+
+    gtv_tray_update_icon();
 }

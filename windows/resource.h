@@ -37,6 +37,13 @@
 #define ID_TRAY_KEYBOARDS   313
 #define ID_TRAY_DATA        314
 #define ID_TRAY_SUGGEST     315
+#define ID_TRAY_TOGGLE_VI   316
+#define ID_TRAY_SWITCH_CTRL_SHIFT 317
+#define ID_TRAY_SWITCH_ALT_Z 318
+
+#define IDC_GROUP_SWITCH    254
+#define IDC_RADIO_CTRL_SHIFT 255
+#define IDC_RADIO_ALT_Z     256
 
 #define IDC_BTN_DATA        217
 #define IDC_BTN_KEYBOARD    253

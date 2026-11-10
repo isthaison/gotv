@@ -75,4 +75,10 @@ void gtv_kbd_mark_custom(void);
 /* Keyboard list manager dialog (opened from the tray menu / setup dialog). */
 void gtv_keyboard_show(HWND parent);
 
+/* Query whether the currently active foreground input layout is Vietnamese. */
+BOOL gtv_kbd_is_vietnamese_active(void);
+
+/* Toggle active keyboard layout / input language between GoTV and English. */
+void gtv_kbd_toggle_active(void);
+
 #endif /* GTV_KEYBOARD_H */

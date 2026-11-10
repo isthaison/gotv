@@ -5,6 +5,7 @@
 #include "data.h"
 #include "startup.h"
 #include "keyboard.h"
+#include "hotkey.h"
 #include "update.h"
 #include "resource.h"
 #include "win_utf.h"
@@ -13,8 +14,8 @@ static NOTIFYICONDATAW nid = {0};
 static HICON icon_current = NULL;
 
 /* Like the Linux indicator (Telex/VNI label): T = Telex, V = VNI.
- * Always "on" — English is a Win+Space keyboard switch, not a tray state. */
-static HICON create_tray_text_icon(GtvMode mode) {
+ * Red [V]/[T] for Vietnamese, Blue [E] for English. */
+static HICON create_tray_text_icon(GtvMode mode, BOOL is_vi) {
     int cx = GetSystemMetrics(SM_CXSMICON);
     int cy = GetSystemMetrics(SM_CYSMICON);
     if (cx <= 0) cx = 16;
@@ -36,7 +37,7 @@ static HICON create_tray_text_icon(GtvMode mode) {
     HBRUSH hbrBlack = (HBRUSH)GetStockObject(BLACK_BRUSH);
     FillRect(hdcMask, &rc, hbrBlack);
 
-    HBRUSH hbr = CreateSolidBrush(RGB(178, 34, 34));
+    HBRUSH hbr = is_vi ? CreateSolidBrush(RGB(178, 34, 34)) : CreateSolidBrush(RGB(0, 102, 204));
     FillRect(hdcMem, &rc, hbr);
     DeleteObject(hbr);
 
@@ -46,8 +47,8 @@ static HICON create_tray_text_icon(GtvMode mode) {
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
     HFONT hFontOld = (HFONT)SelectObject(hdcMem, hFont);
-    DrawTextW(hdcMem, mode == GTV_VNI ? L"V" : L"T",
-              -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    const WCHAR *txt = is_vi ? (mode == GTV_VNI ? L"T" : L"V") : L"E";
+    DrawTextW(hdcMem, txt, -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     SelectObject(hdcMem, hFontOld);
     DeleteObject(hFont);
@@ -87,13 +88,22 @@ void gtv_config_strings_unlock(void) {
 
 static void tray_apply_icon_tip(void) {
     if (icon_current) DestroyIcon(icon_current);
-    icon_current = create_tray_text_icon(g_app.config.mode);
+    BOOL is_vi = gtv_kbd_is_vietnamese_active();
+    icon_current = create_tray_text_icon(g_app.config.mode, is_vi);
     if (!icon_current) {
         icon_current = LoadIconW(GetModuleHandle(NULL), MAKEINTRESOURCEW(IDI_APP_ICON));
     }
     nid.hIcon = icon_current;
-    gtv_win_copy_utf8(nid.szTip, G_N_ELEMENTS(nid.szTip),
-                      g_app.config.mode == GTV_VNI ? "GoTV — VNI (Click để đổi Telex)" : "GoTV — Telex (Click để đổi VNI)");
+
+    const char *hotkey_str = (g_app.config.switch_key == GTV_SWITCH_ALT_Z) ? "Alt+Z" : "Ctrl+Shift";
+    char tip[128];
+    if (is_vi) {
+        g_snprintf(tip, sizeof(tip), "GoTV — %s [Tiếng Việt] (%s / Win+Space)",
+                   g_app.config.mode == GTV_VNI ? "VNI" : "Telex", hotkey_str);
+    } else {
+        g_snprintf(tip, sizeof(tip), "GoTV — [English / Tiếng Anh] (%s / Win+Space)", hotkey_str);
+    }
+    gtv_win_copy_utf8(nid.szTip, G_N_ELEMENTS(nid.szTip), tip);
 }
 
 gboolean gtv_tray_init(HWND hwnd) {
@@ -135,6 +145,22 @@ void gtv_tray_show_menu(HWND hwnd) {
     GetCursorPos(&pt);
 
     HMENU hmenu = CreatePopupMenu();
+
+    /* Quick status / toggle */
+    BOOL is_vi = gtv_kbd_is_vietnamese_active();
+    UINT vi_flag = is_vi ? MF_CHECKED : MF_UNCHECKED;
+    const char *hotkey_label = (g_app.config.switch_key == GTV_SWITCH_ALT_Z)
+        ? "Bật tiếng Việt (Alt+Z)" : "Bật tiếng Việt (Ctrl+Shift)";
+    gtv_win_menu_add_utf8(hmenu, hotkey_label, vi_flag, ID_TRAY_TOGGLE_VI);
+
+    HMENU hSubSwitch = CreatePopupMenu();
+    UINT cs_flag = (g_app.config.switch_key == GTV_SWITCH_CTRL_SHIFT) ? MF_CHECKED : MF_UNCHECKED;
+    UINT az_flag = (g_app.config.switch_key == GTV_SWITCH_ALT_Z) ? MF_CHECKED : MF_UNCHECKED;
+    gtv_win_menu_add_utf8(hSubSwitch, "Ctrl + Shift", cs_flag, ID_TRAY_SWITCH_CTRL_SHIFT);
+    gtv_win_menu_add_utf8(hSubSwitch, "Alt + Z", az_flag, ID_TRAY_SWITCH_ALT_Z);
+    AppendMenuW(hmenu, MF_POPUP, (UINT_PTR)hSubSwitch, L"Phím chuyển đổi (E/V)");
+    gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
+
     gtv_win_menu_add_utf8(hmenu, "Bảng điều khiển...", 0, ID_TRAY_SETTINGS);
     gtv_win_menu_add_utf8(hmenu, "Quản lý gõ tắt & Emoji...", 0, ID_TRAY_DATA);
     gtv_win_menu_add_utf8(hmenu, "Bàn phím (Win+Space)...", 0, ID_TRAY_KEYBOARDS);
@@ -177,6 +203,21 @@ void gtv_tray_show_menu(HWND hwnd) {
     DestroyMenu(hmenu);
 
     switch (cmd) {
+        case ID_TRAY_TOGGLE_VI:
+            gtv_kbd_toggle_active();
+            break;
+        case ID_TRAY_SWITCH_CTRL_SHIFT:
+            g_app.config.switch_key = GTV_SWITCH_CTRL_SHIFT;
+            gtv_hotkey_set_key(GTV_SWITCH_CTRL_SHIFT);
+            gtv_app_save_config();
+            gtv_tray_update_icon();
+            break;
+        case ID_TRAY_SWITCH_ALT_Z:
+            g_app.config.switch_key = GTV_SWITCH_ALT_Z;
+            gtv_hotkey_set_key(GTV_SWITCH_ALT_Z);
+            gtv_app_save_config();
+            gtv_tray_update_icon();
+            break;
         case ID_TRAY_SETTINGS:
             gtv_setup_show(hwnd);
             break;

@@ -4,6 +4,7 @@
 #include "tray.h"
 #include "startup.h"
 #include "keyboard.h"
+#include "hotkey.h"
 #include "resource.h"
 #include "win_utf.h"
 #include "internal.h"
@@ -93,6 +94,9 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 { IDC_GROUP_TYPE, "Kiểu gõ" },
                 { IDC_RADIO_TELEX, "Telex (gõ lặp: aa -> â, s/f/r/x/j)" },
                 { IDC_RADIO_VNI, "VNI (số: 1->sắc, 2->huyền, 6->mũ...)" },
+                { IDC_GROUP_SWITCH, "Phím chuyển đổi (E/V)" },
+                { IDC_RADIO_CTRL_SHIFT, "Ctrl + Shift" },
+                { IDC_RADIO_ALT_Z, "Alt + Z" },
                 { IDC_GROUP_OPTS, "Tùy chọn" },
                 { IDC_CHECK_MODERN, "Đặt dấu theo chuẩn mới (hòa, thúy thay vì hoà, thuý)" },
                 { IDC_CHECK_SPELL, "Kiểm tra chính tả tiếng Việt" },
@@ -123,6 +127,12 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 CheckRadioButton(hwnd, IDC_RADIO_TELEX, IDC_RADIO_VNI, IDC_RADIO_TELEX);
             }
 
+            if (g_app.config.switch_key == GTV_SWITCH_ALT_Z) {
+                CheckRadioButton(hwnd, IDC_RADIO_CTRL_SHIFT, IDC_RADIO_ALT_Z, IDC_RADIO_ALT_Z);
+            } else {
+                CheckRadioButton(hwnd, IDC_RADIO_CTRL_SHIFT, IDC_RADIO_ALT_Z, IDC_RADIO_CTRL_SHIFT);
+            }
+
             CheckDlgButton(hwnd, IDC_CHECK_MODERN, g_app.config.modern ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_SPELL, g_app.config.spellcheck ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_STARTUP, gtv_startup_get() != GTV_STARTUP_NONE ? BST_CHECKED : BST_UNCHECKED);
@@ -149,6 +159,13 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     g_app.config.mode = GTV_VNI;
                 } else {
                     g_app.config.mode = GTV_TELEX;
+                }
+                GtvSwitchKey new_sk = (IsDlgButtonChecked(hwnd, IDC_RADIO_ALT_Z) == BST_CHECKED)
+                    ? GTV_SWITCH_ALT_Z
+                    : GTV_SWITCH_CTRL_SHIFT;
+                if (g_app.config.switch_key != new_sk) {
+                    g_app.config.switch_key = new_sk;
+                    gtv_hotkey_set_key(new_sk);
                 }
                 g_app.config.modern = (IsDlgButtonChecked(hwnd, IDC_CHECK_MODERN) == BST_CHECKED);
                 g_app.config.spellcheck = (IsDlgButtonChecked(hwnd, IDC_CHECK_SPELL) == BST_CHECKED);

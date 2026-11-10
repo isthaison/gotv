@@ -8,6 +8,8 @@
 #include "tsf_install.h"
 #include "input_setup.h"
 #include "update.h"
+#include "keyboard.h"
+#include "hotkey.h"
 #include "resource.h"
 #include "version.h"
 #include "internal.h"
@@ -57,13 +59,30 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
         case WM_TRAY_CALLBACK: {
             if (lParam == WM_LBUTTONUP) {
-                GtvMode new_mode = (g_app.config.mode == GTV_TELEX) ? GTV_VNI : GTV_TELEX;
-                gtv_app_set_input_method(new_mode);
+                gtv_kbd_toggle_active();
+            } else if (lParam == WM_LBUTTONDBLCLK) {
+                gtv_setup_show(hwnd);
             } else if (lParam == WM_RBUTTONUP) {
                 gtv_tray_show_menu(hwnd);
             } else if (lParam == NIN_BALLOONUSERCLICK) {
                 if (!gtv_update_balloon_clicked())
                     gtv_tray_apply_pending();
+            }
+            break;
+        }
+        case WM_GTV_TOGGLE_INPUT:
+        case WM_HOTKEY: {
+            gtv_kbd_toggle_active();
+            break;
+        }
+        case WM_TIMER: {
+            if (wParam == 1001) {
+                static int s_last_vi = -1;
+                BOOL is_vi = gtv_kbd_is_vietnamese_active();
+                if (s_last_vi != (int)is_vi) {
+                    s_last_vi = (int)is_vi;
+                    gtv_tray_update_icon();
+                }
             }
             break;
         }
@@ -270,6 +289,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                                        WS_POPUP, 0, 0, 0, 0,
                                        NULL, NULL, hInstance, NULL);
 
+    SetTimer(g_app.hwnd_main, 1001, 300, NULL);
+
     /* Allow WM_COPYDATA from lower-integrity processes (e.g. sandboxed Chromium/Electron renderers) */
     {
 #ifndef MSGFLT_ALLOW
@@ -293,8 +314,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         if (hWatcher) CloseHandle(hWatcher);
     }
 
-    /* 5. Initialize Tray Icon (typing is handled natively by Windows TSF) */
+    /* 5. Initialize Tray Icon & Global Hotkey */
     gtv_tray_init(g_app.hwnd_main);
+    gtv_hotkey_init(g_app.hwnd_main, g_app.config.switch_key);
 
     /* Store submissions are updated through their versioned Store listing. */
 #ifndef GTV_STORE_BUILD
@@ -310,6 +332,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     /* 7. Cleanup */
+    gtv_hotkey_cleanup();
     gtv_suggest_overlay_cleanup();
     gtv_tray_cleanup();
     gtv_config_clear(&g_app.config);

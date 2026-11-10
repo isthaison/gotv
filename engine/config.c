@@ -34,6 +34,12 @@ static gboolean copy_legacy_tree(const gchar *source, const gchar *dest) {
 
 G_LOCK_DEFINE_STATIC(user_migration);
 gchar *gtv_user_path(const gchar *base, const gchar *name) {
+#ifdef G_OS_WIN32
+    const gchar *override = g_getenv("XDG_CONFIG_HOME");
+    if (override && *override && base && strcmp(base, g_get_user_config_dir()) == 0) {
+        base = override;
+    }
+#endif
     gchar *dir = g_build_filename(base, "gotv", NULL);
     gchar *legacy = g_build_filename(base, "gotiengviet", NULL);
     gchar *marker = g_build_filename(dir, ".legacy-imported", NULL);
@@ -190,6 +196,12 @@ static void overlay_file(GKeyFile *file, GtvConfig *config, gboolean input) {
         gchar *method = g_key_file_get_string(file, "input", "method", NULL);
         config->mode = method && !g_ascii_strcasecmp(method, "vni") ? GTV_VNI : GTV_TELEX;
         g_free(method);
+        gchar *sw = g_key_file_get_string(file, "input", "switch_key", NULL);
+        if (sw) {
+            config->switch_key = (!g_ascii_strcasecmp(sw, "alt_z") || !g_ascii_strcasecmp(sw, "altz"))
+                ? GTV_SWITCH_ALT_Z : GTV_SWITCH_CTRL_SHIFT;
+            g_free(sw);
+        }
         read_bool(file, "input", "modern", &config->modern);
         read_bool(file, "input", "spellcheck", &config->spellcheck);
     }
@@ -202,8 +214,8 @@ static void overlay_path(GtvConfig *config, const gchar *path, gboolean input) {
     g_key_file_unref(file);
 }
 void gtv_config_load(GtvConfig *config, const gchar *directory) {
-    *config = (GtvConfig){.mode = GTV_TELEX, .modern = TRUE, .spellcheck = FALSE,
-        .suggest_enabled = TRUE};
+    *config = (GtvConfig){.mode = GTV_TELEX, .switch_key = GTV_SWITCH_CTRL_SHIFT,
+        .modern = TRUE, .spellcheck = FALSE, .suggest_enabled = TRUE};
     g_strlcpy(config->dicts, "vi,tsql,c,csharp", sizeof(config->dicts));
     /* Shipped defaults first (data/config), then user files. */
     gchar *path = gtv_data_path("config");
@@ -225,6 +237,7 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
     gchar *path = g_build_filename(directory, "config", NULL);
     g_key_file_load_from_file(file, path, G_KEY_FILE_KEEP_COMMENTS, NULL);
     g_key_file_set_string(file, "input", "method", config->mode == GTV_VNI ? "vni" : "telex");
+    g_key_file_set_string(file, "input", "switch_key", config->switch_key == GTV_SWITCH_ALT_Z ? "alt_z" : "ctrl_shift");
     g_key_file_set_boolean(file, "input", "modern", config->modern);
     g_key_file_set_boolean(file, "input", "spellcheck", config->spellcheck);
     g_key_file_set_string(file, "input", "charset", "unicode");

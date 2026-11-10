@@ -7,8 +7,10 @@ G_BEGIN_DECLS
 
 /* Returned strings and arrays belong to the caller (g_free/g_ptr_array_unref). */
 typedef enum { GTV_TELEX, GTV_VNI } GtvMode;
+typedef enum { GTV_SWITCH_CTRL_SHIFT = 0, GTV_SWITCH_ALT_Z = 1 } GtvSwitchKey;
 typedef struct {
     GtvMode mode;
+    GtvSwitchKey switch_key;
     gboolean modern, spellcheck, suggest_enabled;
     gchar dicts[128];
 } GtvConfig;
