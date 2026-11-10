@@ -1,80 +1,96 @@
-# Bản macOS (Preview)
+# Bản macOS (Native InputMethodKit)
 
-> 🧪 Đang hoàn thiện: gõ cơ bản (Telex/VNI) đã chạy, cửa sổ Cài đặt và gói `.dmg`
-> ký số vẫn trong roadmap. Dùng hàng ngày nên chờ bản ổn định; dev/test mời dùng thử và góp ý.
+> ✅ **Ổn định**: Bộ gõ chạy 100% qua kiến trúc chuẩn [InputMethodKit (IMK)](https://developer.apple.com/documentation/inputmethodkit) của Apple, hỗ trợ đầy đủ cho cả vi xử lý Apple Silicon (M1/M2/M3/M4) và chip Intel (x86_64).
 
-Native macOS qua [InputMethodKit](https://developer.apple.com/documentation/inputmethodkit):
-`GoTV.app` chạy nền (agent, không icon Dock), dùng chung lõi C với bản Linux/Windows —
-cùng quy tắc Telex/VNI, cùng file cấu hình `~/.config/gotv/`.
+`GoTV.app` là một Input Method Service chạy nền trong hệ thống (LSUIElement agent, không hiển thị icon trên Dock), dùng chung lõi xử lý C với bản Linux và Windows — đồng nhất 100% quy tắc Telex/VNI, từ điển offline, macro và emoji.
 
-## Cài bản preview
+---
 
-1. Tải file cài đặt `gotv-<version>-macos.dmg` hoặc `gotv-<version>-macos.pkg` ở trang
-   [Releases](https://github.com/isthaison/gotv/releases/latest)
-   (do CI build, chưa ký số Apple).
-2. **Cài đặt**:
-   - Nếu dùng file `.pkg`: Click đúp để chạy trình cài đặt chuẩn của macOS, ứng dụng sẽ được tự động cài vào `/Library/Input Methods/`.
-   - Nếu dùng file `.dmg`: Mở file và kéo thả `GoTV.app` vào thư mục `Input Methods`.
-3. Mở app một lần (chuột phải → Open, chấp nhận cảnh báo "unidentified developer"),
-   rồi đăng xuất/đăng nhập lại.
-4. Vào **System Settings → Keyboard → Text Input → Edit → Add** → chọn **GoTV**,
-   chuyển bằng `Fn/Caps Lock` hoặc `Control+Space`.
+## 1. Điểm nổi bật & Khắc phục sự cố Terminal (Issue #3)
 
-## Dùng hằng ngày
+- **100% Chuẩn Apple IME / IMK (Cơ chế 1)**:
+  - Hoạt động đúng chuẩn giao thức `IMKServerInput` và `IMKInputController`.
+  - Không dùng cơ chế can thiệp phím giả lập (`CGEventPost`), không đòi hỏi quyền trợ năng (*Accessibility / TCC*), tuân thủ tuyệt đối môi trường Sandbox và chính sách bảo mật macOS.
+- **Tương thích hoàn hảo với Terminal (Ghostty, iTerm2, Kitty, Terminal.app)**:
+  - Khắc phục triệt để lỗi gạch chân làm mất thẩm mỹ và gián đoạn tính năng autocompletion của Shell bằng thuộc tính `NSUnderlineStyleNone`.
+  - Kiểm tra trạng thái vùng đánh dấu an toàn (`reconcileMarkedText:`), không bao giờ bị xóa trắng bộ nhớ đệm phím (buffer wipe) ngay cả khi người dùng tắt marked text trong thiết lập của terminal.
+- **Bảng ứng viên Candidate List Native**:
+  - Tích hợp lớp `IMKCandidates` với giao diện hàng ngang (`kIMKSingleRowSteppingCandidatePanel`).
+  - Tự động hiển thị gợi ý từ điển và sửa lỗi chính tả ngoại tuyến ngay tại vị trí con trỏ nhập liệu.
+  - Chọn nhanh từ bằng các phím số `1..5`, phím `Tab` hoặc click chuột. Từ được chọn sẽ tự động được ghi nhớ vào từ điển học cá nhân.
+- **Menu Bar Status Menu**:
+  - Tích hợp menu ngữ cảnh ngay tại biểu tượng bàn phím trên thanh Menu Bar của macOS:
+    - Bật/tắt nhanh giữa kiểu gõ **Telex** và **VNI**.
+    - Bật/tắt chế độ **Dấu kiểu mới** (`hòa` vs `hoà`).
+    - Bật/tắt **Kiểm tra chính tả ngoại tuyến**.
+    - Bật/tắt **Gợi ý từ điển & Sửa lỗi**.
+    - Mở nhanh **Cài đặt...** hoặc **Quản lý Dữ liệu...** (Macro/Emoji).
+    - **Kiểm tra bản cập nhật mới...** từ GitHub.
+- **Giao diện Cài đặt & Dữ liệu native Cocoa**:
+  - Cửa sổ Cài đặt (`GtvPreferencesWindow`): Tùy chỉnh trực quan mọi thông số cấu hình của GoTV.
+  - Cửa sổ Dữ liệu (`GtvDataWindow`): Trình quản lý danh sách gõ tắt Macro và biểu tượng Emoji.
 
-- Gõ Telex/VNI như bản Linux/Windows (kiểu gõ, chuẩn dấu, chính tả đọc từ
-  `~/.config/gotv/config` — xem [Cấu hình](config.md)).
-- Mở app lần nữa để mở cửa sổ **Dữ liệu** (bảng Macro/Emoji: xem, thêm/sửa/xóa,
-  mở thư mục — chung API với bản Windows/Linux; lưu xong khởi động lại app để nhận).
-  Chưa có tùy chỉnh kiểu gõ/chuẩn dấu/gợi ý trong UI — hiện chỉ sửa được qua file `~/.config/gotv/config`.
-- Tự kiểm tra cập nhật mỗi ngày; bản mới tải về `/tmp` rồi mở Finder để cài thủ công
-  (khác Windows/Linux: tự cài silent).
-- Macro/emoji/config: chung lõi và file `data/` với mọi nền tảng (macro/emoji kích hoạt bằng phím Tab; Space giữ nguyên).
+---
 
-## Build từ source (dev)
+## 2. Hướng dẫn cài đặt
 
+Tải file cài đặt từ trang **[Releases chính thức](https://github.com/isthaison/gotv/releases/latest)**:
+
+### Cách 1: Cài đặt bằng file `.pkg` (Khuyến nghị)
+1. Tải `gotv-<version>-macos.pkg`.
+2. Nhấp đúp chuột vào file `.pkg` và làm theo các bước hướng dẫn trên màn hình. Trình cài đặt sẽ tự động đặt ứng dụng vào `/Library/Input Methods/GoTV.app`.
+
+### Cách 2: Cài đặt bằng file `.dmg`
+1. Tải `gotv-<version>-macos.dmg`.
+2. Mở file `.dmg` và kéo thả `GoTV.app` vào thư mục `Input Methods` (hoặc `~/Library/Input Methods/`).
+
+### Kích hoạt bộ gõ trong Hệ thống macOS
+1. Đăng xuất và đăng nhập lại tài khoản macOS (hoặc mở Terminal chạy `killall -9 GoTV` để hệ thống tải lại Input Method).
+2. Mở **System Settings** (Cài đặt hệ thống) → **Keyboard** (Bàn phím) → **Text Input** (Nhập văn bản) → bấm nút **Edit...** (Sửa...).
+3. Bấm nút dấu cộng **(+)** ở góc trái dưới → Tìm ngôn ngữ **Vietnamese** (Tiếng Việt) → Chọn **GoTV** → Bấm **Add** (Thêm).
+4. Chuyển đổi giữa các bàn phím bằng phím tắt `Fn/Caps Lock` hoặc `Control + Space`.
+
+> 💡 **Lưu ý về Gatekeeper**: Do GoTV là dự án mã nguồn mở cộng đồng miễn phí chưa đăng ký chứng chỉ thương mại trả phí của Apple, nếu macOS hiện cảnh báo *"Unidentified Developer"*, bạn chỉ cần vào **System Settings → Privacy & Security** (Quyền riêng tư & Bảo mật) → cuộn xuống mục Bảo mật và bấm **Open Anyway** (Vẫn mở).
+
+---
+
+## 3. Quản lý Cấu hình & Dữ liệu
+
+Vị trí lưu trữ dữ liệu cá nhân của GoTV trên máy Mac:
+- Thư mục chuẩn macOS: `~/Library/Application Support/gotv/` (hoặc `~/.config/gotv/`).
+- Các file cấu hình dạng text UTF-8:
+  - `config`: Thiết lập kiểu gõ (`method=telex` hoặc `vni`), chuẩn dấu (`modern=true`), chính tả (`spellcheck=true`), gợi ý (`suggest=true`).
+  - `macros.txt`: Danh sách từ gõ tắt cá nhân (`cty=Công ty TNHH`).
+  - `emojis.txt`: Bảng mã emoji tùy chỉnh.
+  - `learned-words.txt`: Các từ vựng mới mà bộ gõ đã tự học từ thói quen gõ của bạn.
+
+---
+
+## 4. Dành cho nhà phát triển (Build từ Source)
+
+Yêu cầu cài đặt môi trường thông qua Homebrew:
 ```sh
 brew install glib pkg-config
 ```
 
-CI (`.github/workflows/build-macos.yml`) làm ba việc, bạn chạy lại y hệt trên máy Mac:
-
-1. **Test lõi C** (cùng suite với Windows: engine + support + algorithm —
-   test IBus/GTK chỉ chạy trên Linux):
-
-    ```sh
-    CORE_CFLAGS="$(pkg-config --cflags glib-2.0 gio-2.0) -Iengine"
-    CORE_LIBS="$(pkg-config --libs glib-2.0 gio-2.0) -lm"
-    clang -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter \
-      $CORE_CFLAGS tests/test_engine.c engine/*.c $CORE_LIBS -o build/macos/test-engine
-    clang -O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter \
-      $CORE_CFLAGS tests/test_support.c engine/*.c $CORE_LIBS -o build/macos/test-support
-    GTV_DATA_DIR="$PWD/data" ./build/macos/test-engine
-    GTV_DATA_DIR="$PWD/data" ./build/macos/test-support
-    ```
-
-2. **Link bundle** `GoTV.app` (lõi C + ObjC, manual-retain, frameworks
-   Cocoa + InputMethodKit), copy `macos/Info.plist` + `data/` vào `Resources`.
-3. Trên tag `v*`: zip thành `gotv-<version>-macos.zip`, đính kèm release
-   (app chưa ký số Apple — mở lần đầu bằng chuột phải → Open).
-
-Cấu trúc bundle do CI tạo:
-
-```text
-GoTV.app/Contents/
-  Info.plist            Bundle ID vn.gotv.GoTV, LSUIElement (agent)
-  MacOS/GoTV     binary (lõi C + IMK controller)
-  Resources/data/       macro, emoji, config, từ điển, seed từ điển học
+### Chạy kiểm thử tự động (Unit Tests)
+```sh
+./gtv.sh test
 ```
+(Chạy 26 bài test bao phủ toàn bộ lõi C: Telex/VNI engine, kiểm tra chính tả, gợi ý từ điển, cấu hình và hoán vị phím).
 
-## Giới hạn đã biết (preview)
+### Biên dịch ứng dụng `GoTV.app`
+```sh
+./gtv.sh build
+```
+Lệnh trên sẽ biên dịch mã nguồn C và Objective-C Cocoa/IMK thành bundle hoàn chỉnh tại `build/macos/GoTV.app`.
 
-- Chưa có bảng Cài đặt đầy đủ, chưa gợi ý inline/AI trong ô nhập.
-- Chưa ký số + notarize → macOS chặn mở trực tiếp lần đầu (chuột phải → Open).
-- Chưa hỗ trợ trường mật khẩu đặc biệt.
-
-Báo lỗi kèm macOS version + log Console.app chứa `GoTV`.
+### Cài đặt thử nghiệm vào hệ thống
+```sh
+./gtv.sh install
+```
+Ứng dụng sẽ được sao chép vào `~/Library/Input Methods/` của người dùng hiện tại.
 
 ---
-Xem thêm: [README](../README.md) · [Cấu hình](config.md) · [Phát triển](dev.md) ·
-[Trang chủ](https://isthaison.github.io/gotv/)
+
+Xem thêm: [README](../README.md) · [Cấu hình](config.md) · [Phát triển](dev.md) · [Đối chiếu tính năng](parity.md) · [Trang chủ](https://isthaison.github.io/gotv/)

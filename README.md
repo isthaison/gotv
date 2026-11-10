@@ -29,11 +29,12 @@ $ build/gotv-demo --transform telex duocjwd
 ## Tính năng
 
 - **Một thuật toán chung** cho Telex và VNI — chỉ khác bảng ánh xạ phím; kiểu đặt dấu hiện đại (`hòa`) hoặc truyền thống (`hoà`).
-- **Chính tả ngoại tuyến (Linux)**: gạch đỏ ngay khi gõ theo quy tắc âm tiết (âm đầu–vần–phụ âm cuối–thanh), không cần mạng. Bản Windows/macOS dùng AI balloon thay thế.
+- **Chính tả ngoại tuyến**: gạch đỏ ngay khi gõ trên Linux (theo quy tắc âm tiết); hiển thị balloon (Windows) hoặc bảng ứng viên Candidate List (macOS) gợi ý từ đúng offline, không cần kết nối mạng.
+- **macOS chuẩn Native IMK**: tuân thủ 100% kiến trúc Apple InputMethodKit, không cần cấp quyền Accessibility; gõ trơn tru không gạch chân trên mọi Terminal (Ghostty, iTerm2, Kitty...) và GUI app; có menu trạng thái thanh tác vụ và bảng ứng viên gợi ý.
 - **Gợi ý từ điển ngoại tuyến**: hoàn thành tiền tố (`thong`→`thông`) và sửa lỗi chính tả (`kông`→`không`), không cần mạng. Từ điển (`data/dict-vi.txt`, ~7000 từ) tự cập nhật từ GitHub release; từ bạn chọn được nhớ vào từ điển học riêng.
-- **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍.
-- **Nhẹ, riêng tư**: lõi C thuần + glib; không keylogger đám mây, mọi gợi ý chạy offline trên máy.
-- **Tự cập nhật**: kiểm tra release GitHub mỗi ngày, cài đè giữ nguyên cấu hình.
+- **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍. Có sẵn bảng quản lý trực quan trên macOS.
+- **Nhẹ, riêng tư**: lõi C thuần + glib; không runtime nặng nề, không gửi dữ liệu phím đi đâu, mọi gợi ý chạy offline trên máy.
+- **Tự cập nhật**: kiểm tra release GitHub định kỳ, nâng cấp đè giữ nguyên cấu hình cá nhân.
 
 ## Trạng thái nền tảng
 
@@ -41,7 +42,7 @@ $ build/gotv-demo --transform telex duocjwd
 |---|---|---|
 | Linux (Ubuntu/GNOME) | IBus engine + app khay (indicator) | ✅ Ổn định — `.deb` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 | Windows 10/11 | TSF Text Service + app khay | ✅ Ổn định — `gotv-*-x64-setup.exe` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
-| macOS | InputMethodKit `.app` | 🧪 Preview (đang hoàn thiện) — xem [docs/macos.md](docs/macos.md) |
+| macOS (Apple Silicon & Intel) | InputMethodKit `.app` (Native IMK) | ✅ Ổn định — `gotv-*-macos.pkg` / `.dmg` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 
 ## Bắt đầu nhanh
 
@@ -63,9 +64,12 @@ chuyển bằng `Super+Space`. Chi tiết: [docs/dev.md](docs/dev.md).
 (cài per-user, không cần admin) → đăng xuất/đăng nhập lại → chọn **GoTV** bằng `Win+Space`.
 Chi tiết: [docs/windows.md](docs/windows.md).
 
-**macOS**: tải `gotv-<version>-macos.dmg` hoặc `.pkg` ở trang Releases (bản preview),
-cài vào `~/Library/Input Methods` (`.pkg` tự cài, `.dmg` kéo thả), đăng xuất/đăng nhập lại.
-Chuyển bằng `Fn/Caps Lock` hoặc `Control+Space`. Chi tiết: [docs/macos.md](docs/macos.md).
+**macOS**: tải `gotv-<version>-macos.pkg` hoặc `.dmg` ở trang
+[Releases](https://github.com/isthaison/gotv/releases/latest).
+- Với gói `.pkg`: Nhấp đúp chuột để chạy cài đặt tự động vào `/Library/Input Methods/`.
+- Với file `.dmg`: Kéo thả `GoTV.app` vào thư mục `Input Methods`.
+Đăng xuất/đăng nhập lại → vào **System Settings → Keyboard → Input Sources** bấm **+** thêm **GoTV**.
+Chuyển đổi nguồn gõ bằng `Fn/Caps Lock` hoặc `Control+Space`. Chi tiết: [docs/macos.md](docs/macos.md).
 
 ## Quy tắc gõ (Telex/VNI)
 
@@ -85,8 +89,8 @@ Ví dụ: `bawst` → `bắt`, `duocjwd` → `được`, `hoaf` → `hoà`/`hòa
 |  | GoTV | Unikey | EVKey/OpenKey |
 |---|---|---|---|
 | Telex + VNI | ✅ | ✅ | ✅ |
-| Linux (IBus) / Windows / macOS | ✅ cả 3 | Win + Linux | Win + macOS |
-| Chính tả khi gõ | ✅ gạch đỏ (Linux) | ❌ | ❌ (balloon thay thế) |
+| Linux (IBus) / Windows / macOS | ✅ cả 3 (Native IMK) | Win + Linux | Win + macOS |
+| Chính tả & gợi ý khi gõ | ✅ (gạch đỏ Linux, balloon Win, candidate list Mac) | ❌ | ❌ |
 | Gợi ý từ điển offline | ✅ | ❌ | ❌ |
 | Mã nguồn mở | ✅ MIT | ✅ | ✅ |
 
@@ -119,6 +123,8 @@ ibus-setup-gotv --cli      # terminal
   `method` trong `~/.config/gotv/config`.
 - **Không thấy GoTV sau khi cài (Windows):** đăng xuất/đăng nhập lại;
   Settings → Time & Language → Language → Options → Add a keyboard → GoTV.
+- **Không thấy GoTV sau khi cài (macOS):** đăng xuất/đăng nhập lại (hoặc chạy `killall -9 GoTV` trong Terminal);
+  System Settings → Keyboard → Text Input → Edit → Bấm (+) → Vietnamese → GoTV.
 - **Crash (Linux):** xem `~/.cache/gotv/crash.log`, báo kèm phiên bản và log liên quan.
 - **Updater (Windows):** xem `%APPDATA%\gotv\update.log`.
 
@@ -142,7 +148,5 @@ Chuẩn code: `engine/` thuần C đa nền tảng, adapter riêng từng OS tro
 </a>
 
 Cảm ơn các bạn đã ủng hộ dự án! Xem danh sách chi tiết những người đã star tại **[GitHub Stargazers](https://github.com/isthaison/gotv/stargazers)**.
-
-
 
 Giấy phép: [MIT](LICENSE).

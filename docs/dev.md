@@ -74,11 +74,11 @@ linux/
 windows/          app khay + setup + update (C: main/app/tray/tray_ai/
                   setup/update/tsf_install/win_utf) + tsf/ (C++ TSF Text Service)
 macos/            IME InputMethodKit: controller, main, Info.plist (bundle),
-                  SetupWindowController (cửa sổ Dữ liệu Macro/Emoji)
+                  SetupWindowController (cửa sổ Cài đặt & Quản lý Macro/Emoji)
 site/             trang chủ GitHub Pages (HTML/CSS tĩnh + SEO meta),
                   deploy bằng .github/workflows/pages.yml
 .github/          CI: build-linux, build-windows, build-macos (test lõi +
-                  đóng gói .deb/.exe/.app), pages (deploy site)
+                  đóng gói .deb/.exe/.pkg/.dmg), pages (deploy site)
 mk/common.mk      danh sách file dùng chung (ENGINE_SRCS/WIN_SRCS/TSF_SRCS)
 VERSION           số version duy nhất (Makefile/Makefile.win đọc từ đây;
                   bump bằng ./gtv.sh bump, không sửa tay)

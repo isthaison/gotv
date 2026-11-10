@@ -1,61 +1,54 @@
 # Đối chiếu tính năng theo nền tảng
 
-Mục đích: một chỗ duy nhất để thấy tính năng nào có/thiếu ở đâu, khỏi mò từng thư mục.
-Kiến trúc chung: `engine/` (C, dùng chung) + UI native mỗi nền tảng (`linux/`, `windows/`, `macos/`).
+Mục đích: một chỗ duy nhất để thấy tính năng nào có/thiếu ở đâu, khỏi mò từng thư mục.  
+Kiến trúc chung: `engine/` (C, dùng chung 100%) + adapter native tương thích từng nền tảng (`linux/`, `windows/`, `macos/`).
 
 Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều hành lo.
 
-## Gõ (lõi engine dùng chung)
+## Gõ (lõi engine C dùng chung)
 
-| Tính năng | Linux | Windows | macOS |
+| Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
 | Telex / VNI / dấu hiện đại-truyền thống | ✅ | ✅ | ✅ |
-| Hoàn tác phím tắt (`ww`→`w`) | ✅ | ✅ | ✅ |
-| Macro/emoji mở rộng bằng Tab | ✅ | ✅ | ✅ |
-| Giữ phần gõ dở khi click sang chỗ khác | ✅ | ✅ (composition TSF) | ✅ (marked text) |
+| Hoàn tác phím tắt (`ww`→`w`, `dd`→`d`) | ✅ | ✅ | ✅ |
+| Macro/emoji mở rộng bằng phím Tab | ✅ | ✅ | ✅ |
+| Giữ phần gõ dở khi click chuột nơi khác | ✅ | ✅ (TSF composition) | ✅ (marked text) |
+| Tương thích Terminal (Ghostty, iTerm2, Kitty...) | ✅ | ✅ | ✅ (NSUnderlineStyleNone) |
 
 ## Hiển thị và gợi ý
 
-| Tính năng | Linux | Windows | macOS |
+| Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
-| Gạch đỏ chính tả khi gõ | ✅ | ❌ | ❌ |
-| Bảng gợi ý AI inline | ✅ | ✅ (overlay tray) | ❌ |
-| Nhận gợi ý + học từ đã chọn | ✅ (Tab/số) | ✅ (Tab/số + click balloon) | ❌ |
-| Enter không áp gợi ý/emoji/macro (chỉ commit chữ) | ✅ | ✅ | ✅ |
-| Gợi ý emoji khi gõ `:sm` | ✅ | ✅ (overlay tray) | ❌ |
+| Bảng gợi ý inline / Candidate List | ✅ (IBus lookup table) | ✅ (overlay tray balloon) | ✅ (IMKCandidates native) |
+| Gợi ý sửa lỗi chính tả ngoại tuyến | ✅ | ✅ | ✅ |
+| Nhận gợi ý + học từ đã chọn | ✅ (phím số / Tab) | ✅ (click / Tab) | ✅ (phím 1..5 / Tab / click) |
+| Enter không áp gợi ý (chỉ commit từ) | ✅ | ✅ | ✅ |
+| Gợi ý emoji khi gõ tiền tố `:sm` | ✅ | ✅ | ✅ |
+| Gạch chân chính tả gõ sai | ✅ (gạch đỏ) | ❌ (dùng balloon) | ❌ (dùng Candidate List) |
 
-## Cấu hình (cùng định dạng file cả 3 nền tảng)
+## Cấu hình & Giao diện
 
-| Tính năng | Linux | Windows | macOS |
+| Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
-| Đổi Telex↔VNI trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ❌ (sửa file tay) |
-| Chuẩn dấu / chính tả trong UI | ✅ | ✅ | ❌ |
-| Cấu hình AI trong UI | ✅ | ✅ | ❌ |
-| Quản lý macro/emoji trong UI | ❌ | ❌ | ✅ (duy nhất) |
+| Đổi Telex ↔ VNI trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ✅ (Menu Bar + Preferences) |
+| Chuẩn dấu / Chính tả trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
+| Bật/tắt gợi ý từ điển trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
+| Quản lý macro/emoji trong UI | ❌ (sửa file text) | ❌ (sửa file text) | ✅ (Cửa sổ GtvDataWindow) |
 
 ## Khay, menu, hệ thống
 
-| Tính năng | Linux | Windows | macOS |
+| Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
-| Indicator/menu riêng | ✅ AppIndicator | ✅ tray icon | ➖ menu input hệ thống |
-| Chuyển Việt/Anh | ✅ nguồn Super+Space | ✅ Win+Space | ✅ menu input |
-| Tự khởi động | ✅ xdg autostart | ✅ registry/task | ❌ |
-| Bỏ qua ô mật khẩu | ✅ | ⚠️ hệ thống (một phần) | ⚠️ hệ thống |
-| Nhật ký chẩn đoán | ✅ `debug/crash.log` | ✅ `update.log` | ❌ |
+| Menu trạng thái nhanh | ✅ AppIndicator | ✅ Tray icon Windows | ✅ Menu Bar input extra |
+| Phím tắt chuyển bàn phím | ✅ `Super + Space` | ✅ `Win + Space` | ✅ `Control + Space` / `Fn` |
+| Tuân thủ Sandbox & bảo mật TCC | ✅ | ✅ | ✅ (100% chuẩn Apple IMK) |
+| Tự khởi động cùng hệ điều hành | ✅ xdg autostart | ✅ registry / task | ➖ Hệ thống tự quản lý IMK |
+| Bỏ qua ô mật khẩu an toàn | ✅ | ✅ | ✅ (SecureInput) |
 
 ## Cập nhật theo release GitHub
 
-| Tính năng | Linux | Windows | macOS |
+| Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
 | Tự kiểm tra định kỳ | ✅ | ✅ | ✅ |
-| Kiểm tra tay trong UI | ✅ menu tray | ✅ menu tray | ❌ (có hàm, chưa nút bấm) |
-| Cài đặt từ UI | ✅ `pkexec dpkg -i` | ✅ silent + thoát app | ⚠️ tải về, chép tay + logout/login |
-
-## Backlog rút từ bảng trên (ưu tiên giảm dần)
-
-1. **macOS: chọn Telex/VNI + cấu hình AI trong Setup** — engine đã đọc config, chỉ thiếu UI ghi (editor macro đã có sẵn pattern).
-2. **macOS: nút Kiểm tra cập nhật** — hàm `GoTVCheckForUpdates` đã có, chỉ thiếu chỗ bấm.
-3. **Gạch đỏ + gợi ý inline cho macOS** — việc lớn (display attributes / marked-text attrs; Windows dùng overlay tray ngoài process).
-4. **macOS: autostart + gỡ cài đặt** (docs trước, code sau nếu cần).
-5. Gợi ý emoji `:sm` cho macOS.
-6. Bật/tắt TSF rõ ràng khi hồ sơ ngôn ngữ bị tắt tay trong Settings (đọc README phần Windows).
+| Kiểm tra thủ công trong UI | ✅ menu tray | ✅ menu tray | ✅ Menu Bar |
+| Nâng cấp tự động | ✅ `pkexec dpkg -i` | ✅ Silent in-place | ⚠️ Tải .pkg / .dmg về mở Finder |
