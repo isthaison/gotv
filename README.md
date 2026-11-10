@@ -1,11 +1,29 @@
-# GoTV — Bộ gõ tiếng Việt Telex/VNI cho Linux, Windows & macOS
+<p align="center">
+  <a href="https://isthaison.github.io/gotv/">
+    <img src="site/logo.png" alt="GoTV Logo" width="100" height="100" />
+  </a>
+</p>
 
-[![Build Linux](https://github.com/isthaison/gotv/actions/workflows/build-linux.yml/badge.svg)](https://github.com/isthaison/gotv/actions/workflows/build-linux.yml)
-[![Build Windows](https://github.com/isthaison/gotv/actions/workflows/build-windows.yml/badge.svg)](https://github.com/isthaison/gotv/actions/workflows/build-windows.yml)
-[![Build macOS](https://github.com/isthaison/gotv/actions/workflows/build-macos.yml/badge.svg)](https://github.com/isthaison/gotv/actions/workflows/build-macos.yml)
-[![Release](https://img.shields.io/github/v/release/isthaison/gotv)](https://github.com/isthaison/gotv/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-🌐 Trang chủ: **<https://isthaison.github.io/gotv/>**
+<h1 align="center">GoTV — Bộ gõ tiếng Việt Telex/VNI</h1>
+
+<p align="center">
+  <strong>Bộ gõ tiếng Việt mã nguồn mở thế hệ mới cho Linux, Windows & macOS</strong><br>
+  Lõi C thuần tốc độ cao • Không gạch chân phiền toái • Gợi ý từ điển & Macro Emoji offline
+</p>
+
+<p align="center">
+  <a href="https://github.com/isthaison/gotv/actions/workflows/build-linux.yml"><img src="https://github.com/isthaison/gotv/actions/workflows/build-linux.yml/badge.svg" alt="Build Linux" /></a>
+  <a href="https://github.com/isthaison/gotv/actions/workflows/build-windows.yml"><img src="https://github.com/isthaison/gotv/actions/workflows/build-windows.yml/badge.svg" alt="Build Windows" /></a>
+  <a href="https://github.com/isthaison/gotv/actions/workflows/build-macos.yml"><img src="https://github.com/isthaison/gotv/actions/workflows/build-macos.yml/badge.svg" alt="Build macOS" /></a>
+  <a href="https://github.com/isthaison/gotv/releases/latest"><img src="https://img.shields.io/github/v/release/isthaison/gotv" alt="Release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+</p>
+
+<p align="center">
+  🌐 Trang chủ & Trải nghiệm Web trực tiếp: <a href="https://isthaison.github.io/gotv/"><strong>isthaison.github.io/gotv</strong></a>
+</p>
+
+---
 
 Từ phiên bản 0.9.0, dự án của **isthaison** đổi tên từ GoTiengViet thành **GoTV**
 để tránh nhầm với phần mềm GoTiengViet của Trần Kỳ Nam. Hai dự án độc lập.
