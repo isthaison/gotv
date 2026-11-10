@@ -293,7 +293,7 @@ staging: $(TARGET) $(TSF_TARGET) $(TSF_ENGINE_TARGET) check-tsf-isolated check-t
 # Versioned installer (Windows-only: needs Inno Setup's iscc.exe).
 # SourceDir is relative to windows/installer.iss (script dir), not to make.
 setup: staging
-	iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STAGE)" windows/installer.iss
+	MSYS2_ARG_CONV_EXCL="*" iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STAGE)" windows/installer.iss
 
 # The Store build disables the GitHub app updater and uses a separate staging
 # tree so it cannot overwrite the normal installer payload.
