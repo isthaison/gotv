@@ -27,6 +27,10 @@ async function prerender() {
   // Sao chép assets sang site/assets
   if (fs.existsSync(path.join(distDir, 'assets'))) {
     fs.mkdirSync(path.join(siteDir, 'assets'), { recursive: true });
+    // Dọn dẹp assets cũ trong site/assets
+    for (const f of fs.readdirSync(path.join(siteDir, 'assets'))) {
+      fs.unlinkSync(path.join(siteDir, 'assets', f));
+    }
     for (const f of fs.readdirSync(path.join(distDir, 'assets'))) {
       fs.copyFileSync(path.join(distDir, 'assets', f), path.join(siteDir, 'assets', f));
     }

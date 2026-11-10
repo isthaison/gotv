@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prerender.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node src/engine/testRunner.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.0.0",
