@@ -93,7 +93,7 @@ sudo ./gtv.sh install`}
               </p>
               <p className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Chuyển đổi gõ bằng <code>Super + Space</code>. Tự động kiểm tra chính tả gạch đỏ ngoại tuyến.</span>
+                <span>Chuyển đổi gõ bằng <code>Super + Space</code>. Gõ mượt mà và sạch sẽ, không gạch đỏ phiền toái.</span>
               </p>
             </div>
           </div>

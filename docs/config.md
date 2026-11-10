@@ -7,11 +7,11 @@ Thư mục cấu hình cá nhân:
 
 | File | Nội dung |
 |---|---|
-| `config` | Kiểu gõ (`telex` / `vni`), kiểu đặt dấu (`modern=true`), chính tả (`spellcheck=true`), gợi ý từ điển (`suggest=true`) |
+| `config` | Kiểu gõ (`telex` / `vni`), kiểu đặt dấu (`modern=true`), chính tả (`spellcheck=false`), gợi ý từ điển (`suggest=true`) |
 | `macros.txt`, `emojis.txt` | Bảng gõ tắt và emoji riêng do người dùng định nghĩa |
 | `learned-words.txt`, `learned-corrections.txt` | Từ điển học thông minh (tự động cập nhật khi bạn chọn từ) |
 
-Mặc định khi chạy: Kiểu gõ Telex, `modern=true` (dấu mới như `hòa`), `spellcheck=true`, `suggest=true`.
+Mặc định khi chạy: Kiểu gõ Telex, `modern=true` (dấu mới như `hòa`), `spellcheck=false` (tắt gạch đỏ kiểm tra chính tả mặc định để gõ mượt mà), `suggest=true`.
 
 Khi chưa có file người dùng, bộ gõ dùng dữ liệu mặc định trong thư mục `data/` của ứng dụng.
 

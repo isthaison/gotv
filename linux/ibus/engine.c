@@ -252,15 +252,13 @@ static gboolean request_suggestions(gpointer data){
     return G_SOURCE_REMOVE;
 }
 
-/* Đẩy preedit + gạch đỏ từ sai + bảng gợi ý (Tab chọn, Up/Down di chuyển, Esc bỏ) */
+/* Đẩy preedit không gạch đỏ — giao diện phẳng sạch sẽ tuyệt đối */
 static void push_preedit(IBusGoTVEngine *e, IBusEngine *engine, guint cursor, gboolean visible){
     glong plen=g_utf8_strlen(e->preedit->str, -1);
     debug_log("[push_preedit] str='%s' plen=%ld visible=%d\n", e->preedit->str, plen, visible);
     gboolean is_emoji=(e->preedit->str[0]==':' || e->preedit->str[0]==';' || e->preedit->str[0]=='<' || e->preedit->str[0]=='(');
-    gboolean bad=(!is_emoji && e->spellcheck && plen>=2 && !word_valid(e,e->preedit->str));
     IBusText *t=ibus_text_new_from_string(e->preedit->str);
-    if(bad) ibus_text_append_attribute(t, IBUS_ATTR_TYPE_UNDERLINE, IBUS_ATTR_UNDERLINE_ERROR, 0, (gint)plen);
-    else ibus_text_append_attribute(t, IBUS_ATTR_TYPE_UNDERLINE, IBUS_ATTR_UNDERLINE_SINGLE, 0, (gint)plen);
+    /* Tuyệt đối không gán thuộc tính IBUS_ATTR_UNDERLINE_ERROR hay bất kỳ gạch chân đỏ nào */
     ibus_engine_update_preedit_text_with_mode(engine, t, (guint)plen, visible, IBUS_ENGINE_PREEDIT_COMMIT);
     if(plen > 0 && visible){
         ibus_engine_show_preedit_text(engine);

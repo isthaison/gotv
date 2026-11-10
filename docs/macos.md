@@ -59,7 +59,7 @@ Tải file cài đặt từ trang **[Releases chính thức](https://github.com/
 Vị trí lưu trữ dữ liệu cá nhân của GoTV trên máy Mac:
 - Thư mục chuẩn macOS: `~/Library/Application Support/gotv/` (hoặc `~/.config/gotv/`).
 - Các file cấu hình dạng text UTF-8:
-  - `config`: Thiết lập kiểu gõ (`method=telex` hoặc `vni`), chuẩn dấu (`modern=true`), chính tả (`spellcheck=true`), gợi ý (`suggest=true`).
+  - `config`: Thiết lập kiểu gõ (`method=telex` hoặc `vni`), chuẩn dấu (`modern=true`), chính tả (`spellcheck=false`), gợi ý (`suggest=true`).
   - `macros.txt`: Danh sách từ gõ tắt cá nhân (`cty=Công ty TNHH`).
   - `emojis.txt`: Bảng mã emoji tùy chỉnh.
   - `learned-words.txt`: Các từ vựng mới mà bộ gõ đã tự học từ thói quen gõ của bạn.

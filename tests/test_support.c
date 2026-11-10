@@ -41,7 +41,7 @@ static void test_config(void) {
     GtvConfig config,loaded;
     gtv_config_load(&config,directory);
     g_assert_cmpint(config.mode,==,GTV_TELEX);
-    g_assert_true(config.modern);g_assert_true(config.spellcheck);
+    g_assert_true(config.modern);g_assert_false(config.spellcheck);
     g_assert_true(config.suggest_enabled);
     config.mode=GTV_VNI;config.modern=FALSE;config.spellcheck=FALSE;config.suggest_enabled=FALSE;
     g_assert_true(gtv_config_save(&config,directory,NULL));
@@ -338,7 +338,7 @@ static void test_config_defaults(void) {
     GtvConfig cfg;
     gtv_config_load(&cfg,empty);
     g_assert_cmpint(cfg.mode,==,GTV_TELEX);
-    g_assert_true(cfg.modern);g_assert_true(cfg.spellcheck);
+    g_assert_true(cfg.modern);g_assert_false(cfg.spellcheck);
     g_assert_true(cfg.suggest_enabled);
     gtv_config_clear(&cfg);
     gchar *uc=g_build_filename(empty,"config",NULL);

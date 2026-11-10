@@ -78,9 +78,9 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-4">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-lg text-stone-900 mb-2">Chính tả ngoại tuyến (Offline)</h3>
+              <h3 className="font-bold text-lg text-stone-900 mb-2">Chính tả &amp; Gợi ý thông minh</h3>
               <p className="text-sm text-stone-600 leading-relaxed">
-                Gạch đỏ khi gõ sai âm tiết trên Linux. Hiển thị balloon gợi ý từ đúng trên Windows và bảng ứng viên Candidate List trên macOS.
+                Không vẽ gạch đỏ phiền toái, gõ thoải mái tiếng Việt, tiếng Anh và mã code. Gợi ý từ đúng qua balloon trên Windows và Candidate List trên macOS.
               </p>
             </article>
 

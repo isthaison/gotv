@@ -202,7 +202,7 @@ static void overlay_path(GtvConfig *config, const gchar *path, gboolean input) {
     g_key_file_unref(file);
 }
 void gtv_config_load(GtvConfig *config, const gchar *directory) {
-    *config = (GtvConfig){.mode = GTV_TELEX, .modern = TRUE, .spellcheck = TRUE,
+    *config = (GtvConfig){.mode = GTV_TELEX, .modern = TRUE, .spellcheck = FALSE,
         .suggest_enabled = TRUE};
     g_strlcpy(config->dicts, "vi,tsql,c,csharp", sizeof(config->dicts));
     /* Shipped defaults first (data/config), then user files. */

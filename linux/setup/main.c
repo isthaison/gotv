@@ -44,7 +44,7 @@ static void tray_update_config_method(const char *method){
     if(!g_key_file_has_key(kf, "input", "modern", NULL))
         g_key_file_set_string(kf, "input", "modern", "true");
     if(!g_key_file_has_key(kf, "input", "spellcheck", NULL))
-        g_key_file_set_string(kf, "input", "spellcheck", "true");
+        g_key_file_set_string(kf, "input", "spellcheck", "false");
     gsize len = 0;
     gchar *data = g_key_file_to_data(kf, &len, NULL);
     if(data) g_file_set_contents(path, data, (gssize)len, NULL);

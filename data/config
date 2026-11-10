@@ -3,7 +3,7 @@
 [input]
 method=telex
 modern=true
-spellcheck=true
+spellcheck=false
 charset=unicode
 
 [suggest]
