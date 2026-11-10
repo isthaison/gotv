@@ -2,6 +2,7 @@
 #include "tray_ai.h"
 #include "app.h"
 #include "setup.h"
+#include "data.h"
 #include "startup.h"
 #include "keyboard.h"
 #include "update.h"
