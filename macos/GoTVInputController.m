@@ -1,14 +1,128 @@
 #import "GoTVInputController.h"
+#import "SetupWindowController.h"
 #include "engine.h"
+#include "internal.h"
+
+extern void GoTVCheckForUpdates(BOOL manual);
+
+#ifndef NSOnState
+#define NSOnState 1
+#define NSOffState 0
+#endif
+
+#ifndef NSControlStateValueOn
+#define NSControlStateValueOn 1
+#define NSControlStateValueOff 0
+#endif
+
+#ifndef NSUnderlineStyleNone
+#define NSUnderlineStyleNone 0x00
+#endif
+
+#ifndef kIMKSingleRowSteppingCandidatePanel
+#define kIMKSingleRowSteppingCandidatePanel 1
+#endif
+
+#ifndef kIMKLocateCandidatesBelowHint
+#define kIMKLocateCandidatesBelowHint 1
+#endif
+
+/* Detect terminal clients: Ghostty, iTerm2, Kitty, Terminal.app, WezTerm, Alacritty, Warp, Rex, Zed */
+static BOOL isTerminalClient(id client) {
+    NSString *bundleId = nil;
+    if (client && [client respondsToSelector:@selector(bundleIdentifier)]) {
+        @try {
+            bundleId = [client bundleIdentifier];
+        } @catch (NSException *e) {
+            (void)e;
+        }
+    }
+    if (!bundleId) {
+        NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        bundleId = [front bundleIdentifier];
+    }
+    if (!bundleId) return NO;
+
+    if ([bundleId isEqualToString:@"com.apple.Terminal"] ||
+        [bundleId isEqualToString:@"com.googlecode.iterm2"] ||
+        [bundleId isEqualToString:@"com.mitchellh.ghostty"] ||
+        [bundleId isEqualToString:@"net.kovidgoyal.kitty"] ||
+        [bundleId isEqualToString:@"com.github.wez.wezterm"] ||
+        [bundleId isEqualToString:@"io.alacritty"] ||
+        [bundleId isEqualToString:@"co.zeit.hyper"] ||
+        [bundleId isEqualToString:@"com.warp.Warp-Terminal"] ||
+        [bundleId isEqualToString:@"dev.zed.Zed"] ||
+        [bundleId rangeOfString:@"terminal" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+        [bundleId rangeOfString:@"iterm" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+        [bundleId rangeOfString:@"ghostty" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+        [bundleId rangeOfString:@"kitty" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+        return YES;
+    }
+    return NO;
+}
+
+/* Smart direct-replacement for terminal apps: finds the longest common prefix between
+ * `before` and `after`, deletes only the differing suffix, and inserts the new suffix.
+ * This guarantees zero text flickering and allows shell autocompletions (zsh, fish)
+ * to receive every keystroke immediately in real time. */
+static void replaceTerminalText(id sender, const gchar *before, const gchar *after) {
+    if (!sender) return;
+    if (!before) before = "";
+    if (!after) after = "";
+
+    glong lenBefore = g_utf8_strlen(before, -1);
+
+    const gchar *pBefore = before;
+    const gchar *pAfter = after;
+    glong commonCount = 0;
+
+    while (*pBefore && *pAfter) {
+        gunichar c1 = g_utf8_get_char(pBefore);
+        gunichar c2 = g_utf8_get_char(pAfter);
+        if (c1 != c2) break;
+        commonCount++;
+        pBefore = g_utf8_next_char(pBefore);
+        pAfter = g_utf8_next_char(pAfter);
+    }
+
+    glong toDelete = lenBefore - commonCount;
+    for (glong i = 0; i < toDelete; i++) {
+        if ([sender respondsToSelector:@selector(deleteBackward:)]) {
+            [sender deleteBackward:nil];
+        } else {
+            [sender insertText:@"\x7f" replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+        }
+    }
+
+    if (*pAfter) {
+        NSString *toInsert = [[[NSString alloc] initWithBytes:pAfter
+                                                       length:strlen(pAfter)
+                                                     encoding:NSUTF8StringEncoding] autorelease];
+        if (toInsert && [toInsert length] > 0) {
+            [sender insertText:toInsert replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+        }
+    }
+}
 
 @interface GoTVInputController ()
 {
     GtvEngine *engine;
     BOOL composing;
+    BOOL suggestEnabled;
+    IMKCandidates *candidates;
+    NSMutableArray *currentCandidates;
+    BOOL candidateWasBad;
+    NSString *candidateTyped;
+    GHashTable *learnedWords;
+    GHashTable *learnedFixes;
 }
 - (void)showBuffer:(id)sender;
 - (void)commitBuffer:(id)sender;
 - (void)clearComposition:(id)sender;
+- (void)updateCandidatesForBuffer:(const gchar *)buf client:(id)sender;
+- (void)acceptCandidate:(NSString *)cand client:(id)sender;
+- (void)ensureLearned;
+- (BOOL)isWordKnown:(const gchar *)word mistyped:(gboolean *)mistyped_fix;
 @end
 
 @implementation GoTVInputController
@@ -19,17 +133,61 @@
     if (self) {
         gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
         GtvConfig config;
+        memset(&config, 0, sizeof(config));
         gtv_config_load(&config, config_dir);
         g_free(config_dir);
         engine = gtv_engine_new(&config);
+        suggestEnabled = config.suggest_enabled;
         gtv_config_clear(&config);
         composing = NO;
+
+        currentCandidates = [[NSMutableArray alloc] init];
+        candidateWasBad = NO;
+        candidateTyped = nil;
+        learnedWords = NULL;
+        learnedFixes = NULL;
+
+        @try {
+            candidates = [[IMKCandidates alloc] initWithServer:(IMKServer *)server
+                                                     panelType:kIMKSingleRowSteppingCandidatePanel];
+            if (candidates && [candidates respondsToSelector:@selector(setDismissesOnFocusChange:)]) {
+                [candidates setDismissesOnFocusChange:YES];
+            }
+        } @catch (NSException *e) {
+            candidates = nil;
+        }
+
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(configDidChange:)
+                                                     name:@"GoTVConfigDidChange"
+                                                   object:nil];
     }
     return self;
 }
 
 - (void)dealloc
 {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    if (candidates) {
+        [candidates release];
+        candidates = nil;
+    }
+    if (currentCandidates) {
+        [currentCandidates release];
+        currentCandidates = nil;
+    }
+    if (candidateTyped) {
+        [candidateTyped release];
+        candidateTyped = nil;
+    }
+    if (learnedWords) {
+        g_hash_table_destroy(learnedWords);
+        learnedWords = NULL;
+    }
+    if (learnedFixes) {
+        g_hash_table_destroy(learnedFixes);
+        learnedFixes = NULL;
+    }
     if (engine) {
         gtv_engine_free(engine);
         engine = NULL;
@@ -37,31 +195,54 @@
     [super dealloc];
 }
 
-- (void)activateServer:(id)sender
-{
-    /* Fresh state on every activation; also picks up settings saved by
-     * the preferences window (same files the Linux build uses). */
+- (void)configDidChange:(NSNotification *)note {
+    (void)note;
     if (engine) {
         gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
         GtvConfig config;
+        memset(&config, 0, sizeof(config));
         gtv_config_load(&config, config_dir);
         g_free(config_dir);
         engine->mode = config.mode;
         engine->modern = config.modern;
         engine->spellcheck = config.spellcheck;
+        suggestEnabled = config.suggest_enabled;
+        gtv_config_clear(&config);
+    }
+}
+
+- (void)activateServer:(id)sender
+{
+    if (engine) {
+        gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        GtvConfig config;
+        memset(&config, 0, sizeof(config));
+        gtv_config_load(&config, config_dir);
+        g_free(config_dir);
+        engine->mode = config.mode;
+        engine->modern = config.modern;
+        engine->spellcheck = config.spellcheck;
+        suggestEnabled = config.suggest_enabled;
         gtv_config_clear(&config);
         gtv_engine_reset(engine);
     }
     composing = NO;
+    if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+    [currentCandidates removeAllObjects];
     [super activateServer:sender];
 }
 
 - (void)deactivateServer:(id)sender
 {
-    /* Commit anything left composing so no keystroke is ever lost. */
     if (composing) {
         [self commitBuffer:sender];
     }
+    if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+    [currentCandidates removeAllObjects];
     [super deactivateServer:sender];
 }
 
@@ -73,8 +254,239 @@
                                    encoding:NSUTF8StringEncoding] autorelease];
 }
 
-/* Render the engine buffer as inline (marked) text. Composed Vietnamese
- * is always BMP, so -length (UTF-16 units) is a safe caret offset here. */
+- (void)ensureLearned {
+    if (!learnedWords) {
+        learnedWords = gtv_words_table_new();
+        gchar *p = gtv_learned_path("learned-words.txt");
+        gtv_words_load(learnedWords, p);
+        g_free(p);
+    }
+    if (!learnedFixes) {
+        learnedFixes = gtv_fixes_table_new();
+        gchar *p = gtv_learned_path("learned-corrections.txt");
+        gtv_fixes_load(learnedFixes, p);
+        g_free(p);
+    }
+}
+
+- (BOOL)isWordKnown:(const gchar *)word mistyped:(gboolean *)mistyped_fix {
+    if (!word || !*word) return YES;
+    if (mistyped_fix) *mistyped_fix = FALSE;
+    gchar *key = gtv_word_key(word);
+    if (!key) return YES;
+
+    [self ensureLearned];
+    if (learnedFixes) {
+        gchar *fix = gtv_fixes_lookup(learnedFixes, key);
+        if (fix) {
+            g_free(fix);
+            g_free(key);
+            if (mistyped_fix) *mistyped_fix = TRUE;
+            return NO;
+        }
+    }
+
+    if (learnedWords && g_hash_table_contains(learnedWords, key)) {
+        g_free(key);
+        return YES;
+    }
+
+    if (gtv_dict_contains(key)) {
+        g_free(key);
+        return YES;
+    }
+
+    g_free(key);
+    return spell_word_valid(word);
+}
+
+- (void)addUniqueCandidate:(GPtrArray *)dst cand:(const gchar *)cand {
+    if (!dst || !cand || !*cand) return;
+    for (guint i = 0; i < dst->len; i++) {
+        if (!strcmp((const gchar *)dst->pdata[i], cand)) return;
+    }
+    g_ptr_array_add(dst, g_strdup(cand));
+}
+
+- (void)updateCandidatesForBuffer:(const gchar *)buf client:(id)sender {
+    (void)sender;
+    if (!buf || !*buf || !engine) {
+        if (candidates && [candidates isVisible]) {
+            [candidates hide];
+        }
+        [currentCandidates removeAllObjects];
+        candidateWasBad = NO;
+        if (candidateTyped) {
+            [candidateTyped release];
+            candidateTyped = nil;
+        }
+        return;
+    }
+
+    [currentCandidates removeAllObjects];
+    candidateWasBad = NO;
+    if (candidateTyped) {
+        [candidateTyped release];
+        candidateTyped = nil;
+    }
+    candidateTyped = [[NSString alloc] initWithUTF8String:buf];
+
+    gunichar first = g_utf8_get_char(buf);
+    glong len = g_utf8_strlen(buf, -1);
+    if ((first == ':' || first == ';' || first == '<' || first == '(') && len >= 2) {
+        GPtrArray *sugs = get_emoji_suggestions(buf);
+        if (sugs && sugs->len > 0) {
+            for (guint i = 0; i < sugs->len && i < 5; i++) {
+                const gchar *s = (const gchar *)sugs->pdata[i];
+                if (s && *s) {
+                    NSString *ns = [self utf8String:s];
+                    if (ns && ![currentCandidates containsObject:ns]) {
+                        [currentCandidates addObject:ns];
+                    }
+                }
+            }
+        }
+        if (sugs) g_ptr_array_unref(sugs);
+    } else {
+        gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        GtvConfig cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        gtv_config_load(&cfg, config_dir);
+        g_free(config_dir);
+
+        gboolean enabled = cfg.suggest_enabled || cfg.spellcheck;
+        if (enabled) {
+            [self ensureLearned];
+            gboolean mistyped_fix = FALSE;
+            gboolean bad = engine->spellcheck && ![self isWordKnown:buf mistyped:&mistyped_fix];
+            GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
+
+            if (cfg.suggest_enabled) {
+                if (bad && mistyped_fix) {
+                    GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
+                    if (fix_sugs) {
+                        for (guint i = 0; i < fix_sugs->len && out->len < 5; i++) {
+                            const gchar *cand = (const gchar *)fix_sugs->pdata[i];
+                            if (cand && *cand) [self addUniqueCandidate:out cand:cand];
+                        }
+                        g_ptr_array_unref(fix_sugs);
+                    }
+                    if (out->len < 5) {
+                        GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+                        if (comp_sugs) {
+                            for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
+                                const gchar *cand = (const gchar *)comp_sugs->pdata[i];
+                                if (cand && *cand) [self addUniqueCandidate:out cand:cand];
+                            }
+                            g_ptr_array_unref(comp_sugs);
+                        }
+                    }
+                } else {
+                    GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+                    if (comp_sugs && comp_sugs->len > 0) {
+                        for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
+                            const gchar *cand = (const gchar *)comp_sugs->pdata[i];
+                            if (cand && *cand) [self addUniqueCandidate:out cand:cand];
+                        }
+                        bad = FALSE;
+                    }
+                    if (comp_sugs) g_ptr_array_unref(comp_sugs);
+
+                    if (bad || (out->len == 0 && len >= 2 && !gtv_dict_contains(buf))) {
+                        if (out->len < 5) {
+                            GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
+                            if (fix_sugs && fix_sugs->len > 0) {
+                                for (guint i = 0; i < fix_sugs->len && out->len < 5; i++) {
+                                    const gchar *cand = (const gchar *)fix_sugs->pdata[i];
+                                    if (cand && *cand) [self addUniqueCandidate:out cand:cand];
+                                }
+                                bad = TRUE;
+                            }
+                            if (fix_sugs) g_ptr_array_unref(fix_sugs);
+                        }
+                    }
+                }
+            }
+
+            if (out->len == 0) {
+                if (bad) {
+                    gchar *fix = gtv_fixes_lookup(learnedFixes, buf);
+                    if (fix) g_ptr_array_add(out, fix);
+                } else {
+                    gtv_learned_completions(learnedWords, buf, out, 5);
+                }
+            }
+
+            candidateWasBad = bad;
+            for (guint i = 0; i < out->len && i < 5; i++) {
+                const gchar *s = (const gchar *)out->pdata[i];
+                if (s && *s) {
+                    NSString *ns = [self utf8String:s];
+                    if (ns && ![currentCandidates containsObject:ns]) {
+                        [currentCandidates addObject:ns];
+                    }
+                }
+            }
+            g_ptr_array_unref(out);
+        }
+        gtv_config_clear(&cfg);
+    }
+
+    if ([currentCandidates count] > 0 && candidates) {
+        @try {
+            [candidates updateCandidates];
+            [candidates show:kIMKLocateCandidatesBelowHint];
+        } @catch (NSException *e) {
+            (void)e;
+        }
+    } else if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+}
+
+- (NSArray *)candidates:(id)sender {
+    (void)sender;
+    return currentCandidates;
+}
+
+- (void)candidateSelected:(NSAttributedString *)candidateString {
+    if (!candidateString) return;
+    NSString *text = [candidateString string];
+    [self acceptCandidate:text client:[self client]];
+}
+
+- (void)acceptCandidate:(NSString *)cand client:(id)sender {
+    if (!cand || [cand length] == 0) return;
+    if (!sender) sender = [self client];
+
+    [sender insertText:cand replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+
+    const char *candUtf8 = [cand UTF8String];
+    if (candUtf8) {
+        [self ensureLearned];
+        gtv_words_learn(learnedWords, candUtf8);
+        gchar *wp = gtv_learned_path("learned-words.txt");
+        gtv_words_save(learnedWords, wp);
+        g_free(wp);
+
+        if (candidateWasBad && candidateTyped && [candidateTyped length] > 0) {
+            gtv_fixes_learn(learnedFixes, [candidateTyped UTF8String], candUtf8);
+            gchar *fp = gtv_learned_path("learned-corrections.txt");
+            gtv_fixes_save(learnedFixes, fp);
+            g_free(fp);
+        }
+    }
+
+    gtv_engine_reset(engine);
+    composing = NO;
+    if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+    [currentCandidates removeAllObjects];
+}
+
+/* Render marked text with NSUnderlineStyleNone so terminals that do render
+ * marked text will not display an intrusive underline. */
 - (void)showBuffer:(id)sender
 {
     gchar *buf = gtv_engine_buffer(engine);
@@ -84,15 +496,23 @@
         return;
     }
     NSString *ns = [self utf8String:buf];
-    g_free(buf);
     if (!ns) {
+        g_free(buf);
         [self clearComposition:sender];
         return;
     }
     composing = YES;
-    [sender setMarkedText:ns
+
+    NSDictionary *attrs = [NSDictionary dictionaryWithObjectsAndKeys:
+        [NSNumber numberWithInt:NSUnderlineStyleNone], NSUnderlineStyleAttributeName,
+        nil];
+    NSAttributedString *attrStr = [[[NSAttributedString alloc] initWithString:ns attributes:attrs] autorelease];
+    [sender setMarkedText:attrStr
            selectionRange:NSMakeRange([ns length], 0)
          replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+
+    [self updateCandidatesForBuffer:buf client:sender];
+    g_free(buf);
 }
 
 - (void)commitBuffer:(id)sender
@@ -107,27 +527,40 @@
     g_free(buf);
     gtv_engine_reset(engine);
     composing = NO;
+    if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+    [currentCandidates removeAllObjects];
 }
 
 - (void)clearComposition:(id)sender
 {
     gtv_engine_reset(engine);
     composing = NO;
+    if (candidates && [candidates isVisible]) {
+        [candidates hide];
+    }
+    [currentCandidates removeAllObjects];
     [sender setMarkedText:@""
            selectionRange:NSMakeRange(0, 0)
          replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
 }
 
-/* If the client ate our marked text behind our back (focus dance, undo),
- * drop the stale buffer instead of prepending ghosts to the next commit. */
+/* Fix for Issue #3: Never wipe composition buffer in terminal apps
+ * (Ghostty, iTerm2, Kitty) where markedRange may be 0 or NSNotFound. */
 - (void)reconcileMarkedText:(id)sender
 {
     if (!composing) return;
+    if (isTerminalClient(sender)) return;
     @try {
         NSRange mr = [sender markedRange];
-        if (mr.length == 0) {
+        if (mr.location != NSNotFound && mr.length == 0) {
             gtv_engine_reset(engine);
             composing = NO;
+            if (candidates && [candidates isVisible]) {
+                [candidates hide];
+            }
+            [currentCandidates removeAllObjects];
         }
     } @catch (NSException *e) {
         (void)e;
@@ -144,17 +577,31 @@
     }
     NSString *text = (NSString *)string;
 
-    /* Control characters (including delete) travel through
-     * didCommandBySelector: instead; never double-handle them here. */
     if ([text length] == 1) {
         unichar c = [text characterAtIndex:0];
         if (c < 0x20 || (c >= 0xD800 && c <= 0xDFFF)) {
             return NO;
         }
+
+        // Candidate selection via 1..5 keys
+        if (candidates && [candidates isVisible] && [currentCandidates count] > 0) {
+            if (c >= '1' && c <= '5') {
+                NSUInteger idx = (NSUInteger)(c - '1');
+                if (idx < [currentCandidates count]) {
+                    NSString *chosen = [currentCandidates objectAtIndex:idx];
+                    [self acceptCandidate:chosen client:sender];
+                    return YES;
+                }
+            }
+            if (c == ' ' && candidateWasBad && [currentCandidates count] > 0) {
+                NSString *chosen = [currentCandidates objectAtIndex:0];
+                [self acceptCandidate:chosen client:sender];
+                [sender insertText:@" " replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+                return YES;
+            }
+        }
     }
 
-    /* Multi-char input (paste, emoji picker): flush any composition and
-     * let the text insert itself. */
     if ([text length] != 1) {
         if (composing) {
             [self commitBuffer:sender];
@@ -171,9 +618,37 @@
         return NO;
     }
 
+    /* TERMINAL APP DIRECT MODE (Ghostty, iTerm2, Kitty, Terminal.app, Warp):
+     * Directly inserts and replaces characters via smart common-prefix diffing.
+     * No preedit underline, no lag, zero flicker, and shell autocompletion works instantly! */
+    if (isTerminalClient(sender)) {
+        gchar *before = gtv_engine_buffer(engine);
+        guint backspaces = 0;
+        gchar *commit = gtv_engine_process(engine, ch, &backspaces);
+
+        if (commit) {
+            replaceTerminalText(sender, before, "");
+            NSString *ns = [self utf8String:commit];
+            g_free(commit);
+            if (ns) {
+                [sender insertText:ns replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
+            }
+            gtv_engine_reset(engine);
+            composing = NO;
+        } else {
+            gchar *after = gtv_engine_buffer(engine);
+            replaceTerminalText(sender, before, after);
+            composing = (after && *after) ? YES : NO;
+            g_free(after);
+        }
+        g_free(before);
+        return YES;
+    }
+
+    /* STANDARD APP MARKED-TEXT MODE (Browsers, Notes, Word, Slack, etc.) */
     guint backspaces = 0;
     gchar *commit = gtv_engine_process(engine, ch, &backspaces);
-    (void)backspaces; /* IMK edits via ranges; no Backspace injection needed. */
+    (void)backspaces;
     if (commit) {
         NSString *ns = [self utf8String:commit];
         g_free(commit);
@@ -182,6 +657,10 @@
         }
         gtv_engine_reset(engine);
         composing = NO;
+        if (candidates && [candidates isVisible]) {
+            [candidates hide];
+        }
+        [currentCandidates removeAllObjects];
         return YES;
     }
 
@@ -193,30 +672,75 @@
 {
     NSString *sel = NSStringFromSelector(aSelector);
 
-    /* Escape cancels the composition. */
+    /* Escape cancels the composition and candidate window */
     if ([sel isEqualToString:@"cancelOperation:"]) {
+        if (candidates && [candidates isVisible]) {
+            [candidates hide];
+            [currentCandidates removeAllObjects];
+        }
         if (composing) {
-            [self clearComposition:sender];
+            if (isTerminalClient(sender)) {
+                gtv_engine_reset(engine);
+                composing = NO;
+            } else {
+                [self clearComposition:sender];
+            }
             return YES;
         }
         return NO;
     }
 
-    /* Backward deletes edit the composition; otherwise the app deletes. */
+    /* Backward delete */
     if ([sel isEqualToString:@"deleteBackward:"] ||
         [sel isEqualToString:@"deleteWordBackward:"] ||
         [sel isEqualToString:@"deleteToBeginningOfLine:"]) {
         if (!composing) return NO;
+
+        if (isTerminalClient(sender)) {
+            gchar *before = gtv_engine_buffer(engine);
+            guint backspaces = 0;
+            gtv_engine_process(engine, '\b', &backspaces);
+            gchar *after = gtv_engine_buffer(engine);
+            replaceTerminalText(sender, before, after);
+            composing = (after && *after) ? YES : NO;
+            g_free(before);
+            g_free(after);
+            return YES;
+        }
+
         guint backspaces = 0;
         gtv_engine_process(engine, '\b', &backspaces);
-        [self showBuffer:sender]; /* empties and ends tracking when done */
+        [self showBuffer:sender];
         return YES;
     }
 
-    /* Tab key: expands macro/emoji if composing and buffer matches.
-     * Otherwise commits buffer and lets Tab pass through to the app. */
+    /* Tab key */
     if ([sel isEqualToString:@"insertTab:"]) {
+        if (candidates && [candidates isVisible] && [currentCandidates count] > 0) {
+            NSString *chosen = [currentCandidates objectAtIndex:0];
+            [self acceptCandidate:chosen client:sender];
+            return YES;
+        }
         if (!composing) return NO;
+
+        if (isTerminalClient(sender)) {
+            gchar *before = gtv_engine_buffer(engine);
+            guint backspaces = 0;
+            gchar *macro = gtv_engine_process(engine, '\t', &backspaces);
+            if (macro) {
+                replaceTerminalText(sender, before, macro);
+                g_free(macro);
+                gtv_engine_reset(engine);
+                composing = NO;
+                g_free(before);
+                return YES;
+            }
+            g_free(before);
+            gtv_engine_reset(engine);
+            composing = NO;
+            return NO;
+        }
+
         guint backspaces = 0;
         gchar *macro = gtv_engine_process(engine, '\t', &backspaces);
         if (macro) {
@@ -233,16 +757,185 @@
         return NO;
     }
 
-    /* Anything else that touches text (newline, tab, arrows, forward
-     * delete, insert commands): commit first, then let it through. */
+    /* Arrow keys & movement */
     if ([sel hasPrefix:@"insert"] || [sel hasPrefix:@"delete"] ||
         [sel hasPrefix:@"move"] || [sel hasPrefix:@"transpose"] ||
         [sel hasPrefix:@"indent"] || [sel hasPrefix:@"change"]) {
+        if (candidates && [candidates isVisible]) {
+            [candidates hide];
+            [currentCandidates removeAllObjects];
+        }
         if (composing) {
-            [self commitBuffer:sender];
+            if (isTerminalClient(sender)) {
+                gtv_engine_reset(engine);
+                composing = NO;
+            } else {
+                [self commitBuffer:sender];
+            }
         }
     }
     return NO;
+}
+
+/* -------------------------------------------------------------------------
+ * macOS Input Method Status Menu (top right menu bar)
+ * ------------------------------------------------------------------------- */
+- (NSMenu *)menu
+{
+    NSMenu *m = [[[NSMenu alloc] initWithTitle:@"GoTV"] autorelease];
+
+    NSString *ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    if (!ver) ver = @"0.9.9";
+    NSString *titleStr = [NSString stringWithFormat:@"GoTV v%@", ver];
+    NSMenuItem *titleItem = [m addItemWithTitle:titleStr action:nil keyEquivalent:@""];
+    [titleItem setEnabled:NO];
+
+    [m addItem:[NSMenuItem separatorItem]];
+
+    BOOL isTelex = (!engine || engine->mode == GTV_TELEX);
+    NSMenuItem *telexItem = [m addItemWithTitle:@"Kiểu gõ: Telex" action:@selector(selectTelexAction:) keyEquivalent:@""];
+    [telexItem setTarget:self];
+    [telexItem setState:(isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
+
+    NSMenuItem *vniItem = [m addItemWithTitle:@"Kiểu gõ: VNI" action:@selector(selectVniAction:) keyEquivalent:@""];
+    [vniItem setTarget:self];
+    [vniItem setState:(!isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
+
+    [m addItem:[NSMenuItem separatorItem]];
+
+    BOOL isModern = (engine && engine->modern);
+    NSMenuItem *modernItem = [m addItemWithTitle:@"Bỏ dấu kiểu mới (hòa, thúy)" action:@selector(toggleModernAction:) keyEquivalent:@""];
+    [modernItem setTarget:self];
+    [modernItem setState:(isModern ? NSControlStateValueOn : NSControlStateValueOff)];
+
+    BOOL isSpell = (engine && engine->spellcheck);
+    NSMenuItem *spellItem = [m addItemWithTitle:@"Kiểm tra chính tả" action:@selector(toggleSpellcheckAction:) keyEquivalent:@""];
+    [spellItem setTarget:self];
+    [spellItem setState:(isSpell ? NSControlStateValueOn : NSControlStateValueOff)];
+
+    NSMenuItem *sugItem = [m addItemWithTitle:@"Gợi ý từ điển & sửa lỗi" action:@selector(toggleSuggestAction:) keyEquivalent:@""];
+    [sugItem setTarget:self];
+    [sugItem setState:(suggestEnabled ? NSControlStateValueOn : NSControlStateValueOff)];
+
+    [m addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *dataItem = [m addItemWithTitle:@"Bảng gõ tắt & Emoji..." action:@selector(openDataWindowAction:) keyEquivalent:@""];
+    [dataItem setTarget:self];
+
+    NSMenuItem *prefItem = [m addItemWithTitle:@"Cài đặt..." action:@selector(openSettingsAction:) keyEquivalent:@","];
+    [prefItem setTarget:self];
+
+    NSMenuItem *updateItem = [m addItemWithTitle:@"Kiểm tra cập nhật..." action:@selector(checkUpdatesAction:) keyEquivalent:@""];
+    [updateItem setTarget:self];
+
+    [m addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *homeItem = [m addItemWithTitle:@"Trang chủ GoTV..." action:@selector(openHomepageAction:) keyEquivalent:@""];
+    [homeItem setTarget:self];
+
+    NSMenuItem *issuesItem = [m addItemWithTitle:@"Góp ý & Báo lỗi trên GitHub..." action:@selector(openIssuesAction:) keyEquivalent:@""];
+    [issuesItem setTarget:self];
+
+    return m;
+}
+
+- (void)saveAndBroadcastConfig:(GtvConfig *)cfg {
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    gtv_config_save(cfg, dir, NULL);
+    g_free(dir);
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"GoTVConfigDidChange" object:nil];
+}
+
+- (void)selectTelexAction:(id)sender {
+    (void)sender;
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, dir);
+    g_free(dir);
+    cfg.mode = GTV_TELEX;
+    if (engine) engine->mode = GTV_TELEX;
+    [self saveAndBroadcastConfig:&cfg];
+    gtv_config_clear(&cfg);
+}
+
+- (void)selectVniAction:(id)sender {
+    (void)sender;
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, dir);
+    g_free(dir);
+    cfg.mode = GTV_VNI;
+    if (engine) engine->mode = GTV_VNI;
+    [self saveAndBroadcastConfig:&cfg];
+    gtv_config_clear(&cfg);
+}
+
+- (void)toggleModernAction:(id)sender {
+    (void)sender;
+    if (!engine) return;
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, dir);
+    g_free(dir);
+    cfg.modern = !engine->modern;
+    engine->modern = cfg.modern;
+    [self saveAndBroadcastConfig:&cfg];
+    gtv_config_clear(&cfg);
+}
+
+- (void)toggleSpellcheckAction:(id)sender {
+    (void)sender;
+    if (!engine) return;
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, dir);
+    g_free(dir);
+    cfg.spellcheck = !engine->spellcheck;
+    engine->spellcheck = cfg.spellcheck;
+    [self saveAndBroadcastConfig:&cfg];
+    gtv_config_clear(&cfg);
+}
+
+- (void)toggleSuggestAction:(id)sender {
+    (void)sender;
+    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, dir);
+    g_free(dir);
+    cfg.suggest_enabled = !suggestEnabled;
+    suggestEnabled = cfg.suggest_enabled;
+    [self saveAndBroadcastConfig:&cfg];
+    gtv_config_clear(&cfg);
+}
+
+- (void)openDataWindowAction:(id)sender {
+    (void)sender;
+    GoTVShowDataWindow();
+}
+
+- (void)openSettingsAction:(id)sender {
+    (void)sender;
+    GoTVShowSettings();
+}
+
+- (void)checkUpdatesAction:(id)sender {
+    (void)sender;
+    GoTVCheckForUpdates(YES);
+}
+
+- (void)openHomepageAction:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://isthaison.github.io/gotv/"]];
+}
+
+- (void)openIssuesAction:(id)sender {
+    (void)sender;
+    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://github.com/isthaison/gotv/issues"]];
 }
 
 @end
