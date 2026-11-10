@@ -33,7 +33,7 @@ export const Footer: React.FC<FooterProps> = ({ basePath = '/gotv/' }) => {
           <strong>GoTV</strong> — Bộ gõ tiếng Việt Telex/VNI mã nguồn mở đa nền tảng (MIT License). Bản quyền &copy; {new Date().getFullYear()} isthaison.
         </p>
         <p className="text-xs text-stone-400">
-          bộ gõ tiếng việt &bull; telex &bull; vni &bull; vietnamese input method &bull; ibus gotv &bull; tsf vietnamese &bull; unikey alternative
+          bộ gõ tiếng việt &bull; telex &bull; vni &bull; vietnamese input method &bull; ibus gotv &bull; tsf vietnamese &bull; open source ime
         </p>
       </div>
     </footer>

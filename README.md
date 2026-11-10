@@ -35,8 +35,8 @@ chạy trên cả ba hệ điều hành qua adapter mỏng của từng nền t�
 [InputMethodKit](https://developer.apple.com/documentation/inputmethodkit) trên macOS.
 
 > **English:** GoTV is a free, open-source **Vietnamese input method (Telex & VNI)** for
-> Linux (IBus), Windows 10/11 (TSF) and macOS (InputMethodKit) — a lightweight Unikey/EVKey
-> alternative with offline spellcheck, text macros/emoji and an offline dictionary
+> Linux (IBus), Windows 10/11 (TSF) and macOS (InputMethodKit) — built on a lightweight,
+> standalone C core with offline spellcheck, text macros/emoji expansions and an offline dictionary
 > (word suggestions + typo corrections, auto-updated from GitHub).
 
 ```text
@@ -105,14 +105,15 @@ Chuyển đổi nguồn gõ bằng `Fn/Caps Lock` hoặc `Control+Space`. Chi ti
 
 Ví dụ: `bawst` → `bắt`, `duocjwd` → `được`, `hoaf` → `hoà`/`hòa` (tùy kiểu đặt dấu).
 
-## So với Unikey / EVKey / OpenKey
+## Tổng quan kỹ thuật
 
-|  | GoTV | Unikey | EVKey/OpenKey |
-|---|---|---|---|
-| Telex + VNI | ✅ | ✅ | ✅ |
-| Linux (IBus) / Windows / macOS | ✅ cả 3 (Native IMK) | Win + Linux | Win + macOS |
-| Gợi ý từ điển offline | ✅ (hoàn thành từ, không ép sửa lỗi) | ❌ | ❌ |
-| Mã nguồn mở | ✅ MIT | ✅ | ✅ |
+| Tiêu chí | GoTV |
+|---|---|
+| Kiểu gõ hỗ trợ | Telex & VNI (bảng quy tắc chung, hỗ trợ kiểu dấu mới/cũ) |
+| Đa nền tảng | Đầy đủ Linux (IBus), Windows 10/11 (TSF), macOS (Native IMK) |
+| Trải nghiệm gõ | Không gạch đỏ gây phân tâm, phù hợp cả gõ văn bản và lập trình |
+| Gợi ý & Macro | Gợi ý từ điển chính quy và macro/emoji hoàn toàn offline |
+| Giấy phép | Mã nguồn mở (MIT License) |
 
 ## Tài liệu
 
@@ -156,7 +157,7 @@ Dự án phát triển hoàn toàn vì cộng đồng và rất trân trọng m�
 - Mọi đóng góp code cần vượt qua kiểm thử: `./gtv.sh test` (Linux/macOS) hoặc `.\gtv.cmd test` (Windows).
 
 > 💡 **Gợi ý topics cho repo** (mục About → ⚙️): `vietnamese` `tieng-viet` `telex` `vni`
-> `input-method` `ime` `ibus` `tsf` `unikey` `linux` `windows` `macos` `dictionary` `c`
+> `input-method` `ime` `ibus` `tsf` `open-source` `linux` `windows` `macos` `dictionary` `c`
 
 ## Star History & Stargazers
 

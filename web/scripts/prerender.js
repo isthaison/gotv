@@ -63,7 +63,7 @@ async function prerender() {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>${title}</title>
   <meta name="description" content="${description}">
-  <meta name="keywords" content="bộ gõ tiếng việt, gotv, telex, vni, vietnamese input method, ibus vietnamese, unikey alternative, evkey, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos, gõ tiếng việt terminal">
+  <meta name="keywords" content="bộ gõ tiếng việt, gotv, telex, vni, vietnamese input method, ibus gotv, tsf gotv, bộ gõ mã nguồn mở, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos, gõ tiếng việt terminal">
   <meta name="author" content="isthaison">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">

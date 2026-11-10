@@ -55,34 +55,21 @@ export const FAQ_ITEMS: FaqItem[] = [
     `
   },
   {
-    id: 'so-sanh-unikey',
-    slug: 'so-sanh-gotv-voi-unikey-evkey',
-    question: 'GoTV khác gì so với UniKey và EVKey?',
-    shortAnswer: 'GoTV dùng một lõi C chung cho cả 3 OS, hỗ trợ gợi ý từ điển offline và macro/emoji mượt mà — không gạch chân đỏ làm phiền khi gõ.',
+    id: 'dac-diem-gotv',
+    slug: 'triet-ly-va-dac-diem-noi-bat-cua-gotv',
+    question: 'Triết lý thiết kế và những điểm nổi bật của GoTV là gì?',
+    shortAnswer: 'GoTV sử dụng một lõi C độc lập chung cho cả 3 hệ điều hành, hỗ trợ gợi ý từ điển offline và macro/emoji mượt mà — loại bỏ gạch chân đỏ làm phiền khi gõ.',
     category: 'general',
-    dateModified: '2026-11-07',
+    dateModified: '2026-11-10',
     detailHtml: `
-      <p class="mb-4"><strong>UniKey</strong> và <strong>EVKey</strong> là những bộ gõ xuất sắc và quen thuộc của người dùng Việt Nam qua nhiều năm. Tuy nhiên, <strong>GoTV</strong> được phát triển với những mục tiêu kiến trúc hiện đại và phục vụ người dùng đa nền tảng:</p>
-      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">Bảng so sánh chi tiết</h3>
-      <div class="overflow-x-auto my-4">
-        <table class="w-full text-left border border-stone-200 text-sm">
-          <thead class="bg-stone-100 border-b">
-            <tr>
-              <th class="p-3 border-r">Tiêu chí</th>
-              <th class="p-3 border-r font-bold text-red-700">GoTV</th>
-              <th class="p-3 border-r">UniKey</th>
-              <th class="p-3">EVKey</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-stone-200">
-            <tr><td class="p-3 font-semibold border-r">Nền tảng</td><td class="p-3 border-r">Windows, Linux, macOS (Lõi C chung)</td><td class="p-3 border-r">Chủ yếu Windows</td><td class="p-3">Windows, macOS</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Mã nguồn mở</td><td class="p-3 border-r text-green-700 font-bold">Có (MIT License)</td><td class="p-3 border-r">Không mở bản mới</td><td class="p-3 text-stone-500">Đóng mã nguồn</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Không gạch đỏ làm phiền</td><td class="p-3 border-r text-green-700 font-bold">100% Sạch sẽ, phẳng</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Gợi ý từ điển</td><td class="p-3 border-r text-green-700 font-bold">Có (~6.700 từ chính quy + tự học)</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Cài đặt per-user</td><td class="p-3 border-r">Không cần quyền Admin</td><td class="p-3 border-r">Portable / Admin</td><td class="p-3">Portable</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <p class="mb-4"><strong>GoTV</strong> được phát triển với mục tiêu mang lại trải nghiệm gõ tiếng Việt hiện đại, nhẹ nhàng và nhất quán trên mọi hệ điều hành:</p>
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">Các giá trị cốt lõi</h3>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Một lõi C duy nhất cho mọi nền tảng:</strong> Cùng một thuật toán biến đổi âm tiết chạy trên Linux (IBus), Windows (TSF) và macOS (InputMethodKit), đảm bảo tính nhất quán tuyệt đối khi bạn đổi máy tính.</li>
+        <li><strong>Gõ sạch sẽ, không gạch đỏ gây phiền:</strong> Loại bỏ hoàn toàn các gạch chân đỏ cảnh báo âm tiết sai, giúp người dùng thoải mái gõ code, gõ tiếng Anh xen lẫn tiếng Việt mà không bị rối mắt.</li>
+        <li><strong>Gợi ý từ điển & Macro hoàn toàn offline:</strong> Tích hợp sẵn bộ từ điển tiếng Việt chuẩn mực cùng khả năng tự học từ và bung nhanh emoji/viết tắt, hoạt động 100% trên máy tính để bảo vệ quyền riêng tư.</li>
+        <li><strong>Mã nguồn mở và cài đặt linh hoạt:</strong> Phát hành theo giấy phép MIT minh bạch, hỗ trợ cài đặt per-user trên Windows mà không đòi hỏi quyền quản trị Administrator.</li>
+      </ul>
     `
   },
   {
