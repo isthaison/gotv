@@ -15,6 +15,6 @@ ReleaseDate: 2026-11-10
 Installers:
 - Architecture: x64
   InstallerUrl: https://github.com/isthaison/gotv/releases/download/v0.9.14/gotv-0.9.14-x64-setup.exe
-  InstallerSha256: FBE119EEC6EB598514E058769DD1257491DC6C46EFD4B95644AE4139BF66EFE4
+  InstallerSha256: 452577F295048A37D3B215AA4C0A39B72F68D345A445B2FB44A554F54479D076
 ManifestType: installer
 ManifestVersion: 1.12.0
