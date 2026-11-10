@@ -6,6 +6,13 @@ import { FaqDetailPage } from './pages/FaqDetailPage';
 import { FAQ_ITEMS } from './data/faqData';
 import './index.css';
 
+// Prevent pinch-to-zoom gestures on iOS Safari
+if (typeof document !== 'undefined') {
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+}
+
 const rootElement = document.getElementById('root');
 if (rootElement) {
   const basePath = import.meta.env.BASE_URL || '/gotv/';

@@ -60,7 +60,7 @@ async function prerender() {
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>${title}</title>
   <meta name="description" content="${description}">
   <meta name="keywords" content="bộ gõ tiếng việt, gotv, telex, vni, vietnamese input method, ibus vietnamese, unikey alternative, evkey, gõ tiếng việt linux, gõ tiếng việt windows, gõ tiếng việt macos, gõ tiếng việt terminal">

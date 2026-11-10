@@ -312,7 +312,7 @@ export const VietnamesePlayground: React.FC = () => {
           placeholder="Nhấp vào đây và bắt đầu gõ thử (ví dụ: duocjwd -> được)..."
           rows={3}
           disabled={isSimulating}
-          className="w-full bg-stone-950 border border-stone-800 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 pb-12 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-sm sm:text-base leading-relaxed resize-none shadow-inner transition"
+          className="w-full bg-stone-950 border border-stone-800 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 pb-12 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-base leading-relaxed resize-none shadow-inner transition"
         />
 
         {/* Text Actions Floating in Editor */}
