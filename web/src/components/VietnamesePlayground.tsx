@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Sparkles,
   RotateCcw,
   Copy,
   Check,
@@ -8,20 +7,16 @@ import {
   Sliders,
   Keyboard,
   Info,
-  CheckCircle2,
 } from 'lucide-react';
 import {
   gtvCompose,
-  gtvTransform,
   analyzeSyllable,
   SyllableAnalysis,
   GtvMode,
 } from '../engine/gtvEngine';
 import {
   gtvWasmCompose,
-  gtvWasmTransform,
   isGotvWasmReady,
-  initGotvWasm,
 } from '../engine/gotvWasmEngine';
 
 export const VietnamesePlayground: React.FC = () => {
@@ -40,7 +35,6 @@ export const VietnamesePlayground: React.FC = () => {
 
   // Update analysis when text changes or cursor moves
   const updateCurrentWordAnalysis = useCallback((currentText: string, cursorIndex: number) => {
-    // Find the word at or just before the cursor
     let start = cursorIndex;
     while (start > 0 && !/[ \t\r\n.,;:!?'"()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(currentText[start - 1])) {
       start--;
@@ -59,7 +53,6 @@ export const VietnamesePlayground: React.FC = () => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!enabled || isSimulating) return;
 
-    // We only intercept single printable characters
     if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) {
       return;
     }
@@ -69,12 +62,10 @@ export const VietnamesePlayground: React.FC = () => {
     const startPos = target.selectionStart;
     const endPos = target.selectionEnd;
 
-    // Only handle collapsed selection
     if (startPos !== endPos) return;
 
     const val = target.value;
 
-    // Find the word boundary before the cursor
     let wordStart = startPos;
     while (wordStart > 0) {
       const prevChar = val[wordStart - 1];
@@ -87,7 +78,6 @@ export const VietnamesePlayground: React.FC = () => {
     }
 
     const currentWord = val.substring(wordStart, startPos);
-    // Apply GoTV WebAssembly core algorithm directly from C!
     const transformedWord = isGotvWasmReady()
       ? gtvWasmCompose(currentWord, key, mode, modern)
       : (() => {
@@ -96,7 +86,6 @@ export const VietnamesePlayground: React.FC = () => {
           return wordBuf.join('');
         })();
 
-    // If composition resulted in the same as standard appending, let browser handle or replace
     e.preventDefault();
 
     const newVal = val.substring(0, wordStart) + transformedWord + val.substring(startPos);
@@ -156,7 +145,6 @@ export const VietnamesePlayground: React.FC = () => {
       clearTimeout(simulationTimeoutRef.current);
     }
 
-    // Append a space if not empty
     const baseText = text ? text + (text.endsWith(' ') ? '' : ' ') : '';
     setText(baseText);
 
@@ -227,34 +215,45 @@ export const VietnamesePlayground: React.FC = () => {
   const examples = mode === 'telex' ? telexExamples : vniExamples;
 
   return (
-    <div className="bg-stone-900 text-stone-100 rounded-3xl p-6 sm:p-7 shadow-2xl border border-stone-800 max-w-3xl mx-auto my-8 text-left transition-all">
+    <div className="bg-stone-900 text-stone-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7 shadow-2xl border border-stone-800 max-w-3xl mx-auto my-6 sm:my-8 text-left transition-all">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800 pb-4 mb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-700/20 border border-red-600/40 flex items-center justify-center text-red-500 font-black text-sm">
-            {mode === 'telex' ? 'T' : 'V'}
+      <div className="border-b border-stone-800/80 pb-3 sm:pb-4 mb-4 sm:mb-5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-red-700/20 border border-red-600/40 flex items-center justify-center text-red-500 font-black text-sm shrink-0">
+              {mode === 'telex' ? 'T' : 'V'}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm tracking-wide uppercase text-stone-200 truncate">
+                Gõ thử trực tuyến (Live Demo)
+              </h3>
+              <p className="text-[11px] sm:text-xs text-stone-400 truncate">
+                Gõ phím trực tiếp — chạy 100% trên trình duyệt
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-sm tracking-wide uppercase text-stone-200 flex items-center gap-2">
-              <span>Gõ thử trực tuyến (Live Demo)</span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-normal lowercase bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-800">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                lõi C trực tiếp qua WebAssembly (18KB)
-              </span>
-            </h3>
-            <p className="text-xs text-stone-400">
-              Gõ phím trực tiếp vào khung dưới — hoạt động 100% không cần cài thêm bộ gõ.
-            </p>
-          </div>
+
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-normal lowercase bg-emerald-950/80 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-800 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            lõi C qua WebAssembly (18KB)
+          </span>
         </div>
 
-        {/* Mode & Switch Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Mobile WASM Pill */}
+        <div className="sm:hidden flex items-center gap-1.5 mt-2">
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-emerald-950/80 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-800/80">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Lõi C thuần (WebAssembly 18KB)
+          </span>
+        </div>
+
+        {/* Responsive Controls Toolbar */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mt-3 pt-3 border-t border-stone-800/60">
           {/* Method Selector */}
-          <div className="inline-flex bg-stone-950 rounded-xl p-1 border border-stone-800 text-xs">
+          <div className="inline-flex bg-stone-950 rounded-xl p-1 border border-stone-800 text-xs shrink-0">
             <button
               onClick={() => setMode('telex')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
+              className={`px-3 py-1.5 rounded-lg font-bold transition text-xs ${
                 mode === 'telex'
                   ? 'bg-red-700 text-white shadow-sm'
                   : 'text-stone-400 hover:text-stone-200'
@@ -265,7 +264,7 @@ export const VietnamesePlayground: React.FC = () => {
             </button>
             <button
               onClick={() => setMode('vni')}
-              className={`px-3 py-1 rounded-lg font-bold transition ${
+              className={`px-3 py-1.5 rounded-lg font-bold transition text-xs ${
                 mode === 'vni'
                   ? 'bg-red-700 text-white shadow-sm'
                   : 'text-stone-400 hover:text-stone-200'
@@ -279,31 +278,31 @@ export const VietnamesePlayground: React.FC = () => {
           {/* Tone Style Option */}
           <button
             onClick={() => setModern(!modern)}
-            className="px-2.5 py-1 rounded-xl text-xs bg-stone-950 border border-stone-800 hover:border-stone-700 text-stone-300 transition flex items-center gap-1.5"
+            className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs bg-stone-950 border border-stone-800 hover:border-stone-700 text-stone-300 transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95"
             title="Đổi kiểu đặt dấu: Mới (hòa, thúy) hoặc Truyền thống (hoà, thuý)"
           >
-            <Sliders className="w-3 h-3 text-amber-400" />
+            <Sliders className="w-3 h-3 text-amber-400 shrink-0" />
             <span>{modern ? 'Dấu mới (hòa)' : 'Dấu cũ (hoà)'}</span>
           </button>
 
           {/* Engine Power Toggle */}
           <button
             onClick={() => setEnabled(!enabled)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 ${
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
               enabled
                 ? 'bg-stone-800 border-stone-700 text-emerald-400'
                 : 'bg-stone-950 border-stone-800 text-stone-500 hover:text-stone-300'
             }`}
             title="Bật/Tắt gõ tiếng Việt"
           >
-            <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-400' : 'bg-stone-600'}`}></span>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-emerald-400' : 'bg-stone-600'}`}></span>
             <span>{enabled ? 'Tiếng Việt' : 'Tiếng Anh'}</span>
           </button>
         </div>
       </div>
 
       {/* Editor Textarea */}
-      <div className="relative mb-4">
+      <div className="relative mb-3 sm:mb-4">
         <textarea
           ref={textareaRef}
           value={text}
@@ -311,16 +310,16 @@ export const VietnamesePlayground: React.FC = () => {
           onChange={handleTextChange}
           onSelect={handleSelect}
           placeholder="Nhấp vào đây và bắt đầu gõ thử (ví dụ: duocjwd -> được)..."
-          rows={4}
+          rows={3}
           disabled={isSimulating}
-          className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-base leading-relaxed resize-none shadow-inner transition"
+          className="w-full bg-stone-950 border border-stone-800 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 pb-12 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 font-mono text-sm sm:text-base leading-relaxed resize-none shadow-inner transition"
         />
 
         {/* Text Actions Floating in Editor */}
-        <div className="absolute right-3 bottom-3 flex items-center gap-1.5 bg-stone-900/90 backdrop-blur-sm px-2 py-1 rounded-xl border border-stone-800 text-xs">
+        <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1 bg-stone-900/95 backdrop-blur-sm px-2 py-1 rounded-xl border border-stone-800 text-xs shadow-md">
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-100 hover:bg-stone-800 transition flex items-center gap-1"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-100 hover:bg-stone-800 transition flex items-center gap-1 active:scale-95"
             title="Sao chép văn bản"
           >
             {copied ? (
@@ -340,7 +339,7 @@ export const VietnamesePlayground: React.FC = () => {
 
           <button
             onClick={handleClear}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-red-400 hover:bg-stone-800 transition flex items-center gap-1"
+            className="p-1.5 rounded-lg text-stone-400 hover:text-red-400 hover:bg-stone-800 transition flex items-center gap-1 active:scale-95"
             title="Xóa văn bản"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -351,32 +350,34 @@ export const VietnamesePlayground: React.FC = () => {
 
       {/* Syllable Inspector & Phonology Analysis */}
       {analysis && (
-        <div className="bg-stone-950/80 rounded-2xl p-3.5 mb-4 border border-stone-800/80 text-xs text-stone-300">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-800/60">
-            <span className="font-semibold text-stone-400 flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-amber-400" />
-              <span>Phân tích âm tiết GoTV cho từ:</span>
-              <strong className="text-amber-300 font-mono text-sm">"{analysis.word}"</strong>
-            </span>
-            <span className="text-[11px] text-stone-500">Thuật toán ngữ âm lõi C</span>
+        <div className="bg-stone-950/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 mb-3 sm:mb-4 border border-stone-800/80 text-xs text-stone-300">
+          <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-stone-800/60">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-stone-400 text-xs font-semibold shrink-0">Âm tiết:</span>
+              <span className="px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-300 font-mono font-bold text-xs border border-amber-400/20 truncate">
+                "{analysis.word}"
+              </span>
+            </div>
+            <span className="text-[10px] text-stone-500 font-mono shrink-0">Lõi ngữ âm C</span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 text-[11px]">
             <div className="bg-stone-900/80 rounded-lg p-2 border border-stone-800/50">
-              <span className="text-stone-500 block">Âm đầu:</span>
-              <span className="font-mono font-bold text-stone-200">{analysis.onset}</span>
+              <span className="text-stone-500 block text-[10px]">Âm đầu:</span>
+              <span className="font-mono font-bold text-stone-200 truncate block">{analysis.onset}</span>
             </div>
             <div className="bg-stone-900/80 rounded-lg p-2 border border-stone-800/50">
-              <span className="text-stone-500 block">Nguyên âm chính:</span>
-              <span className="font-mono font-bold text-red-400">{analysis.nucleus}</span>
+              <span className="text-stone-500 block text-[10px]">Nguyên âm chính:</span>
+              <span className="font-mono font-bold text-red-400 truncate block">{analysis.nucleus}</span>
             </div>
             <div className="bg-stone-900/80 rounded-lg p-2 border border-stone-800/50">
-              <span className="text-stone-500 block">Âm cuối (coda):</span>
-              <span className="font-mono font-bold text-stone-200">{analysis.coda}</span>
+              <span className="text-stone-500 block text-[10px]">Âm cuối (coda):</span>
+              <span className="font-mono font-bold text-stone-200 truncate block">{analysis.coda}</span>
             </div>
             <div className="bg-stone-900/80 rounded-lg p-2 border border-stone-800/50">
-              <span className="text-stone-500 block">Thanh điệu:</span>
-              <span className="font-mono font-bold text-amber-300">{analysis.toneName}</span>
+              <span className="text-stone-500 block text-[10px]">Thanh điệu:</span>
+              <span className="font-mono font-bold text-amber-300 truncate block">{analysis.toneName}</span>
             </div>
           </div>
         </div>
@@ -385,31 +386,31 @@ export const VietnamesePlayground: React.FC = () => {
       {/* Quick Demo Simulator Buttons */}
       <div>
         <div className="flex items-center justify-between mb-2 text-xs">
-          <span className="text-stone-400 flex items-center gap-1.5 font-medium">
-            <Keyboard className="w-3.5 h-3.5 text-red-500" />
-            <span>Thử nhanh các từ tiêu biểu (Bấm để xem mô phỏng gõ từng phím):</span>
+          <span className="text-stone-400 flex items-center gap-1.5 font-medium text-[11px] sm:text-xs">
+            <Keyboard className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <span>Thử nhanh từ mẫu:</span>
           </span>
           <button
             onClick={handleReset}
-            className="text-stone-500 hover:text-stone-300 text-[11px] transition"
+            className="text-stone-500 hover:text-stone-300 text-[11px] transition active:scale-95"
           >
-            Đặt lại câu mẫu
+            Đặt lại mẫu
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {examples.map((ex, i) => (
             <button
               key={i}
               onClick={() => simulateTyping(ex.raw)}
               disabled={isSimulating}
-              className="group bg-stone-950 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/50 rounded-xl px-3 py-1.5 text-xs transition flex items-center gap-2 shadow-sm"
+              className="group bg-stone-950 hover:bg-stone-800 active:scale-95 border border-stone-800 hover:border-amber-500/50 rounded-xl px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs transition flex items-center gap-1.5 shadow-sm"
               title={`${ex.desc} — Nhấp để mô phỏng gõ phím`}
             >
-              <span className="font-mono text-amber-300/90 group-hover:text-amber-200">{ex.raw}</span>
-              <span className="text-stone-600 group-hover:text-stone-400">&rarr;</span>
-              <strong className="text-stone-100 group-hover:text-white font-bold">{ex.label}</strong>
-              <Play className="w-2.5 h-2.5 text-stone-500 group-hover:text-amber-400 ml-0.5 opacity-60 group-hover:opacity-100 transition" />
+              <span className="font-mono text-amber-300/90 text-[11px] sm:text-xs">{ex.raw}</span>
+              <span className="text-stone-600 text-[11px]">&rarr;</span>
+              <strong className="text-stone-100 font-bold text-[11px] sm:text-xs">{ex.label}</strong>
+              <Play className="w-2.5 h-2.5 text-stone-500 group-hover:text-amber-400 opacity-60 ml-0.5 shrink-0" />
             </button>
           ))}
         </div>

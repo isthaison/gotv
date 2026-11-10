@@ -33,21 +33,21 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             Kiểm tra chính tả ngoại tuyến, gợi ý từ điển offline, macro gõ tắt &amp; emoji.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 max-w-xs sm:max-w-none mx-auto">
             <a
               href="https://github.com/isthaison/gotv/releases/latest"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-3 rounded-xl transition shadow-md hover:shadow-lg text-sm sm:text-base"
+              className="inline-flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-5 py-3 rounded-xl transition shadow-md hover:shadow-lg text-sm sm:text-base active:scale-95"
             >
-              <Download className="w-5 h-5" />
+              <Download className="w-5 h-5 shrink-0" />
               <span>Tải bản mới nhất (v0.9.13)</span>
             </a>
             <a
               href="https://github.com/isthaison/gotv"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold px-6 py-3 rounded-xl transition text-sm sm:text-base"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold px-5 py-3 rounded-xl transition text-sm sm:text-base active:scale-95"
             >
               <span>★ Star trên GitHub</span>
             </a>

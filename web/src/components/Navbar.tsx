@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ basePath = '/gotv/', active = 'h
           </span>
           <span>GoTV</span>
           <span className="text-[11px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold shrink-0">
-            v0.9.10
+            v0.9.13
           </span>
         </a>
 
