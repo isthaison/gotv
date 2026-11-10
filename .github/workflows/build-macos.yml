@@ -92,9 +92,6 @@ jobs:
                          "build/macos/gotv-${APP_VERSION}-macos.dmg"
 
           ls -la build/macos/gotv-*-macos.*
-          for package in build/macos/gotv-*-macos.*; do
-            cp "$package" "${package/gotv-/gotiengviet-}"
-          done
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -111,7 +108,5 @@ jobs:
           files: |
             build/macos/gotv-*-macos.dmg
             build/macos/gotv-*-macos.pkg
-            build/macos/gotiengviet-*-macos.dmg
-            build/macos/gotiengviet-*-macos.pkg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

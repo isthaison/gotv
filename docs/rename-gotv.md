@@ -44,8 +44,8 @@ Repo chính thức là `isthaison/gotv`, website là `https://isthaison.github.i
 URL repo cũ được GitHub chuyển hướng; trình cập nhật dùng curl với `--location`
 nên bản đã phát hành vẫn truy cập được release. GitHub Pages không chuyển hướng
 đường dẫn website cũ; hãy cập nhật bookmark sang địa chỉ mới.
-CI phát hành thêm alias tên asset `gotiengviet-*` / `gotiengviet_*` từ cùng gói GoTV
-để trình cập nhật cũ tìm được bản mới; tên tải chính thức là `gotv-*` / `gotv_*`.
+Từ phiên bản 0.9.9+, các file alias phụ `gotiengviet-*` / `gotiengviet_*` đã được loại bỏ hoàn toàn,
+tất cả các bản phát hành chỉ sử dụng duy nhất định dạng chuẩn `gotv-*` / `gotv_*`.
 
 Kiểm chứng local trên Windows không thay thế kiểm chứng cài đặt/nâng cấp trên
 Linux và macOS; hai nền tảng đó cần CI và thử input source thực tế.

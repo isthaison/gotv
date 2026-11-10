@@ -151,13 +151,6 @@ jobs:
           rm -f /tmp/cert.pfx
 
       # ── Upload artifact ───────────────────────────────────────────
-      - name: Keep installer alias for pre-GoTV updaters
-        shell: msys2 {0}
-        run: |
-          for setup in gotv-*-x64-setup.exe; do
-            cp "$setup" "${setup/gotv-/gotiengviet-}"
-          done
-
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
@@ -174,7 +167,6 @@ jobs:
         with:
           files: |
             gotv-*-x64-setup.exe
-            gotiengviet-*-x64-setup.exe
             data/dict-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
