@@ -22,7 +22,8 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
+          update: false
+          cache: true
           install: >-
             git
             make
@@ -37,12 +38,7 @@ jobs:
       - name: Run Test Suite
         shell: msys2 {0}
         run: |
-          make -f Makefile.win test
-
-      - name: Build gotv.exe
-        shell: msys2 {0}
-        run: |
-          make -f Makefile.win
+          make -j$(nproc) -f Makefile.win test
 
       - name: Compute version
         shell: msys2 {0}
@@ -64,17 +60,18 @@ jobs:
 
       - name: Install Inno Setup
         shell: powershell
-        run: choco install innosetup -y
+        run: choco install innosetup -y --no-progress
 
       - name: Stage installer tree
         shell: msys2 {0}
         run: |
-          make -f Makefile.win staging
+          make -j$(nproc) -f Makefile.win staging
 
       - name: Stage Store installer tree
+        if: vars.STORE_SIGNING_ENABLED == 'true'
         shell: msys2 {0}
         run: |
-          make -f Makefile.win store-staging
+          make -j$(nproc) -f Makefile.win store-staging
 
       - name: Build versioned installer
         shell: msys2 {0}
@@ -85,6 +82,7 @@ jobs:
           ls -la gotv-*-x64-setup.exe
 
       - name: Build Store direct-download installer
+        if: vars.STORE_SIGNING_ENABLED == 'true'
         shell: powershell
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
