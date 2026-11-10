@@ -1,0 +1,1 @@
+/* Empty gio.h for WASM */

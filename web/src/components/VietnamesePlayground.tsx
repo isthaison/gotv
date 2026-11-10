@@ -17,6 +17,12 @@ import {
   SyllableAnalysis,
   GtvMode,
 } from '../engine/gtvEngine';
+import {
+  gtvWasmCompose,
+  gtvWasmTransform,
+  isGotvWasmReady,
+  initGotvWasm,
+} from '../engine/gotvWasmEngine';
 
 export const VietnamesePlayground: React.FC = () => {
   const [text, setText] = useState('Gõ tiếng Việt cực nhanh với GoTV! Hãy gõ thử: duocjwd -> được');
@@ -81,11 +87,14 @@ export const VietnamesePlayground: React.FC = () => {
     }
 
     const currentWord = val.substring(wordStart, startPos);
-    const wordBuf = Array.from(currentWord);
-
-    // Apply GoTV compose algorithm
-    gtvCompose(wordBuf, key, mode, modern);
-    const transformedWord = wordBuf.join('');
+    // Apply GoTV WebAssembly core algorithm directly from C!
+    const transformedWord = isGotvWasmReady()
+      ? gtvWasmCompose(currentWord, key, mode, modern)
+      : (() => {
+          const wordBuf = Array.from(currentWord);
+          gtvCompose(wordBuf, key, mode, modern);
+          return wordBuf.join('');
+        })();
 
     // If composition resulted in the same as standard appending, let browser handle or replace
     e.preventDefault();
@@ -169,7 +178,12 @@ export const VietnamesePlayground: React.FC = () => {
       }
 
       const k = keysArray[i];
-      gtvCompose(buf, k, mode, modern);
+      if (isGotvWasmReady()) {
+        const nextWord = gtvWasmCompose(buf.join(''), k, mode, modern);
+        buf = Array.from(nextWord);
+      } else {
+        gtvCompose(buf, k, mode, modern);
+      }
       i++;
 
       const currentVal = baseText + buf.join('');
@@ -225,7 +239,7 @@ export const VietnamesePlayground: React.FC = () => {
               <span>Gõ thử trực tuyến (Live Demo)</span>
               <span className="inline-flex items-center gap-1 text-[11px] font-normal lowercase bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                lõi C thuần chạy trên web
+                lõi C trực tiếp qua WebAssembly (18KB)
               </span>
             </h3>
             <p className="text-xs text-stone-400">
