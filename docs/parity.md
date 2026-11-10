@@ -24,7 +24,7 @@ Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều 
 | Nhận gợi ý + học từ đã chọn | ✅ (phím số / Tab) | ✅ (phím số / Tab / click) | ✅ (phím 1..5 / Tab / click) |
 | Enter không áp gợi ý (chỉ commit từ) | ✅ | ✅ | ✅ |
 | Gợi ý emoji khi gõ tiền tố `:sm` | ✅ | ✅ | ✅ |
-| Cảnh báo / gợi ý từ khi gõ sai âm tiết | ✅ (gạch đỏ IBus) | ✅ (Candidate popup / balloon) | ✅ (Candidate List native) |
+| Cảnh báo khi gõ sai âm tiết | ❌ Đã loại bỏ (gõ sạch, không gạch đỏ) | ❌ Đã loại bỏ (không popup/balloon làm phiền) | ❌ Đã loại bỏ (không ép sửa âm tiết) |
 
 ## Cấu hình & Giao diện
 

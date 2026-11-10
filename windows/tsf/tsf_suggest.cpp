@@ -164,28 +164,6 @@ static void learn_accepted_locked(const gchar *typed, const gchar *fix, gboolean
     }
 }
 
-static gboolean suggest_word_known(const gchar *word, gboolean *out_mistyped_fix) {
-    if (out_mistyped_fix) *out_mistyped_fix = FALSE;
-    if (!word || !*word) return FALSE;
-    gchar *key = gtv_word_key(word);
-    gboolean known = FALSE;
-    gboolean mistyped = FALSE;
-    if (key) {
-        EnterCriticalSection(&g_suggest.cs);
-        learned_ensure_locked();
-        known = g_hash_table_contains(g_suggest.learned_words, key);
-        mistyped = g_hash_table_contains(g_suggest.learned_fixes, key);
-        LeaveCriticalSection(&g_suggest.cs);
-        g_free(key);
-    }
-    if (known) return TRUE;
-    if (mistyped) {
-        if (out_mistyped_fix) *out_mistyped_fix = TRUE;
-        return FALSE;
-    }
-    return spell_word_valid(word);
-}
-
 static void notify_tray_word(const char *word) {
     if (!word || !*word) return;
     HWND tray = FindWindowA(GTV_TRAY_WINDOW_CLASS, NULL);
@@ -1272,7 +1250,7 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
     gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
     gtv_config_load(&cfg, dir);
     g_free(dir);
-    gboolean enabled = cfg.suggest_enabled || cfg.spellcheck;
+    gboolean enabled = cfg.suggest_enabled;
     if (!enabled) {
         gtv_config_clear(&cfg);
         g_free(buf);
@@ -1280,65 +1258,24 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
         return;
     }
 
-    gboolean mistyped_fix = FALSE;
-    gboolean bad = eng->spellcheck && !suggest_word_known(buf, &mistyped_fix);
+    gboolean bad = FALSE;
     GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
     gboolean used_ai = FALSE;
 
     if (cfg.suggest_enabled) {
-        if (bad && mistyped_fix) {
-            /* Explicit typo in learned-corrections.txt (e.g. hoăc -> hoặc):
-             * put the learned fix at #1, then fill with prefix completions. */
-            GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
-            if (fix_sugs) {
-                collect_unique_candidates(out, fix_sugs, GTV_SUGGEST_MAX);
-                g_ptr_array_unref(fix_sugs);
-            }
-            if (out->len < GTV_SUGGEST_MAX) {
-                GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
-                if (comp_sugs) {
-                    collect_unique_candidates(out, comp_sugs, GTV_SUGGEST_MAX);
-                    g_ptr_array_unref(comp_sugs);
-                }
-            }
-        } else {
-            /* 1. Try prefix completions first (works for vi, tsql, c, csharp, en,
-             * and in-progress open syllables like "câ" -> "cân, cần", "đă" -> "đăng"). */
-            GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
-            if (comp_sugs && comp_sugs->len > 0) {
-                collect_unique_candidates(out, comp_sugs, GTV_SUGGEST_MAX);
-                /* If the buffer is a valid prefix of dictionary words (e.g. "câ", "đă"),
-                 * treat it as an in-progress completion rather than a typo. */
-                bad = FALSE;
-            }
-            if (comp_sugs) g_ptr_array_unref(comp_sugs);
-
-            /* 2. If misspelled/invalid syllable OR prefix completions are empty for a
-             * non-dictionary word of length >= 2 (e.g. khoog, ngyen, truogn, kông, khng),
-             * run typo corrections. */
-            if (bad || (out->len == 0 && len >= 2 && !gtv_dict_contains(buf))) {
-                if (out->len < GTV_SUGGEST_MAX) {
-                    GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
-                    if (fix_sugs && fix_sugs->len > 0) {
-                        collect_unique_candidates(out, fix_sugs, GTV_SUGGEST_MAX);
-                        bad = TRUE;
-                    }
-                    if (fix_sugs) g_ptr_array_unref(fix_sugs);
-                }
-            }
+        /* Prefix completions only (works for vi, tsql, c, csharp, en, etc.) */
+        GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+        if (comp_sugs && comp_sugs->len > 0) {
+            collect_unique_candidates(out, comp_sugs, GTV_SUGGEST_MAX);
         }
+        if (comp_sugs) g_ptr_array_unref(comp_sugs);
         used_ai = out->len > 0;
     }
 
-    if (out->len == 0) {
+    if (out->len == 0 && cfg.suggest_enabled) {
         EnterCriticalSection(&g_suggest.cs);
         learned_ensure_locked();
-        if (bad) {
-            gchar *fix = gtv_fixes_lookup(g_suggest.learned_fixes, buf);
-            if (fix) g_ptr_array_add(out, fix);
-        } else {
-            gtv_learned_completions(g_suggest.learned_words, buf, out, GTV_SUGGEST_MAX);
-        }
+        gtv_learned_completions(g_suggest.learned_words, buf, out, GTV_SUGGEST_MAX);
         LeaveCriticalSection(&g_suggest.cs);
     }
     gtv_config_clear(&cfg);

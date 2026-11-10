@@ -29,7 +29,7 @@ $ build/gotv-demo --transform telex duocjwd
 ## Tính năng
 
 - **Một thuật toán chung** cho Telex và VNI — chỉ khác bảng ánh xạ phím; kiểu đặt dấu hiện đại (`hòa`) hoặc truyền thống (`hoà`).
-- **Chính tả ngoại tuyến**: gạch đỏ ngay khi gõ trên Linux (theo quy tắc âm tiết); hiển thị balloon (Windows) hoặc bảng ứng viên Candidate List (macOS) gợi ý từ đúng offline, không cần kết nối mạng.
+- **Gõ mượt mà, không gạch đỏ làm phiền**: Giao diện phẳng sạch sẽ trên cả Linux, Windows và macOS; loại bỏ hoàn toàn cảnh báo gõ sai âm tiết hay gạch chân đỏ để người dùng thoải mái gõ xen kẽ tiếng Việt, tiếng Anh và viết mã code.
 - **macOS chuẩn Native IMK**: tuân thủ 100% kiến trúc Apple InputMethodKit, không cần cấp quyền Accessibility; gõ trơn tru không gạch chân trên mọi Terminal (Ghostty, iTerm2, Kitty...) và GUI app; có menu trạng thái thanh tác vụ và bảng ứng viên gợi ý.
 - **Gợi ý từ điển ngoại tuyến**: hoàn thành tiền tố (`thong`→`thông`) và sửa lỗi chính tả (`kông`→`không`), không cần mạng. Từ điển (`data/dict-vi.txt`, ~7000 từ) tự cập nhật từ GitHub release; từ bạn chọn được nhớ vào từ điển học riêng.
 - **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍. Có sẵn bảng quản lý trực quan trên macOS.
@@ -90,8 +90,7 @@ Ví dụ: `bawst` → `bắt`, `duocjwd` → `được`, `hoaf` → `hoà`/`hòa
 |---|---|---|---|
 | Telex + VNI | ✅ | ✅ | ✅ |
 | Linux (IBus) / Windows / macOS | ✅ cả 3 (Native IMK) | Win + Linux | Win + macOS |
-| Chính tả & gợi ý khi gõ | ✅ (gạch đỏ Linux, balloon Win, candidate list Mac) | ❌ | ❌ |
-| Gợi ý từ điển offline | ✅ | ❌ | ❌ |
+| Gợi ý từ điển offline | ✅ (hoàn thành từ, không ép sửa lỗi) | ❌ | ❌ |
 | Mã nguồn mở | ✅ MIT | ✅ | ✅ |
 
 ## Tài liệu

@@ -45,7 +45,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
 - (void)updateCandidatesForBuffer:(const gchar *)buf client:(id)sender;
 - (void)acceptCandidate:(NSString *)cand client:(id)sender;
 - (void)ensureLearned;
-- (BOOL)isWordKnown:(const gchar *)word mistyped:(gboolean *)mistyped_fix;
 @end
 
 @implementation GoTVInputController
@@ -192,37 +191,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
     }
 }
 
-- (BOOL)isWordKnown:(const gchar *)word mistyped:(gboolean *)mistyped_fix {
-    if (!word || !*word) return YES;
-    if (mistyped_fix) *mistyped_fix = FALSE;
-    gchar *key = gtv_word_key(word);
-    if (!key) return YES;
-
-    [self ensureLearned];
-    if (learnedFixes) {
-        gchar *fix = gtv_fixes_lookup(learnedFixes, key);
-        if (fix) {
-            g_free(fix);
-            g_free(key);
-            if (mistyped_fix) *mistyped_fix = TRUE;
-            return NO;
-        }
-    }
-
-    if (learnedWords && g_hash_table_contains(learnedWords, key)) {
-        g_free(key);
-        return YES;
-    }
-
-    if (gtv_dict_contains(key)) {
-        g_free(key);
-        return YES;
-    }
-
-    g_free(key);
-    return spell_word_valid(word);
-}
-
 - (void)addUniqueCandidate:(GPtrArray *)dst cand:(const gchar *)cand {
     if (!dst || !cand || !*cand) return;
     for (guint i = 0; i < dst->len; i++) {
@@ -277,70 +245,25 @@ extern void GoTVCheckForUpdates(BOOL manual);
         gtv_config_load(&cfg, config_dir);
         g_free(config_dir);
 
-        gboolean enabled = cfg.suggest_enabled || cfg.spellcheck;
+        gboolean enabled = cfg.suggest_enabled;
         if (enabled) {
             [self ensureLearned];
-            gboolean mistyped_fix = FALSE;
-            gboolean bad = engine->spellcheck && ![self isWordKnown:buf mistyped:&mistyped_fix];
             GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
 
-            if (cfg.suggest_enabled) {
-                if (bad && mistyped_fix) {
-                    GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
-                    if (fix_sugs) {
-                        for (guint i = 0; i < fix_sugs->len && out->len < 5; i++) {
-                            const gchar *cand = (const gchar *)fix_sugs->pdata[i];
-                            if (cand && *cand) [self addUniqueCandidate:out cand:cand];
-                        }
-                        g_ptr_array_unref(fix_sugs);
-                    }
-                    if (out->len < 5) {
-                        GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
-                        if (comp_sugs) {
-                            for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
-                                const gchar *cand = (const gchar *)comp_sugs->pdata[i];
-                                if (cand && *cand) [self addUniqueCandidate:out cand:cand];
-                            }
-                            g_ptr_array_unref(comp_sugs);
-                        }
-                    }
-                } else {
-                    GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
-                    if (comp_sugs && comp_sugs->len > 0) {
-                        for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
-                            const gchar *cand = (const gchar *)comp_sugs->pdata[i];
-                            if (cand && *cand) [self addUniqueCandidate:out cand:cand];
-                        }
-                        bad = FALSE;
-                    }
-                    if (comp_sugs) g_ptr_array_unref(comp_sugs);
-
-                    if (bad || (out->len == 0 && len >= 2 && !gtv_dict_contains(buf))) {
-                        if (out->len < 5) {
-                            GPtrArray *fix_sugs = gtv_suggest_combined(&cfg, "", buf, TRUE);
-                            if (fix_sugs && fix_sugs->len > 0) {
-                                for (guint i = 0; i < fix_sugs->len && out->len < 5; i++) {
-                                    const gchar *cand = (const gchar *)fix_sugs->pdata[i];
-                                    if (cand && *cand) [self addUniqueCandidate:out cand:cand];
-                                }
-                                bad = TRUE;
-                            }
-                            if (fix_sugs) g_ptr_array_unref(fix_sugs);
-                        }
-                    }
+            GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+            if (comp_sugs && comp_sugs->len > 0) {
+                for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
+                    const gchar *cand = (const gchar *)comp_sugs->pdata[i];
+                    if (cand && *cand) [self addUniqueCandidate:out cand:cand];
                 }
             }
+            if (comp_sugs) g_ptr_array_unref(comp_sugs);
 
             if (out->len == 0) {
-                if (bad) {
-                    gchar *fix = gtv_fixes_lookup(learnedFixes, buf);
-                    if (fix) g_ptr_array_add(out, fix);
-                } else {
-                    gtv_learned_completions(learnedWords, buf, out, 5);
-                }
+                gtv_learned_completions(learnedWords, buf, out, 5);
             }
 
-            candidateWasBad = bad;
+            candidateWasBad = FALSE;
             for (guint i = 0; i < out->len && i < 5; i++) {
                 const gchar *s = (const gchar *)out->pdata[i];
                 if (s && *s) {
@@ -518,12 +441,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
                     [self acceptCandidate:chosen client:sender];
                     return YES;
                 }
-            }
-            if (c == ' ' && candidateWasBad && [currentCandidates count] > 0) {
-                NSString *chosen = [currentCandidates objectAtIndex:0];
-                [self acceptCandidate:chosen client:sender];
-                [sender insertText:@" " replacementRange:NSMakeRange(NSNotFound, NSNotFound)];
-                return YES;
             }
         }
     }

@@ -58,7 +58,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'so-sanh-unikey',
     slug: 'so-sanh-gotv-voi-unikey-evkey',
     question: 'GoTV khác gì so với UniKey và EVKey?',
-    shortAnswer: 'GoTV dùng một lõi C chung cho cả 3 OS, có chính tả khi gõ (gạch đỏ trên Linux, balloon gợi ý trên Windows/macOS) và gợi ý từ điển offline — những thứ Unikey/EVKey không có.',
+    shortAnswer: 'GoTV dùng một lõi C chung cho cả 3 OS, hỗ trợ gợi ý từ điển offline và macro/emoji mượt mà — không gạch chân đỏ làm phiền khi gõ.',
     category: 'general',
     dateModified: '2026-11-07',
     detailHtml: `
@@ -77,7 +77,7 @@ export const FAQ_ITEMS: FaqItem[] = [
           <tbody class="divide-y divide-stone-200">
             <tr><td class="p-3 font-semibold border-r">Nền tảng</td><td class="p-3 border-r">Windows, Linux, macOS (Lõi C chung)</td><td class="p-3 border-r">Chủ yếu Windows</td><td class="p-3">Windows, macOS</td></tr>
             <tr><td class="p-3 font-semibold border-r">Mã nguồn mở</td><td class="p-3 border-r text-green-700 font-bold">Có (MIT License)</td><td class="p-3 border-r">Không mở bản mới</td><td class="p-3 text-stone-500">Đóng mã nguồn</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Chính tả khi gõ</td><td class="p-3 border-r text-green-700 font-bold">Có (Real-time offline)</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
+            <tr><td class="p-3 font-semibold border-r">Không gạch đỏ làm phiền</td><td class="p-3 border-r text-green-700 font-bold">100% Sạch sẽ, phẳng</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
             <tr><td class="p-3 font-semibold border-r">Gợi ý từ điển</td><td class="p-3 border-r text-green-700 font-bold">Có (~7000 từ + tự học)</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
             <tr><td class="p-3 font-semibold border-r">Cài đặt per-user</td><td class="p-3 border-r">Không cần quyền Admin</td><td class="p-3 border-r">Portable / Admin</td><td class="p-3">Portable</td></tr>
           </tbody>

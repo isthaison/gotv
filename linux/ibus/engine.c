@@ -88,7 +88,7 @@ static void learned_completions(IBusGoTVEngine *e,const gchar *prefix,GPtrArray 
     load_learned_words(e);
     gtv_learned_completions(e->learned_words,prefix,out,max);
 }
-static gboolean word_valid(IBusGoTVEngine *e,const gchar *word){
+static G_GNUC_UNUSED gboolean word_valid(IBusGoTVEngine *e,const gchar *word){
     load_learned_words(e);load_learned_fixes(e);gchar *key=gtv_word_key(word);
     gboolean known=key && g_hash_table_contains(e->learned_words,key);
     gboolean mistyped=key && g_hash_table_contains(e->learned_fixes,key);
@@ -207,33 +207,9 @@ static void on_suggest_ready(GObject *source, GAsyncResult *res, gpointer user_d
             show_candidates(e, (IBusEngine*)e, sugs);
             e->candidates_from_dict=TRUE;
         }else{
-            /* If prefix completion returned 0 results for a non-dictionary word of length >= 2,
-             * fallback to typo correction so common typos (khoog, truogn, ngyen) get suggestions. */
-            glong qlen = g_utf8_strlen(e->pending_query, -1);
-            if(!e->pending_bad && qlen >= 2 && !gtv_dict_contains(e->pending_query)){
-                GPtrArray *fix_sugs = gtv_suggest_combined(&e->config, "", e->pending_query, TRUE);
-                if(fix_sugs && fix_sugs->len > 0){
-                    show_candidates(e, (IBusEngine*)e, fix_sugs);
-                    e->candidates_from_dict = TRUE;
-                    e->pending_bad = TRUE;
-                    g_ptr_array_unref(fix_sugs);
-                    if(sugs) g_ptr_array_unref(sugs);
-                    g_object_unref(e);
-                    return;
-                }
-                if(fix_sugs) g_ptr_array_unref(fix_sugs);
-            }
-
-            /* Dictionary unavailable or empty: reuse taught data offline.
-             * Typo mode shows the remembered correction; completion mode
-             * completes from learned vocabulary. Not marked as AI results. */
+            /* Gợi ý từ bảng từ đã học (chỉ gợi ý hoàn thành từ, không cảnh báo hay sửa lỗi âm tiết) */
             GPtrArray *local=g_ptr_array_new_with_free_func(g_free);
-            if(e->pending_bad){
-                gchar *fix=learned_fix_for(e, e->pending_query);
-                if(fix) g_ptr_array_add(local, fix);
-            }else{
-                learned_completions(e, e->pending_query, local, 5);
-            }
+            learned_completions(e, e->pending_query, local, 5);
             show_candidates(e, (IBusEngine*)e, local);
             g_ptr_array_unref(local);
         }
@@ -244,10 +220,9 @@ static void on_suggest_ready(GObject *source, GAsyncResult *res, gpointer user_d
 
 static gboolean request_suggestions(gpointer data){
     IBusGoTVEngine *e=data;e->suggest_timer=0;
-    gboolean bad=e->spellcheck && !word_valid(e,e->preedit->str);
-    e->pending_bad=bad;
+    e->pending_bad=FALSE;
     e->suggest_cancellable=g_cancellable_new();
-    gtv_suggest_combined_async(&e->config,e->sentence_context->str,e->preedit->str,bad,
+    gtv_suggest_combined_async(&e->config,e->sentence_context->str,e->preedit->str,FALSE,
         e->suggest_cancellable,on_suggest_ready,g_object_ref(e));
     return G_SOURCE_REMOVE;
 }

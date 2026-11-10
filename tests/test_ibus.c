@@ -123,16 +123,13 @@ int main(int argc,char **argv) {
     g_assert_cmpstr(g_ptr_array_index(local,0),==,"thông");
     g_assert_cmpstr(g_ptr_array_index(local,1),==,"thống");
     g_ptr_array_unref(local);
-    /* Full offline flow: the remembered correction is still suggested. */
+    /* Full offline flow: invalid syllable warning removed, typing invalid syllable does not force candidate popup. */
     ibus_gotv_engine_reset(e);
     hide_suggest(e,engine);
-    e->spellcheck=TRUE;e->config.suggest_enabled=TRUE;
+    e->spellcheck=FALSE;e->config.suggest_enabled=TRUE;
     g_string_assign(e->preedit,"hoăc");
     push_preedit(e,engine,e->preedit->len,TRUE);
-    for(guint i=0;i<200 && !e->n_candidates;i++){while(g_main_context_iteration(NULL,FALSE));g_usleep(10000);}
-    g_assert_cmpint(e->n_candidates,==,1);
-    g_assert_cmpstr(e->candidates[0],==,"hoặc");
-    g_assert_true(e->candidates_from_dict);
+    g_assert_cmpint(e->n_candidates,==,0);
     e->config.suggest_enabled=FALSE;
     ibus_gotv_engine_reset(e);
     hide_suggest(e,engine);
