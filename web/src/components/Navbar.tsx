@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({ basePath = '/gotv/', active = 'h
           </span>
           <span>GoTV</span>
           <span className="text-[11px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold shrink-0">
-            v0.9.9
+            v0.9.10
           </span>
         </a>
 
@@ -169,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({ basePath = '/gotv/', active = 'h
                 className="flex-1 flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white py-2.5 px-3 rounded-xl text-xs font-semibold shadow-sm transition active:scale-98"
               >
                 <Download className="w-4 h-4" />
-                <span>Tải v0.9.9</span>
+                <span>Tải v0.9.10</span>
               </a>
             </div>
           </nav>

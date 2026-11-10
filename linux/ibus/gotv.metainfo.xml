@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.10" date="2026-11-10">
+      <description>
+        <p>Phát hành 0.9.10: Loại bỏ hoàn toàn gạch chân đỏ và cảnh báo gõ sai âm tiết, nâng cấp bộ từ điển tiếng Việt chuẩn chính quy Hunspell vi_VN, quản lý macro/emoji trực tiếp từ khay hệ thống.</p>
+      </description>
+    </release>
     <release version="0.9.9" date="2026-11-07">
       <description>
         <p>Phát hành 0.9.9.</p>
