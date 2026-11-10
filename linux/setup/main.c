@@ -333,6 +333,10 @@ static void tray_update_start(gboolean manual){
     GThread *th = g_thread_new("gtv-update-check", tray_update_check_thread, GINT_TO_POINTER(manual));
     if(th) g_thread_unref(th);
 }
+static void tray_on_activate_data(GtkMenuItem *item, gpointer data){
+    (void)item; (void)data;
+    data_show(NULL);
+}
 static void tray_on_activate_update(GtkMenuItem *item, gpointer data){
     (void)item; (void)data;
     tray_update_start(TRUE);
@@ -371,11 +375,13 @@ int tray_run(int argc, char *argv[]){
     g_signal_connect(tray_item_toggle, "activate", G_CALLBACK(tray_on_activate_toggle), NULL);
 
     GtkWidget *tray_item_setup = gtk_menu_item_new_with_label("Mở GoTV Setup...");
+    GtkWidget *tray_item_data = gtk_menu_item_new_with_label("Quản lý Gõ tắt & Emoji...");
     GtkWidget *tray_item_update = gtk_menu_item_new_with_label("Kiểm tra cập nhật...");
     GtkWidget *tray_item_quit = gtk_menu_item_new_with_label("Thoát");
     g_signal_connect(tray_item_telex, "toggled", G_CALLBACK(tray_on_activate_telex), NULL);
     g_signal_connect(tray_item_vni, "toggled", G_CALLBACK(tray_on_activate_vni), NULL);
     g_signal_connect(tray_item_setup, "activate", G_CALLBACK(tray_on_activate_setup), NULL);
+    g_signal_connect(tray_item_data, "activate", G_CALLBACK(tray_on_activate_data), NULL);
     g_signal_connect(tray_item_update, "activate", G_CALLBACK(tray_on_activate_update), NULL);
     g_signal_connect(tray_item_quit, "activate", G_CALLBACK(tray_on_activate_quit), NULL);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_toggle);
@@ -384,6 +390,7 @@ int tray_run(int argc, char *argv[]){
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_vni);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_setup);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_data);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_update);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_quit);
     gtk_widget_show_all(menu);

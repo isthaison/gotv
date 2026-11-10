@@ -35,6 +35,7 @@
 #define ID_TRAY_UPDATE      309
 #define ID_TRAY_STARTUP_ADMIN 312
 #define ID_TRAY_KEYBOARDS   313
+#define ID_TRAY_DATA        314
 
 #define IDC_BTN_DATA        217
 #define IDC_BTN_KEYBOARD    253

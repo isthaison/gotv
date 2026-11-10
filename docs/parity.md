@@ -19,12 +19,12 @@ Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều 
 
 | Tính năng | Linux (IBus) | Windows (TSF) | macOS (InputMethodKit) |
 |---|---|---|---|
-| Bảng gợi ý inline / Candidate List | ✅ (IBus lookup table) | ✅ (overlay tray balloon) | ✅ (IMKCandidates native) |
+| Bảng gợi ý inline / Candidate List | ✅ (IBus lookup table) | ✅ (ITfCandidateListUIElement) | ✅ (IMKCandidates native) |
 | Gợi ý sửa lỗi chính tả ngoại tuyến | ✅ | ✅ | ✅ |
-| Nhận gợi ý + học từ đã chọn | ✅ (phím số / Tab) | ✅ (click / Tab) | ✅ (phím 1..5 / Tab / click) |
+| Nhận gợi ý + học từ đã chọn | ✅ (phím số / Tab) | ✅ (phím số / Tab / click) | ✅ (phím 1..5 / Tab / click) |
 | Enter không áp gợi ý (chỉ commit từ) | ✅ | ✅ | ✅ |
 | Gợi ý emoji khi gõ tiền tố `:sm` | ✅ | ✅ | ✅ |
-| Gạch chân chính tả gõ sai | ✅ (gạch đỏ) | ❌ (dùng balloon) | ❌ (dùng Candidate List) |
+| Cảnh báo / gợi ý từ khi gõ sai âm tiết | ✅ (gạch đỏ IBus) | ✅ (Candidate popup / balloon) | ✅ (Candidate List native) |
 
 ## Cấu hình & Giao diện
 
@@ -33,7 +33,7 @@ Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều 
 | Đổi Telex ↔ VNI trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ✅ (Menu Bar + Preferences) |
 | Chuẩn dấu / Chính tả trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
 | Bật/tắt gợi ý từ điển trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
-| Quản lý macro/emoji trong UI | ❌ (sửa file text) | ❌ (sửa file text) | ✅ (Cửa sổ GtvDataWindow) |
+| Quản lý macro/emoji trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ✅ (Menu Bar + GtvDataWindow) |
 
 ## Khay, menu, hệ thống
 
@@ -51,4 +51,4 @@ Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều 
 |---|---|---|---|
 | Tự kiểm tra định kỳ | ✅ | ✅ | ✅ |
 | Kiểm tra thủ công trong UI | ✅ menu tray | ✅ menu tray | ✅ Menu Bar |
-| Nâng cấp tự động | ✅ `pkexec dpkg -i` | ✅ Silent in-place | ⚠️ Tải .pkg / .dmg về mở Finder |
+| Nâng cấp tự động | ✅ `pkexec dpkg -i` | ✅ Silent in-place | ✅ Tự động tải & mở trình cài đặt |

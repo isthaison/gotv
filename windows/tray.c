@@ -135,6 +135,7 @@ void gtv_tray_show_menu(HWND hwnd) {
 
     HMENU hmenu = CreatePopupMenu();
     gtv_win_menu_add_utf8(hmenu, "Bảng điều khiển...", 0, ID_TRAY_SETTINGS);
+    gtv_win_menu_add_utf8(hmenu, "Quản lý gõ tắt & Emoji...", 0, ID_TRAY_DATA);
     gtv_win_menu_add_utf8(hmenu, "Bàn phím (Win+Space)...", 0, ID_TRAY_KEYBOARDS);
     gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
 
@@ -175,6 +176,9 @@ void gtv_tray_show_menu(HWND hwnd) {
     switch (cmd) {
         case ID_TRAY_SETTINGS:
             gtv_setup_show(hwnd);
+            break;
+        case ID_TRAY_DATA:
+            gtv_data_show(hwnd);
             break;
         case ID_TRAY_KEYBOARDS:
             gtv_keyboard_show(hwnd);

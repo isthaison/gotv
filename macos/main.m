@@ -36,6 +36,7 @@ static void showAvailableAlert(NSString *tag, NSString *url) {
     if (![ext length]) ext = @"dmg";
     NSString *dest = [NSString stringWithFormat:@"/tmp/gotv-%@-macos.%@", tag, ext];
     if (gtv_update_download([url UTF8String], [dest UTF8String])) {
+        [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:dest]];
         [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:
             [NSArray arrayWithObject:[NSURL fileURLWithPath:dest]]];
     } else {
