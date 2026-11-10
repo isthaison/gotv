@@ -31,7 +31,7 @@ $ build/gotv-demo --transform telex duocjwd
 - **Một thuật toán chung** cho Telex và VNI — chỉ khác bảng ánh xạ phím; kiểu đặt dấu hiện đại (`hòa`) hoặc truyền thống (`hoà`).
 - **Gõ mượt mà, không gạch đỏ làm phiền**: Giao diện phẳng sạch sẽ trên cả Linux, Windows và macOS; loại bỏ hoàn toàn cảnh báo gõ sai âm tiết hay gạch chân đỏ để người dùng thoải mái gõ xen kẽ tiếng Việt, tiếng Anh và viết mã code.
 - **macOS chuẩn Native IMK**: tuân thủ 100% kiến trúc Apple InputMethodKit, không cần cấp quyền Accessibility; gõ trơn tru không gạch chân trên mọi Terminal (Ghostty, iTerm2, Kitty...) và GUI app; có menu trạng thái thanh tác vụ và bảng ứng viên gợi ý.
-- **Gợi ý từ điển ngoại tuyến**: hoàn thành tiền tố (`thong`→`thông`) và sửa lỗi chính tả (`kông`→`không`), không cần mạng. Từ điển (`data/dict-vi.txt`, ~7000 từ) tự cập nhật từ GitHub release; từ bạn chọn được nhớ vào từ điển học riêng.
+- **Gợi ý từ điển ngoại tuyến**: hoàn thành tiền tố theo bộ từ điển tiếng Việt chính quy (~6.700 từ chuẩn mực theo quy chuẩn của Viện Ngôn ngữ học, Bộ GD&ĐT và chuẩn quốc tế Hunspell vi_VN) kết hợp từ điển tự học riêng của bạn, hoạt động offline 100%.
 - **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍. Có sẵn bảng quản lý trực quan trên macOS.
 - **Nhẹ, riêng tư**: lõi C thuần + glib; không runtime nặng nề, không gửi dữ liệu phím đi đâu, mọi gợi ý chạy offline trên máy.
 - **Tự cập nhật**: kiểm tra release GitHub định kỳ, nâng cấp đè giữ nguyên cấu hình cá nhân.

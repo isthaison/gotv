@@ -254,7 +254,7 @@ sudo ./gtv.sh install`})]}),f.jsxs("div",{className:"text-sm text-stone-600 spac
             <tr><td class="p-3 font-semibold border-r">Nền tảng</td><td class="p-3 border-r">Windows, Linux, macOS (Lõi C chung)</td><td class="p-3 border-r">Chủ yếu Windows</td><td class="p-3">Windows, macOS</td></tr>
             <tr><td class="p-3 font-semibold border-r">Mã nguồn mở</td><td class="p-3 border-r text-green-700 font-bold">Có (MIT License)</td><td class="p-3 border-r">Không mở bản mới</td><td class="p-3 text-stone-500">Đóng mã nguồn</td></tr>
             <tr><td class="p-3 font-semibold border-r">Không gạch đỏ làm phiền</td><td class="p-3 border-r text-green-700 font-bold">100% Sạch sẽ, phẳng</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
-            <tr><td class="p-3 font-semibold border-r">Gợi ý từ điển</td><td class="p-3 border-r text-green-700 font-bold">Có (~7000 từ + tự học)</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
+            <tr><td class="p-3 font-semibold border-r">Gợi ý từ điển</td><td class="p-3 border-r text-green-700 font-bold">Có (~6.700 từ chính quy + tự học)</td><td class="p-3 border-r">Không có</td><td class="p-3">Không có</td></tr>
             <tr><td class="p-3 font-semibold border-r">Cài đặt per-user</td><td class="p-3 border-r">Không cần quyền Admin</td><td class="p-3 border-r">Portable / Admin</td><td class="p-3">Portable</td></tr>
           </tbody>
         </table>
