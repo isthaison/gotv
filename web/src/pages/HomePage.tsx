@@ -5,7 +5,8 @@ import { VietnamesePlayground } from '../components/VietnamesePlayground';
 import { OsSelector } from '../components/OsSelector';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { FAQ_ITEMS } from '../data/faqData';
-import { Download, ShieldCheck, Cpu, BookMarked, Sparkles, RefreshCw, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Download, ShieldCheck, Cpu, BookMarked, Sparkles, RefreshCw, ChevronRight, CheckCircle2, Star, Smile } from 'lucide-react';
+import { WindowsIcon, LinuxIcon, AppleIcon } from '../components/BrandIcons';
 import { APP_VERSION } from '../version';
 
 interface HomePageProps {
@@ -54,9 +55,10 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               href="https://github.com/isthaison/gotv"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold px-5 py-3 rounded-xl transition text-sm sm:text-base active:scale-95"
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold px-5 py-3 rounded-xl transition text-sm sm:text-base active:scale-95 shadow-sm"
             >
-              <span>★ Star trên GitHub</span>
+              <Star className="w-4 h-4 fill-amber-400 text-amber-500 shrink-0" />
+              <span>Star trên GitHub</span>
             </a>
           </div>
 
@@ -107,7 +109,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               </div>
               <h3 className="font-bold text-lg text-stone-900 mb-2">Macro gõ tắt &amp; Emoji</h3>
               <p className="text-sm text-stone-600 leading-relaxed">
-                Gõ <code>cty</code> bấm Tab để bung thành <em>Công ty TNHH</em>, gõ <code>:smile:</code> &rarr; 😊. Quản lý trực tiếp qua file text đơn giản.
+                Gõ <code>cty</code> bấm Tab để bung thành <em>Công ty TNHH</em>, gõ <code>:smile:</code> &rarr; <Smile className="w-4 h-4 inline-block text-amber-500 align-text-bottom" />. Quản lý trực tiếp qua file text đơn giản.
               </p>
             </article>
 
@@ -171,7 +173,9 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">🪟</span>
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                    <WindowsIcon className="w-5 h-5 text-blue-600" />
+                  </div>
                   <div>
                     <h3 className="font-bold text-stone-900 text-sm leading-tight">Windows 10 / 11</h3>
                     <p className="text-[11px] text-stone-500">64-bit &amp; 32-bit (TSF)</p>
@@ -202,7 +206,9 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">🐧</span>
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                    <LinuxIcon className="w-5 h-5 text-amber-600" />
+                  </div>
                   <div>
                     <h3 className="font-bold text-stone-900 text-sm leading-tight">Linux</h3>
                     <p className="text-[11px] text-stone-500">Ubuntu, Debian, Fedora, Arch</p>
@@ -233,7 +239,9 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">🍎</span>
+                  <div className="w-9 h-9 rounded-xl bg-stone-100 flex items-center justify-center shrink-0">
+                    <AppleIcon className="w-5 h-5 text-stone-800" />
+                  </div>
                   <div>
                     <h3 className="font-bold text-stone-900 text-sm leading-tight">macOS</h3>
                     <p className="text-[11px] text-stone-500">Apple Silicon &amp; Intel</p>
@@ -275,7 +283,10 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               <tbody className="divide-y divide-stone-200">
                 <tr className="hover:bg-stone-50/60 transition">
                   <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
-                    <span className="mr-2 text-base">🪟</span> Windows 10/11 (x64)
+                    <span className="inline-flex items-center gap-2">
+                      <WindowsIcon className="w-4 h-4 text-blue-600" />
+                      <span>Windows 10/11 (x64)</span>
+                    </span>
                   </td>
                   <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
                     <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
@@ -302,7 +313,10 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
                 </tr>
                 <tr className="hover:bg-stone-50/60 transition">
                   <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
-                    <span className="mr-2 text-base">🐧</span> Linux (.deb / tar)
+                    <span className="inline-flex items-center gap-2">
+                      <LinuxIcon className="w-4 h-4 text-amber-600" />
+                      <span>Linux (.deb / tar)</span>
+                    </span>
                   </td>
                   <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
                     <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
@@ -329,7 +343,10 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
                 </tr>
                 <tr className="hover:bg-stone-50/60 transition">
                   <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
-                    <span className="mr-2 text-base">🍎</span> macOS (Apple Silicon &amp; Intel)
+                    <span className="inline-flex items-center gap-2">
+                      <AppleIcon className="w-4 h-4 text-stone-800" />
+                      <span>macOS (Apple Silicon &amp; Intel)</span>
+                    </span>
                   </td>
                   <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
                     <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Terminal, CheckCircle2 } from 'lucide-react';
+import { WindowsIcon, LinuxIcon, AppleIcon } from './BrandIcons';
 
 export const OsSelector: React.FC = () => {
   const [activeOs, setActiveOs] = useState<'windows' | 'linux' | 'macos'>('windows');
@@ -16,7 +17,7 @@ export const OsSelector: React.FC = () => {
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          <span className="text-base sm:text-lg">🪟</span>
+          <WindowsIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-600 shrink-0" />
           <span>Windows</span>
           <span className="hidden sm:inline">10/11</span>
         </button>
@@ -28,7 +29,7 @@ export const OsSelector: React.FC = () => {
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          <span className="text-base sm:text-lg">🐧</span>
+          <LinuxIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-600 shrink-0" />
           <span>Linux</span>
           <span className="hidden sm:inline">(IBus)</span>
         </button>
@@ -40,7 +41,7 @@ export const OsSelector: React.FC = () => {
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          <span className="text-base sm:text-lg">🍎</span>
+          <AppleIcon className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-stone-800 shrink-0" />
           <span>macOS</span>
           <span className="hidden sm:inline">(Native)</span>
         </button>

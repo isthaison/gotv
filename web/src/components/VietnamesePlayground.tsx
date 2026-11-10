@@ -7,6 +7,8 @@ import {
   Sliders,
   Keyboard,
   Info,
+  Sparkles,
+  Smile,
 } from 'lucide-react';
 import {
   gtvCompose,
@@ -18,12 +20,16 @@ import {
   gtvWasmCompose,
   isGotvWasmReady,
 } from '../engine/gotvWasmEngine';
+import { getSuggestions, SuggestionItem } from '../engine/suggestEngine';
 
 export const VietnamesePlayground: React.FC = () => {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<GtvMode>('telex');
   const [modern, setModern] = useState<boolean>(true);
   const [enabled, setEnabled] = useState<boolean>(true);
+  const [suggestEnabled, setSuggestEnabled] = useState<boolean>(true);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [currentWordRange, setCurrentWordRange] = useState<{ start: number; end: number; word: string } | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [analysis, setAnalysis] = useState<SyllableAnalysis | null>(null);
@@ -31,25 +37,76 @@ export const VietnamesePlayground: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const simulationTimeoutRef = useRef<number | null>(null);
 
-  // Update analysis when text changes or cursor moves
+  // Update analysis and suggestions when text changes or cursor moves
   const updateCurrentWordAnalysis = useCallback((currentText: string, cursorIndex: number) => {
     let start = cursorIndex;
-    while (start > 0 && !/[ \t\r\n.,;:!?'"()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(currentText[start - 1])) {
+    while (start > 0 && !/[ \t\r\n.,;!?()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(currentText[start - 1])) {
       start--;
     }
     let end = cursorIndex;
-    while (end < currentText.length && !/[ \t\r\n.,;:!?'"()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(currentText[end])) {
+    while (end < currentText.length && !/[ \t\r\n.,;!?()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(currentText[end])) {
       end++;
     }
-    const word = currentText.substring(start, end).trim();
-    if (word) {
-      setAnalysis(analyzeSyllable(word));
+    const rawWord = currentText.substring(start, end);
+    const trimmedWord = rawWord.trim();
+    if (trimmedWord) {
+      setAnalysis(analyzeSyllable(trimmedWord));
+      if (suggestEnabled) {
+        setSuggestions(getSuggestions(trimmedWord, 5));
+        setCurrentWordRange({ start, end, word: rawWord });
+      } else {
+        setSuggestions([]);
+        setCurrentWordRange(null);
+      }
+    } else {
+      setAnalysis(null);
+      setSuggestions([]);
+      setCurrentWordRange(null);
     }
-  }, []);
+  }, [suggestEnabled]);
+
+  // Apply a chosen suggestion
+  const handleApplySuggestion = useCallback((sug: SuggestionItem) => {
+    if (!currentWordRange) return;
+    const { start, end } = currentWordRange;
+    const replacement = sug.word + ' ';
+    const newVal = text.substring(0, start) + replacement + text.substring(end);
+    setText(newVal);
+    const newCursor = start + replacement.length;
+    setSuggestions([]);
+    setCurrentWordRange(null);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.selectionStart = newCursor;
+        textareaRef.current.selectionEnd = newCursor;
+        if (window.innerWidth >= 768) {
+          textareaRef.current.focus();
+        }
+        updateCurrentWordAnalysis(newVal, newCursor);
+      }
+    }, 0);
+  }, [currentWordRange, text, updateCurrentWordAnalysis]);
 
   // Handle keystroke interception in the textarea
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!enabled || isSimulating) return;
+
+    // Tab key accepts top suggestion
+    if (e.key === 'Tab' && suggestEnabled && suggestions.length > 0) {
+      e.preventDefault();
+      handleApplySuggestion(suggestions[0]);
+      return;
+    }
+
+    // Ctrl+1..5 or Alt+1..5 picks numbered suggestion
+    if ((e.ctrlKey || e.altKey) && e.key >= '1' && e.key <= '5') {
+      const idx = parseInt(e.key, 10) - 1;
+      if (idx < suggestions.length) {
+        e.preventDefault();
+        handleApplySuggestion(suggestions[idx]);
+        return;
+      }
+    }
 
     if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) {
       return;
@@ -67,7 +124,7 @@ export const VietnamesePlayground: React.FC = () => {
     let wordStart = startPos;
     while (wordStart > 0) {
       const prevChar = val[wordStart - 1];
-      const isWordChar = !/[ \t\r\n.,;:!?'"()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(prevChar);
+      const isWordChar = !/[ \t\r\n.,;!?()[\]{}<>+\-*/=_\\|~`@#$%^&]/.test(prevChar);
       if (isWordChar) {
         wordStart--;
       } else {
@@ -120,6 +177,8 @@ export const VietnamesePlayground: React.FC = () => {
   const handleClear = () => {
     setText('');
     setAnalysis(null);
+    setSuggestions([]);
+    setCurrentWordRange(null);
     if (textareaRef.current && window.innerWidth >= 768) {
       textareaRef.current.focus();
     }
@@ -128,6 +187,8 @@ export const VietnamesePlayground: React.FC = () => {
   const handleReset = () => {
     setText('');
     setAnalysis(null);
+    setSuggestions([]);
+    setCurrentWordRange(null);
     if (textareaRef.current && window.innerWidth >= 768) {
       textareaRef.current.focus();
     }
@@ -198,6 +259,7 @@ export const VietnamesePlayground: React.FC = () => {
     { raw: 'nguyenx', label: 'nguyễn', desc: 'Dấu ngã (x)' },
     { raw: 'thuyenf', label: 'thuyền', desc: 'Dấu huyền (f)' },
     { raw: 'hoacwj', label: 'hoặc', desc: 'Âm oặc (hoac + w + j)' },
+    { raw: ':smile', label: ':smile:', desc: 'Gợi ý emoji (Tab hoặc chạm để chọn)' },
     { raw: 'toanss', label: 'toans', desc: 'Khôi phục tiếng Anh' },
   ];
 
@@ -297,6 +359,20 @@ export const VietnamesePlayground: React.FC = () => {
             <span className={`w-2 h-2 rounded-full shrink-0 ${enabled ? 'bg-emerald-400' : 'bg-stone-600'}`}></span>
             <span>{enabled ? 'Tiếng Việt' : 'Tiếng Anh'}</span>
           </button>
+
+          {/* Suggestion Toggle */}
+          <button
+            onClick={() => setSuggestEnabled(!suggestEnabled)}
+            className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 ${
+              suggestEnabled
+                ? 'bg-amber-950/40 border-amber-600/60 text-amber-300 shadow-sm'
+                : 'bg-stone-950 border-stone-800 text-stone-500 hover:text-stone-300'
+            }`}
+            title="Bật/Tắt tính năng gợi ý từ điển tiếng Việt và Emoji"
+          >
+            <Sparkles className={`w-3 h-3 shrink-0 ${suggestEnabled ? 'text-amber-400' : 'text-stone-500'}`} />
+            <span>Gợi ý: {suggestEnabled ? 'Bật' : 'Tắt'}</span>
+          </button>
         </div>
       </div>
 
@@ -346,6 +422,36 @@ export const VietnamesePlayground: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Interactive Suggestion / Candidate Bar */}
+      {suggestEnabled && suggestions.length > 0 && (
+        <div className="bg-stone-950/95 rounded-xl p-2.5 mb-3 border border-amber-500/40 shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center justify-between gap-2 mb-1.5 px-0.5 text-[11px] text-amber-400 font-medium">
+            <span className="flex items-center gap-1.5 truncate">
+              <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>Gợi ý từ điển &amp; emoji (chạm để chọn hoặc bấm Tab):</span>
+            </span>
+            <span className="text-[10px] text-stone-500 font-mono shrink-0">GoTV Suggest</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {suggestions.map((sug, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleApplySuggestion(sug)}
+                className="inline-flex items-center gap-1.5 bg-stone-900 hover:bg-amber-950/70 border border-stone-800 hover:border-amber-500/60 text-stone-100 hover:text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition active:scale-95 shadow-sm group"
+                title={`Nhấn để chọn "${sug.word}"`}
+              >
+                <span className="w-4 h-4 rounded bg-stone-950 group-hover:bg-amber-900/60 text-[10px] text-stone-400 group-hover:text-amber-300 font-mono flex items-center justify-center shrink-0 border border-stone-800 group-hover:border-amber-500/40">
+                  {idx + 1}
+                </span>
+                <span className="font-semibold text-xs">{sug.display}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Syllable Inspector & Phonology Analysis */}
       {analysis && (

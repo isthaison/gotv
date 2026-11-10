@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build:wasm": "node scripts/build-wasm.js",
-    "build": "node scripts/build-wasm.js && vite build && node scripts/prerender.js",
+    "build:dict": "node scripts/build-dict.js",
+    "build": "node scripts/build-dict.js && node scripts/build-wasm.js && vite build && node scripts/prerender.js",
     "preview": "vite preview",
     "test": "node src/engine/testRunner.mjs"
   },
