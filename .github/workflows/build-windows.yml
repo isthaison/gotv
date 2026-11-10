@@ -13,6 +13,10 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      WIN_CERT_PFX_B64: ${{ secrets.WIN_CERT_PFX_B64 }}
+      STORE_SIGNING_CERT_PFX_B64: ${{ secrets.STORE_SIGNING_CERT_PFX_B64 }}
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -75,7 +79,7 @@ jobs:
 
       # ── Standard Release: Unsigned build if no cert configured ─────
       - name: Build unsigned versioned installer
-        if: secrets.WIN_CERT_PFX_B64 == ''
+        if: env.WIN_CERT_PFX_B64 == ''
         shell: msys2 {0}
         env:
           MSYS2_ARG_CONV_EXCL: "*"
@@ -85,7 +89,7 @@ jobs:
 
       # ── Standard Release: Full Authenticode Signing (payload + uninstaller + setup) ──
       - name: Sign and build versioned installer
-        if: secrets.WIN_CERT_PFX_B64 != ''
+        if: env.WIN_CERT_PFX_B64 != ''
         shell: powershell
         env:
           WIN_CERT_PFX_B64: ${{ secrets.WIN_CERT_PFX_B64 }}
@@ -116,7 +120,7 @@ jobs:
 
       # ── Store Package: Build & Sign with Trusted Root PFX ───────────
       - name: Sign and verify Store package (PFX)
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 != ''
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && env.STORE_SIGNING_CERT_PFX_B64 != ''
         shell: powershell
         env:
           STORE_SIGNING_CERT_PFX_B64: ${{ secrets.STORE_SIGNING_CERT_PFX_B64 }}
@@ -147,7 +151,7 @@ jobs:
 
       # ── Store Package: Build and submit via SignPath Foundation (when token configured) ──
       - name: Build Store installer for SignPath
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && env.STORE_SIGNING_CERT_PFX_B64 == '' && env.SIGNPATH_API_TOKEN != ''
         shell: powershell
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -156,14 +160,14 @@ jobs:
 
       - name: Upload unsigned Store installer for SignPath
         id: upload-store-unsigned
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && env.STORE_SIGNING_CERT_PFX_B64 == '' && env.SIGNPATH_API_TOKEN != ''
         uses: actions/upload-artifact@v4
         with:
           name: gotv-windows-store-unsigned
           path: gotv-*-x64-store-setup.exe
 
       - name: Submit to SignPath Foundation
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && env.STORE_SIGNING_CERT_PFX_B64 == '' && env.SIGNPATH_API_TOKEN != ''
         uses: signpath/github-action-submit-signing-request@v1
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -175,7 +179,7 @@ jobs:
           output-artifact-directory: './signed-store-output'
 
       - name: Copy SignPath signed artifact
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && env.STORE_SIGNING_CERT_PFX_B64 == '' && env.SIGNPATH_API_TOKEN != ''
         shell: powershell
         run: |
           Copy-Item -Path .\signed-store-output\*.exe -Destination .\ -Force
