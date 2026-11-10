@@ -80,29 +80,62 @@ export const OsSelector: React.FC = () => {
 
         {activeOs === 'linux' && (
           <div className="space-y-4">
-            <div className="bg-stone-900 text-stone-200 p-4 rounded-xl font-mono text-xs overflow-x-auto">
-              <div className="flex items-center gap-2 text-stone-400 mb-2 border-b border-stone-800 pb-1">
-                <Terminal className="w-4 h-4" />
-                <span>Cài đặt từ mã nguồn hoặc gói .deb</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-50/60 p-4 rounded-xl border border-amber-200/70">
+              <div>
+                <h4 className="font-bold text-stone-900 text-base">Gói cài đặt GoTV cho Linux (.deb / .tar.gz)</h4>
+                <p className="text-xs text-stone-600">Hỗ trợ Ubuntu, Debian, Linux Mint, Pop!_OS, Zorin OS và các bản phân phối IBus / Fcitx5.</p>
               </div>
-              <pre className="text-emerald-400">
-{`# Cài thư viện build cần thiết
+              <a
+                href="https://github.com/isthaison/gotv/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white font-bold px-5 py-2.5 rounded-xl transition shadow-sm text-sm shrink-0"
+              >
+                <Download className="w-4 h-4" /> Tải gotv_*_amd64.deb
+              </a>
+            </div>
+
+            <div className="text-sm text-stone-600 space-y-2.5">
+              <p className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                <span><strong>Cách 1 (Giao diện đồ họa):</strong> Tải file <code>.deb</code> về máy &rarr; Nhấp đúp chuột để mở bằng <em>Software Install</em> &rarr; Nhấn <strong>Install</strong>.</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                <span><strong>Cách 2 (Lệnh nhanh):</strong> Mở thư mục chứa file tải về và chạy <code>sudo apt install ./gotv_*_amd64.deb</code>.</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                <span>Vào <strong>Settings &rarr; Keyboard &rarr; Input Sources</strong> &rarr; Bấm <strong>+</strong> &rarr; Chọn <strong>Vietnamese (GoTV)</strong>. Khởi động lại IBus nếu cần (<code>ibus restart</code>).</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                <span>Chuyển đổi kiểu gõ bằng <code>Super + Space</code>. Gõ tiếng Việt cực mượt, không lỗi gạch chân, không gửi dữ liệu ra ngoài.</span>
+              </p>
+            </div>
+
+            {/* Developer option: compile from source */}
+            <details className="mt-2 group border border-stone-200 rounded-xl overflow-hidden bg-white text-xs">
+              <summary className="p-3 bg-stone-50 text-stone-700 font-semibold cursor-pointer list-none flex items-center justify-between hover:bg-stone-100 transition">
+                <span className="flex items-center gap-1.5">
+                  <Terminal className="w-3.5 h-3.5 text-stone-500" />
+                  <span>Dành cho lập trình viên: Biên dịch trực tiếp từ mã nguồn C (Tùy chọn)</span>
+                </span>
+                <span className="text-stone-400 group-open:rotate-90 transition transform">&rarr;</span>
+              </summary>
+              <div className="p-3.5 bg-stone-900 text-stone-200 font-mono text-[11px] overflow-x-auto">
+                <pre className="text-emerald-400">
+{`# Cài thư viện build cần thiết trên Ubuntu/Debian
 sudo apt install build-essential pkg-config libibus-1.0-dev libgtk-3-dev
-# Build và cài đặt GoTV
+
+# Tải mã nguồn, biên dịch và cài đặt GoTV
+git clone https://github.com/isthaison/gotv.git
+cd gotv
 ./gtv.sh build
 sudo ./gtv.sh install`}
-              </pre>
-            </div>
-            <div className="text-sm text-stone-600 space-y-2">
-              <p className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Thêm <strong>GoTV</strong> trong Settings &rarr; Keyboard &rarr; Input Sources.</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Chuyển đổi gõ bằng <code>Super + Space</code>. Gõ mượt mà và sạch sẽ, không gạch đỏ phiền toái.</span>
-              </p>
-            </div>
+                </pre>
+              </div>
+            </details>
           </div>
         )}
 
