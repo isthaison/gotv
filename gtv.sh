@@ -765,7 +765,7 @@ cmd_bump() {
         sed -i '1,15 s/"version": "[^"]*"/"version": "'"$ver"'"/' web/package-lock.json
     fi
     if [[ -f web/src/version.ts ]]; then
-        printf 'export const APP_VERSION = '\''%s\'\';\n' "$ver" > web/src/version.ts
+        printf "export const APP_VERSION = '%s';\n" "$ver" > web/src/version.ts
     fi
     if [[ -f web/scripts/prerender.js ]]; then
         sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$ver\"/" web/scripts/prerender.js
