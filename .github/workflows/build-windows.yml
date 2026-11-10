@@ -73,7 +73,9 @@ jobs:
         run: |
           make -j$(nproc) -f Makefile.win store-staging
 
-      - name: Build versioned installer
+      # ── Standard Release: Unsigned build if no cert configured ─────
+      - name: Build unsigned versioned installer
+        if: secrets.WIN_CERT_PFX_B64 == ''
         shell: msys2 {0}
         env:
           MSYS2_ARG_CONV_EXCL: "*"
@@ -81,21 +83,40 @@ jobs:
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" /Q "/DAppVersion=$APP_VERSION" "/DAppVerNum=$APP_VERNUM" "/DSourceDir=..\\release-pkg" windows/installer.iss
           ls -la gotv-*-x64-setup.exe
 
-      - name: Build Store direct-download installer
-        if: vars.STORE_SIGNING_ENABLED == 'true'
+      # ── Standard Release: Full Authenticode Signing (payload + uninstaller + setup) ──
+      - name: Sign and build versioned installer
+        if: secrets.WIN_CERT_PFX_B64 != ''
         shell: powershell
+        env:
+          WIN_CERT_PFX_B64: ${{ secrets.WIN_CERT_PFX_B64 }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD || 'gtv2026' }}
         run: |
-          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-          & $iscc /Q "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg-store' /DStoreSubmission windows\installer.iss
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
-          Get-Item "gotv-$env:APP_VERSION-x64-store-setup.exe" | Select-Object Name,Length
+          $ErrorActionPreference = 'Stop'
+          $certPath = Join-Path $env:RUNNER_TEMP 'gotv-release-signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WIN_CERT_PFX_B64))
+            # Sign all PE files in payload
+            .\tools\sign-windows-binaries.ps1 -Path release-pkg -CertificatePath $certPath -Password $env:WIN_CERT_PASSWORD -AllowUntrustedRoot
+            $env:STORE_SIGNING_CERT_PATH = $certPath
+            $env:STORE_SIGNING_CERT_PASSWORD = $env:WIN_CERT_PASSWORD
+            $env:GTV_ALLOW_UNTRUSTED_ROOT = '1'
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+            $signScript = Join-Path $PWD 'tools\sign-inno-output.ps1'
+            $signCommand = 'powershell.exe -NoProfile -File $q' + $signScript + '$q $f'
+            & $iscc /Q "/Sstore=$signCommand" "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg' /DSignInstaller windows\installer.iss
+            if ($LASTEXITCODE -ne 0) { throw "Signed installer compilation failed with exit code $LASTEXITCODE" }
+            # Sign and verify outer installer
+            .\tools\sign-windows-binaries.ps1 -Path "gotv-$env:APP_VERSION-x64-setup.exe" -CertificatePath $certPath -Password $env:WIN_CERT_PASSWORD -AllowUntrustedRoot
+          } finally {
+            Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
+            Remove-Item Env:\STORE_SIGNING_CERT_PATH -ErrorAction SilentlyContinue
+            Remove-Item Env:\STORE_SIGNING_CERT_PASSWORD -ErrorAction SilentlyContinue
+            Remove-Item Env:\GTV_ALLOW_UNTRUSTED_ROOT -ErrorAction SilentlyContinue
+          }
 
-      # Store submission files must use a certificate chaining to a CA in
-      # Microsoft's Trusted Root Program. Configure the repository variable
-      # and secrets documented in docs/windows.md; never use the self-signed
-      # GitHub release certificate for this package.
-      - name: Sign and verify Store package
-        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true'
+      # ── Store Package: Build & Sign with Trusted Root PFX ───────────
+      - name: Sign and verify Store package (PFX)
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 != ''
         shell: powershell
         env:
           STORE_SIGNING_CERT_PFX_B64: ${{ secrets.STORE_SIGNING_CERT_PFX_B64 }}
@@ -109,6 +130,7 @@ jobs:
           $certPath = Join-Path $env:RUNNER_TEMP 'gotv-store-signing.pfx'
           try {
             [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:STORE_SIGNING_CERT_PFX_B64))
+            # Sign all PE files in Store payload (enforcing Microsoft Trusted Root)
             .\tools\sign-windows-binaries.ps1 -Path release-pkg-store -CertificatePath $certPath -Password $env:STORE_SIGNING_CERT_PASSWORD
             $env:STORE_SIGNING_CERT_PATH = $certPath
             $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -116,13 +138,51 @@ jobs:
             $signCommand = 'powershell.exe -NoProfile -File $q' + $signScript + '$q $f'
             & $iscc /Q "/Sstore=$signCommand" "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg-store' /DStoreSubmission /DStoreSigning windows\installer.iss
             if ($LASTEXITCODE -ne 0) { throw "Signed Store installer compile failed with exit code $LASTEXITCODE" }
+            # Verify outer Store installer (enforcing Microsoft Trusted Root)
             .\tools\sign-windows-binaries.ps1 -Path "gotv-$env:APP_VERSION-x64-store-setup.exe" -CertificatePath $certPath -Password $env:STORE_SIGNING_CERT_PASSWORD -VerifyOnly
           } finally {
             Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
             Remove-Item Env:\STORE_SIGNING_CERT_PATH -ErrorAction SilentlyContinue
           }
 
-      - name: Upload signed Store installer
+      # ── Store Package: Build and submit via SignPath Foundation (when token configured) ──
+      - name: Build Store installer for SignPath
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        shell: powershell
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc /Q "/DAppVersion=$env:APP_VERSION" "/DAppVerNum=$env:APP_VERNUM" '/DSourceDir=..\release-pkg-store' /DStoreSubmission windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+
+      - name: Upload unsigned Store installer for SignPath
+        id: upload-store-unsigned
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: gotv-windows-store-unsigned
+          path: gotv-*-x64-store-setup.exe
+
+      - name: Submit to SignPath Foundation
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID || secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'gotv' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          github-artifact-id: ${{ steps.upload-store-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: './signed-store-output'
+
+      - name: Copy SignPath signed artifact
+        if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true' && secrets.STORE_SIGNING_CERT_PFX_B64 == '' && secrets.SIGNPATH_API_TOKEN != ''
+        shell: powershell
+        run: |
+          Copy-Item -Path .\signed-store-output\*.exe -Destination .\ -Force
+          Get-Item gotv-*-x64-store-setup.exe | Select-Object Name,Length
+
+      # ── Artifact Uploads ───────────────────────────────────────────
+      - name: Upload Store installer
         if: github.event_name != 'pull_request' && vars.STORE_SIGNING_ENABLED == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -130,25 +190,6 @@ jobs:
           path: gotv-*-x64-store-setup.exe
           if-no-files-found: error
 
-      # ── Code signing (self-signed cert + osslsigncode) ────────────
-      - name: Sign installer with self-signed cert
-        if: env.WIN_CERT_PFX_B64 != ''
-        shell: msys2 {0}
-        env:
-          WIN_CERT_PFX_B64: ${{ secrets.WIN_CERT_PFX_B64 }}
-        run: |
-          pacman -S --noconfirm osslsigncode 2>/dev/null || true
-          SETUP=$(ls gotv-*-x64-setup.exe 2>/dev/null | head -1)
-          if [ -z "$SETUP" ]; then echo "No setup exe found"; exit 1; fi
-          echo "$WIN_CERT_PFX_B64" | base64 -d > /tmp/cert.pfx
-          osslsigncode sign -pkcs12 /tmp/cert.pfx -pass gtv2026 \
-            -n "GoTV" -i "https://github.com/isthaison/gotv" \
-            -in "$SETUP" -out "${SETUP%.exe}-signed.exe" && \
-          mv "${SETUP%.exe}-signed.exe" "$SETUP"
-          echo "Signed: $SETUP"
-          rm -f /tmp/cert.pfx
-
-      # ── Upload artifact ───────────────────────────────────────────
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
@@ -156,9 +197,7 @@ jobs:
           path: gotv-*-x64-setup.exe
           if-no-files-found: error
 
-      # ── Release (on tag) ──────────────────────────────────────────
-      # data/dict-vi.txt ships as a release asset too: the app refreshes its
-      # offline word list from it (same channel as the installer, throttled).
+      # ── Release (on Tag) ──────────────────────────────────────────
       - name: Release Asset (on Tag)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

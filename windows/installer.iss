@@ -40,7 +40,7 @@ OutputBaseFilename=gotv-{#AppVersion}-x64-store-setup
 #else
 OutputBaseFilename=gotv-{#AppVersion}-x64-setup
 #endif
-#ifdef StoreSigning
+#if defined(StoreSigning) || defined(SignInstaller)
 SignTool=store
 SignedUninstaller=yes
 #endif

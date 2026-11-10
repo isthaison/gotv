@@ -172,7 +172,16 @@ cmd_package_windows() {
     local vernum="$ver.0"
     win_make staging
     win_env
-    "$(find_iscc)" /Q "/DAppVersion=$ver" "/DAppVerNum=$vernum" "/DSourceDir=..\\release-pkg" windows/installer.iss
+    if [[ -n "${GTV_SIGNING_CERT_PATH:-}" || -n "${STORE_SIGNING_CERT_PATH:-}" ]]; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/sign-windows-binaries.ps1 -Path release-pkg
+        local sign_script
+        sign_script="$(cygpath -w "$(pwd)/tools/sign-inno-output.ps1" 2>/dev/null || echo "$PWD/tools/sign-inno-output.ps1")"
+        local sign_cmd="powershell.exe -NoProfile -File \$q$sign_script\$q \$f"
+        "$(find_iscc)" /Q "/Sstore=$sign_cmd" "/DAppVersion=$ver" "/DAppVerNum=$vernum" "/DSourceDir=..\\release-pkg" /DSignInstaller windows/installer.iss
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/sign-windows-binaries.ps1 -Path "$(win_setup_exe)"
+    else
+        "$(find_iscc)" /Q "/DAppVersion=$ver" "/DAppVerNum=$vernum" "/DSourceDir=..\\release-pkg" windows/installer.iss
+    fi
     echo "Đã đóng gói: $(win_setup_exe)"
 }
 

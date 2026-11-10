@@ -308,6 +308,33 @@ store-staging:
 store-setup: store-staging
 	MSYS2_ARG_CONV_EXCL="*" iscc.exe /Q "/DAppVersion=$(VERSION)" "/DAppVerNum=$(VERSION_NUM)" "/DSourceDir=..\$(STORE_STAGE)" /DStoreSubmission windows/installer.iss
 
+# Sign payload binaries in staging directory
+sign-payload:
+	powershell -NoProfile -ExecutionPolicy Bypass -File tools/sign-windows-binaries.ps1 -Path $(STAGE)
+
+sign-store-payload:
+	powershell -NoProfile -ExecutionPolicy Bypass -File tools/sign-windows-binaries.ps1 -Path $(STORE_STAGE)
+
+# Fully signed release installer (payload + uninstaller + installer)
+signed-setup: staging sign-payload
+	powershell -NoProfile -ExecutionPolicy Bypass -Command "\
+		$$iscc = Join-Path $${env:ProgramFiles(x86)} 'Inno Setup 6\\ISCC.exe'; \
+		$$signScript = Join-Path $$PWD 'tools\\sign-inno-output.ps1'; \
+		$$signCommand = 'powershell.exe -NoProfile -File $$q' + $$signScript + '$$q $$f'; \
+		& $$iscc /Q \"/Sstore=$$signCommand\" \"/DAppVersion=$(VERSION)\" \"/DAppVerNum=$(VERSION_NUM)\" '/DSourceDir=..\\$(STAGE)' /DSignInstaller windows\\installer.iss; \
+		if ($$LASTEXITCODE -ne 0) { exit $$LASTEXITCODE }; \
+		.\\tools\\sign-windows-binaries.ps1 -Path 'gotv-$(VERSION)-x64-setup.exe'"
+
+# Fully signed Store installer (payload + uninstaller + installer)
+signed-store-setup: store-staging sign-store-payload
+	powershell -NoProfile -ExecutionPolicy Bypass -Command "\
+		$$iscc = Join-Path $${env:ProgramFiles(x86)} 'Inno Setup 6\\ISCC.exe'; \
+		$$signScript = Join-Path $$PWD 'tools\\sign-inno-output.ps1'; \
+		$$signCommand = 'powershell.exe -NoProfile -File $$q' + $$signScript + '$$q $$f'; \
+		& $$iscc /Q \"/Sstore=$$signCommand\" \"/DAppVersion=$(VERSION)\" \"/DAppVerNum=$(VERSION_NUM)\" '/DSourceDir=..\\$(STORE_STAGE)' /DStoreSubmission /DStoreSigning windows\\installer.iss; \
+		if ($$LASTEXITCODE -ne 0) { exit $$LASTEXITCODE }; \
+		.\\tools\\sign-windows-binaries.ps1 -Path 'gotv-$(VERSION)-x64-store-setup.exe'"
+
 clean:
 	rm -rf build/win build/win-static $(ARCH32_BUILD) $(STORE_BUILD_ROOT)
 	rm -rf $(STAGE) $(STORE_STAGE)
@@ -315,4 +342,4 @@ clean:
 -include $(WIN_OBJS:.o=.d) $(STATIC_ENGINE_OBJS:.o=.d) \
          $(STATIC_TSF_ENGINE_OBJS:.o=.d)
 
-.PHONY: all clean test check-tsf-isolated check-tsf-isolated32 tsf32 tsf32-build store-staging store-setup
+.PHONY: all clean test check-tsf-isolated check-tsf-isolated32 tsf32 tsf32-build store-staging store-setup sign-payload sign-store-payload signed-setup signed-store-setup

@@ -46,15 +46,19 @@ Mỗi phiên bản cần URL/file mới trong Partner Center; cần tài khoản
 Center và chứng thư phù hợp trước khi phát hành.
 
 CI luôn build riêng payload Store (`release-pkg-store`) và installer. Để CI tạo
-bản có thể nộp, cấu hình repository variable `STORE_SIGNING_ENABLED=true` cùng
-Actions secrets `STORE_SIGNING_CERT_PFX_B64` (PFX base64) và
-`STORE_SIGNING_CERT_PASSWORD` (mật khẩu PFX), dùng chứng thư code-signing có
-chuỗi tin cậy tới CA được Microsoft chấp nhận. CI ký và xác minh từng `.exe`/
-`.dll` trong payload, rồi dùng Inno Setup ký cả installer và uninstaller;
-artifact và release asset Store chỉ
-được xuất khi bật signing. Nếu chưa cấu hình, CI chỉ build bản unsigned để kiểm
-tra đóng gói, không xuất bản như installer Store. Có thể chạy
-`make -f Makefile.win store-staging` để chỉ tạo payload Store riêng.
+bản có thể nộp, cấu hình repository variable `STORE_SIGNING_ENABLED=true`. Hệ thống
+hỗ trợ 2 phương án ký:
+- **Phương án 1 (PFX)**: Cung cấp Actions secrets `STORE_SIGNING_CERT_PFX_B64` (PFX base64) và
+  `STORE_SIGNING_CERT_PASSWORD`, dùng chứng thư có chuỗi tin cậy tới CA được Microsoft chấp nhận.
+  CI sẽ dùng `tools/sign-windows-binaries.ps1` ký toàn bộ `.exe`/`.dll` trong payload, dùng
+  Inno Setup ký uninstaller, và ký installer cuối cùng kèm kiểm tra `/pa /all`.
+- **Phương án 2 (SignPath Foundation)**: Cung cấp Secret `SIGNPATH_API_TOKEN` (cùng các biến
+  tùy chọn `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`). CI sẽ tự động nộp yêu cầu ký
+  tới dịch vụ SignPath và tải installer đã ký về.
+
+Để tạo chứng thư thử nghiệm local hoặc test CI, chạy:
+`powershell -File tools/create-test-cert.ps1` (tự tạo RSA 4096-bit cert, xuất file `.pfx` và mã base64).
+Ký local: `make -f Makefile.win signed-setup` hoặc `make -f Makefile.win signed-store-setup`.
 
 ## Dùng hằng ngày
 
