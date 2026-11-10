@@ -6,6 +6,7 @@ import { OsSelector } from '../components/OsSelector';
 import { FloatingActionButton } from '../components/FloatingActionButton';
 import { FAQ_ITEMS } from '../data/faqData';
 import { Download, ShieldCheck, Cpu, BookMarked, Sparkles, RefreshCw, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { APP_VERSION } from '../version';
 
 interface HomePageProps {
   basePath?: string;
@@ -41,7 +42,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               className="inline-flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-5 py-3 rounded-xl transition shadow-md hover:shadow-lg text-sm sm:text-base active:scale-95"
             >
               <Download className="w-5 h-5 shrink-0" />
-              <span>Tải bản mới nhất (v0.9.13)</span>
+              <span>Tải bản mới nhất (v{APP_VERSION})</span>
             </a>
             <a
               href="https://github.com/isthaison/gotv"

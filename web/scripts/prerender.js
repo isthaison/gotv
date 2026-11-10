@@ -9,6 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const siteDir = path.resolve(rootDir, '../site');
 const distDir = path.resolve(rootDir, 'dist');
+const versionPath = path.resolve(rootDir, '../VERSION');
+const appVersion = fs.existsSync(versionPath) ? fs.readFileSync(versionPath, 'utf8').trim() : '0.9.13';
 
 async function prerender() {
   console.log('🚀 Bắt đầu quá trình Static Site Generation (SSG)...');
@@ -140,7 +142,7 @@ ${JSON.stringify(schema, null, 2)}
         "applicationCategory": "UtilitiesApplication",
         "applicationSubCategory": "Vietnamese input method",
         "operatingSystem": ["Linux", "Ubuntu", "Windows 10", "Windows 11", "macOS"],
-        "softwareVersion": "0.9.13",
+        "softwareVersion": appVersion,
         "datePublished": "2026-09-05",
         "dateModified": new Date().toISOString().split('T')[0],
         "license": "https://opensource.org/licenses/MIT",

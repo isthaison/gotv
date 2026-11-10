@@ -742,6 +742,7 @@ cmd_bump() {
     sed -i "s/#define AppVerNum \".*\"/#define AppVerNum \"$ver.0\"/" windows/installer.iss
     sed -i "/CFBundleShortVersionString/,+1 s|<string>[^<]*</string>|<string>$ver</string>|" macos/Info.plist
     sed -i "/CFBundleVersion/,+1 s|<string>[^<]*</string>|<string>$ver</string>|" macos/Info.plist
+    sed -i "s/ver = @\"[^\"]*\"/ver = @\"$ver\"/" macos/GoTVInputController.m
     # installer.iss carries Vietnamese shortcut names: keep UTF-8 with BOM.
     if [ "$(head -c 3 windows/installer.iss)" != "$(printf '\xef\xbb\xbf')" ]; then
         printf '\xef\xbb\xbf' | cat - windows/installer.iss > windows/installer.iss.new
@@ -762,6 +763,9 @@ cmd_bump() {
     fi
     if [[ -f web/package-lock.json ]]; then
         sed -i '1,15 s/"version": "[^"]*"/"version": "'"$ver"'"/' web/package-lock.json
+    fi
+    if [[ -f web/src/version.ts ]]; then
+        printf 'export const APP_VERSION = '\''%s\'\';\n' "$ver" > web/src/version.ts
     fi
     if [[ -f web/scripts/prerender.js ]]; then
         sed -i "s/\"softwareVersion\": \"[^\"]*\"/\"softwareVersion\": \"$ver\"/" web/scripts/prerender.js
