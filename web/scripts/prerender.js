@@ -136,7 +136,7 @@ ${JSON.stringify(schema, null, 2)}
         "applicationCategory": "UtilitiesApplication",
         "applicationSubCategory": "Vietnamese input method",
         "operatingSystem": ["Linux", "Ubuntu", "Windows 10", "Windows 11", "macOS"],
-        "softwareVersion": "0.9.12",
+        "softwareVersion": "0.9.13",
         "datePublished": "2026-09-05",
         "dateModified": new Date().toISOString().split('T')[0],
         "license": "https://opensource.org/licenses/MIT",
