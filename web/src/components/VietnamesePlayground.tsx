@@ -50,7 +50,18 @@ export const VietnamesePlayground: React.FC = () => {
     const rawWord = currentText.substring(start, end);
     const trimmedWord = rawWord.trim();
     if (trimmedWord) {
-      setAnalysis(analyzeSyllable(trimmedWord));
+      // Only run Vietnamese syllable phonology analysis if it looks like a Vietnamese word (not emoji or symbols)
+      const isVietnameseWord =
+        !trimmedWord.startsWith(':') &&
+        !trimmedWord.startsWith(';') &&
+        /^[a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]+$/i.test(trimmedWord);
+
+      if (isVietnameseWord) {
+        setAnalysis(analyzeSyllable(trimmedWord));
+      } else {
+        setAnalysis(null);
+      }
+
       if (suggestEnabled) {
         setSuggestions(getSuggestions(trimmedWord, 5));
         setCurrentWordRange({ start, end, word: rawWord });
@@ -427,9 +438,10 @@ export const VietnamesePlayground: React.FC = () => {
       {suggestEnabled && suggestions.length > 0 && (
         <div className="bg-stone-950/95 rounded-xl p-2.5 mb-3 border border-amber-500/40 shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
           <div className="flex items-center justify-between gap-2 mb-1.5 px-0.5 text-[11px] text-amber-400 font-medium">
-            <span className="flex items-center gap-1.5 truncate">
+            <span className="flex items-center gap-1.5 min-w-0">
               <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>Gợi ý từ điển &amp; emoji (chạm để chọn hoặc bấm Tab):</span>
+              <span className="hidden sm:inline">Gợi ý từ điển &amp; emoji (bấm chọn hoặc nhấn Tab):</span>
+              <span className="sm:hidden truncate">Gợi ý (Tab hoặc chạm để chọn):</span>
             </span>
             <span className="text-[10px] text-stone-500 font-mono shrink-0">GoTV Suggest</span>
           </div>
@@ -446,7 +458,16 @@ export const VietnamesePlayground: React.FC = () => {
                 <span className="w-4 h-4 rounded bg-stone-950 group-hover:bg-amber-900/60 text-[10px] text-stone-400 group-hover:text-amber-300 font-mono flex items-center justify-center shrink-0 border border-stone-800 group-hover:border-amber-500/40">
                   {idx + 1}
                 </span>
-                <span className="font-semibold text-xs">{sug.display}</span>
+                {sug.kind === 'emoji' ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="text-sm leading-none">{sug.word}</span>
+                    <span className="text-[11px] font-mono text-stone-300 group-hover:text-amber-100">
+                      {sug.display.replace(sug.word, '').trim()}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="font-semibold text-xs">{sug.display}</span>
+                )}
               </button>
             ))}
           </div>

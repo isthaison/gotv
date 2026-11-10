@@ -31,11 +31,18 @@ const INDEXED_DICT: IndexedWord[] = VI_DICTIONARY.map((w) => ({
   folded: foldAccents(w.toLowerCase()),
 }));
 
-// Common high-frequency full word priority boost
+// Common high-frequency Vietnamese full words for suggestion priority boost
 const COMMON_PRIORITY = new Set([
   'được', 'tiếng', 'việt', 'người', 'không', 'những', 'trong', 'thành',
   'thuyền', 'nguyễn', 'hoặc', 'này', 'cho', 'với', 'khi', 'nhiều',
-  'chúng', 'cũng', 'đã', 'sẽ', 'phải', 'biết', 'làm', 'toán', 'hoạt'
+  'chúng', 'cũng', 'đã', 'sẽ', 'phải', 'biết', 'làm', 'toán', 'hoạt',
+  'là', 'của', 'có', 'và', 'các', 'về', 'một', 'đến', 'để', 'từ',
+  'thì', 'ra', 'vào', 'lại', 'ở', 'theo', 'nói', 'đang', 'như',
+  'sau', 'còn', 'lên', 'đi', 'đó', 'tôi', 'bạn', 'em', 'anh', 'ông',
+  'bà', 'cô', 'họ', 'nó', 'mình', 'ai', 'gì', 'nào', 'đây', 'đâu',
+  'thế', 'rất', 'quá', 'hơn', 'nhất', 'chỉ', 'mới', 'vẫn', 'đều',
+  'qua', 'trước', 'ngay', 'luôn', 'rồi', 'cùng', 'khác', 'mỗi',
+  'mọi', 'tất', 'cả', 'nếu', 'vì', 'do', 'nhưng', 'tuy', 'nên'
 ]);
 
 /**
@@ -59,10 +66,53 @@ export function getSuggestions(prefix: string, maxCount = 6): SuggestionItem[] {
   const trimmed = prefix.trim();
   if (!trimmed) return [];
 
-  // 1. Emoji lookup: :smile:
-  if (trimmed.startsWith(':')) {
+  // 1. Emoji lookup: :smile:, :d, :), etc.
+  if (
+    trimmed.startsWith(':') ||
+    trimmed.startsWith(';') ||
+    trimmed.startsWith('<') ||
+    trimmed.startsWith('(')
+  ) {
     const q = trimmed.toLowerCase();
-    const hits = EMOJIS_DATA.filter((e) => e.code.toLowerCase().startsWith(q));
+    const cleanQ = q.replace(/^:+|:+$/g, '');
+
+    const hits = EMOJIS_DATA.filter((e) => {
+      const c = e.code.toLowerCase();
+      const cleanC = c.replace(/^:+|:+$/g, '');
+      return (
+        c.startsWith(q) ||
+        cleanC.startsWith(cleanQ) ||
+        c.includes(q)
+      );
+    });
+
+    const scoreEmoji = (code: string) => {
+      const c = code.toLowerCase();
+      const cleanC = c.replace(/^:+|:+$/g, '');
+      let score = 0;
+
+      // 1. Exact match e.g. :d === :d (:D) or :smile: === :smile:
+      if (c === q) {
+        score += 20000;
+      } else if (c === q + ':') {
+        score += 15000;
+      } else if (cleanC === cleanQ) {
+        score += 12000;
+      } else if (c.startsWith(q)) {
+        score += 8000;
+      } else if (cleanC.startsWith(cleanQ)) {
+        score += 5000;
+      } else {
+        score += 1000;
+      }
+
+      // Shorter emoji codes always rank ahead of longer ones (e.g. :dog: before :dislike:)
+      score -= c.length * 30;
+      return score;
+    };
+
+    hits.sort((a, b) => scoreEmoji(b.code) - scoreEmoji(a.code));
+
     return hits.slice(0, maxCount).map((e) => ({
       word: e.char,
       display: `${e.char} ${e.code}`,
@@ -88,12 +138,16 @@ export function getSuggestions(prefix: string, maxCount = 6): SuggestionItem[] {
     }
   }
 
-  // Sorter: prioritize common words first, then shorter words
+  // Sorter: prioritize exact matches, common words, and shorter words
   const scoreWord = (item: IndexedWord) => {
     let score = 0;
-    if (COMMON_PRIORITY.has(item.lower)) score += 100;
-    if (item.lower === lowerPrefix || item.folded === foldedPrefix) score += 50;
-    score -= item.raw.length;
+    if (item.lower === lowerPrefix) score += 5000;
+    else if (item.folded === foldedPrefix) score += 3000;
+
+    if (COMMON_PRIORITY.has(item.lower)) score += 600;
+
+    // Shorter words rank earlier
+    score -= item.raw.length * 15;
     return score;
   };
 
