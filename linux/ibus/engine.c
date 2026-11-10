@@ -91,11 +91,13 @@ static void learned_completions(IBusGoTVEngine *e,const gchar *prefix,GPtrArray 
 static gboolean word_valid(IBusGoTVEngine *e,const gchar *word){
     load_learned_words(e);load_learned_fixes(e);gchar *key=gtv_word_key(word);
     gboolean known=key && g_hash_table_contains(e->learned_words,key);
-    gboolean mistyped=key && g_hash_table_contains(e->learned_fixes,key);g_free(key);
+    gboolean mistyped=key && g_hash_table_contains(e->learned_fixes,key);
     /* Explicitly accepted words win over the typo map: accepting a candidate
      * asserts its validity, while the map only records past corrections. */
-    if(known) return TRUE;
-    if(mistyped) return FALSE;
+    if(known) { g_free(key); return TRUE; }
+    if(mistyped) { g_free(key); return FALSE; }
+    if(key && gtv_dict_contains(key)) { g_free(key); return TRUE; }
+    g_free(key);
     return spell_word_valid(word);
 }
 static void learn_candidate(IBusGoTVEngine *e,const gchar *candidate){
@@ -205,6 +207,23 @@ static void on_suggest_ready(GObject *source, GAsyncResult *res, gpointer user_d
             show_candidates(e, (IBusEngine*)e, sugs);
             e->candidates_from_dict=TRUE;
         }else{
+            /* If prefix completion returned 0 results for a non-dictionary word of length >= 2,
+             * fallback to typo correction so common typos (khoog, truogn, ngyen) get suggestions. */
+            glong qlen = g_utf8_strlen(e->pending_query, -1);
+            if(!e->pending_bad && qlen >= 2 && !gtv_dict_contains(e->pending_query)){
+                GPtrArray *fix_sugs = gtv_suggest_combined(&e->config, "", e->pending_query, TRUE);
+                if(fix_sugs && fix_sugs->len > 0){
+                    show_candidates(e, (IBusEngine*)e, fix_sugs);
+                    e->candidates_from_dict = TRUE;
+                    e->pending_bad = TRUE;
+                    g_ptr_array_unref(fix_sugs);
+                    if(sugs) g_ptr_array_unref(sugs);
+                    g_object_unref(e);
+                    return;
+                }
+                if(fix_sugs) g_ptr_array_unref(fix_sugs);
+            }
+
             /* Dictionary unavailable or empty: reuse taught data offline.
              * Typo mode shows the remembered correction; completion mode
              * completes from learned vocabulary. Not marked as AI results. */
