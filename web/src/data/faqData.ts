@@ -229,5 +229,30 @@ export const FAQ_ITEMS: FaqItem[] = [
         <li><strong>Không cần cấp quyền Accessibility (TCC):</strong> Tuân thủ Sandbox của macOS, không inject phím giả lập nguy hiểm vào process Terminal.</li>
       </ul>
     `
+  },
+  {
+    id: 'google-search-console-sitemap',
+    slug: 'khai-bao-sitemap-google-search-console',
+    question: 'Cách khai báo sơ đồ trang web (sitemap.xml) lên Google Search Console chuẩn xác?',
+    shortAnswer: 'Trong Google Search Console, tại ô Thêm sơ đồ trang web mới (đã có sẵn tiền tố https://isthaison.github.io/gotv/), bạn chỉ cần nhập chính xác "sitemap.xml" (không gõ thêm dấu "/" ở đầu) rồi bấm GỬI.',
+    category: 'troubleshooting',
+    dateModified: '2026-11-10',
+    detailHtml: `
+      <h3 class="text-xl font-bold mt-2 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Lỗi phổ biến: "Không thể tìm nạp" (Couldn't fetch)</h3>
+      <p class="mb-4">Khi thêm sơ đồ trang web vào Google Search Console, nếu trạng thái hiển thị màu đỏ <strong>"Không thể tìm nạp"</strong> và loại là <strong>"Không xác định"</strong>, nguyên nhân chủ yếu là do:</p>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Gõ thừa dấu gạch chéo (/):</strong> Ô nhập của Google Search Console đã có sẵn tiền tố URL (ví dụ: <code>https://isthaison.github.io/gotv/</code>). Nếu bạn gõ <code>/sitemap.xml</code> thì đường dẫn sẽ thành <code>gotv//sitemap.xml</code> hoặc bị trỏ ngược về root domain dẫn tới lỗi 404.</li>
+        <li><strong>Độ trễ hàng đợi của Google:</strong> Ngay sau khi bấm gửi, Googlebot chưa lập tức quét file ngay mà chỉ mới đưa vào hàng đợi xử lý. Sau vài giờ, hệ thống sẽ tự cập nhật sang trạng thái "Thành công".</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Các bước khai báo chuẩn xác</h3>
+      <ol class="list-decimal pl-6 mb-4 space-y-2">
+        <li>Truy cập <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">Google Search Console</a> và chọn thuộc tính trang web của bạn.</li>
+        <li>Vào mục <strong>Sơ đồ trang web (Sitemaps)</strong> ở menu bên trái.</li>
+        <li>Tại ô <strong>Thêm sơ đồ trang web mới</strong>, chỉ nhập chính xác: <code>sitemap.xml</code> (tuyệt đối không nhập dấu <code>/</code> ở đầu).</li>
+        <li>Bấm <strong>GỬI (Submit)</strong>.</li>
+        <li>Bạn có thể kiểm tra trực tiếp bằng công cụ <strong>Kiểm tra URL (URL Inspection)</strong> với đường dẫn đầy đủ <code>https://isthaison.github.io/gotv/sitemap.xml</code> để xác nhận Googlebot tải file thành công (HTTP 200).</li>
+      </ol>
+    `
   }
 ];

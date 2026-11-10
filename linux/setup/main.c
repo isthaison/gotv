@@ -590,7 +590,7 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     GtkWidget *box2 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_set_border_width(GTK_CONTAINER(box2), 8);
     gtk_container_add(GTK_CONTAINER(f2), box2);
-    cb_modern = gtk_check_button_new_with_label("Kiểu mới (modern) — hoà thay vì hòa cho oa/oe/uy (Bộ GD 2018)");
+    cb_modern = gtk_check_button_new_with_label("Kiểu mới (modern) — hòa thay vì hoà cho oa/oe/uy (Bộ GD 2018)");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_modern), strcmp(cur_modern,"true")==0);
     g_signal_connect(cb_modern, "toggled", G_CALLBACK(on_modern_toggled), NULL);
     gtk_box_pack_start(GTK_BOX(box2), cb_modern, FALSE, FALSE, 0);
