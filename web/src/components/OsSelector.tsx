@@ -10,33 +10,39 @@ export const OsSelector: React.FC = () => {
       <div className="flex border-b border-stone-200 bg-stone-50/80">
         <button
           onClick={() => setActiveOs('windows')}
-          className={`flex-1 py-3.5 px-4 text-center font-bold text-sm transition flex items-center justify-center gap-2 border-b-2 ${
+          className={`flex-1 py-3 px-2 sm:py-3.5 sm:px-4 text-center font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 ${
             activeOs === 'windows'
               ? 'border-red-700 text-red-700 bg-white'
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          🪟 Windows 10/11
+          <span className="text-base sm:text-lg">🪟</span>
+          <span>Windows</span>
+          <span className="hidden sm:inline">10/11</span>
         </button>
         <button
           onClick={() => setActiveOs('linux')}
-          className={`flex-1 py-3.5 px-4 text-center font-bold text-sm transition flex items-center justify-center gap-2 border-b-2 ${
+          className={`flex-1 py-3 px-2 sm:py-3.5 sm:px-4 text-center font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 ${
             activeOs === 'linux'
               ? 'border-red-700 text-red-700 bg-white'
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          🐧 Linux (Ubuntu / IBus)
+          <span className="text-base sm:text-lg">🐧</span>
+          <span>Linux</span>
+          <span className="hidden sm:inline">(IBus)</span>
         </button>
         <button
           onClick={() => setActiveOs('macos')}
-          className={`flex-1 py-3.5 px-4 text-center font-bold text-sm transition flex items-center justify-center gap-2 border-b-2 ${
+          className={`flex-1 py-3 px-2 sm:py-3.5 sm:px-4 text-center font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 border-b-2 ${
             activeOs === 'macos'
               ? 'border-red-700 text-red-700 bg-white'
               : 'border-transparent text-stone-600 hover:text-stone-900'
           }`}
         >
-          🍎 macOS (Native IMK)
+          <span className="text-base sm:text-lg">🍎</span>
+          <span>macOS</span>
+          <span className="hidden sm:inline">(Native)</span>
         </button>
       </div>
 

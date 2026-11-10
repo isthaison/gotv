@@ -143,47 +143,215 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
           <OsSelector />
         </section>
 
-        {/* Releases Table */}
-        <section id="tai-ve" className="py-12 border-t border-stone-200">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 mb-6 inline-block border-b-2 border-red-700 pb-1">
-            Tải về các bản phát hành
-          </h2>
+        {/* Releases Section */}
+        <section id="tai-ve" className="py-8 sm:py-12 border-t border-stone-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-stone-900 inline-block border-b-2 border-red-700 pb-1">
+                Tải về các bản phát hành
+              </h2>
+              <p className="text-stone-600 text-xs sm:text-sm mt-1.5">
+                Các gói cài đặt chính thức cho phiên bản mới nhất (v{APP_VERSION})
+              </p>
+            </div>
+            <a
+              href="https://github.com/isthaison/gotv/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-red-700 hover:text-red-800 transition py-1"
+            >
+              <span>Xem nhật ký thay đổi</span>
+              <ChevronRight className="w-4 h-4" />
+            </a>
+          </div>
 
-          <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden space-y-3">
+            {/* Windows Card */}
+            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🪟</span>
+                  <div>
+                    <h3 className="font-bold text-stone-900 text-sm leading-tight">Windows 10 / 11</h3>
+                    <p className="text-[11px] text-stone-500">64-bit &amp; 32-bit (TSF)</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Ổn định</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-stone-100">
+                <code className="bg-stone-100 text-stone-700 px-2 py-1 rounded-lg font-mono text-[11px] truncate flex-1 min-w-0">
+                  gotv-*-x64-setup.exe
+                </code>
+                <a
+                  href="https://github.com/isthaison/gotv/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Tải</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Linux Card */}
+            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🐧</span>
+                  <div>
+                    <h3 className="font-bold text-stone-900 text-sm leading-tight">Linux</h3>
+                    <p className="text-[11px] text-stone-500">Ubuntu, Debian, Fedora, Arch</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Ổn định</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-stone-100">
+                <code className="bg-stone-100 text-stone-700 px-2 py-1 rounded-lg font-mono text-[11px] truncate flex-1 min-w-0">
+                  gotv_*_amd64.deb / tar.gz
+                </code>
+                <a
+                  href="https://github.com/isthaison/gotv/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Tải</span>
+                </a>
+              </div>
+            </div>
+
+            {/* macOS Card */}
+            <div className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm hover:border-stone-300 transition">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🍎</span>
+                  <div>
+                    <h3 className="font-bold text-stone-900 text-sm leading-tight">macOS</h3>
+                    <p className="text-[11px] text-stone-500">Apple Silicon &amp; Intel</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Ổn định (Native)</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-stone-100">
+                <code className="bg-stone-100 text-stone-700 px-2 py-1 rounded-lg font-mono text-[11px] truncate flex-1 min-w-0">
+                  gotv-*-macos.pkg / .dmg
+                </code>
+                <a
+                  href="https://github.com/isthaison/gotv/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Tải</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-stone-50 border-b border-stone-200 text-stone-700">
                 <tr>
-                  <th className="p-4 font-bold">Hệ điều hành</th>
-                  <th className="p-4 font-bold">Tên tệp</th>
-                  <th className="p-4 font-bold">Trạng thái</th>
+                  <th className="px-6 py-4 font-bold">Hệ điều hành</th>
+                  <th className="px-6 py-4 font-bold">Tên tệp</th>
+                  <th className="px-6 py-4 font-bold">Trạng thái</th>
+                  <th className="px-6 py-4 font-bold text-right">Tải về</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200">
-                <tr>
-                  <td className="p-4 font-semibold text-stone-900">🪟 Windows 10/11 (x64)</td>
-                  <td className="p-4 font-mono text-xs text-stone-600">gotv-*-x64-setup.exe</td>
-                  <td className="p-4">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Ổn định
+                <tr className="hover:bg-stone-50/60 transition">
+                  <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
+                    <span className="mr-2 text-base">🪟</span> Windows 10/11 (x64)
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
+                    <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
+                      gotv-*-x64-setup.exe
+                    </code>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Ổn định</span>
                     </span>
                   </td>
-                </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-stone-900">🐧 Linux (.deb / tar)</td>
-                  <td className="p-4 font-mono text-xs text-stone-600">gotv_*_amd64.deb</td>
-                  <td className="p-4">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Ổn định
-                    </span>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <a
+                      href="https://github.com/isthaison/gotv/releases/latest"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải</span>
+                    </a>
                   </td>
                 </tr>
-                <tr>
-                  <td className="p-4 font-semibold text-stone-900">🍎 macOS (Apple Silicon &amp; Intel)</td>
-                  <td className="p-4 font-mono text-xs text-stone-600">gotv-*-macos.pkg / .dmg</td>
-                  <td className="p-4">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Ổn định (Native IMK)
+                <tr className="hover:bg-stone-50/60 transition">
+                  <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
+                    <span className="mr-2 text-base">🐧</span> Linux (.deb / tar)
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
+                    <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
+                      gotv_*_amd64.deb
+                    </code>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Ổn định</span>
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <a
+                      href="https://github.com/isthaison/gotv/releases/latest"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải</span>
+                    </a>
+                  </td>
+                </tr>
+                <tr className="hover:bg-stone-50/60 transition">
+                  <td className="px-6 py-4 font-semibold text-stone-900 whitespace-nowrap">
+                    <span className="mr-2 text-base">🍎</span> macOS (Apple Silicon &amp; Intel)
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-stone-600 whitespace-nowrap">
+                    <code className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-mono text-xs">
+                      gotv-*-macos.pkg / .dmg
+                    </code>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Ổn định (Native IMK)</span>
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <a
+                      href="https://github.com/isthaison/gotv/releases/latest"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 bg-red-700 hover:bg-red-800 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition active:scale-95 shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải</span>
+                    </a>
                   </td>
                 </tr>
               </tbody>
@@ -195,7 +363,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               href="https://github.com/isthaison/gotv/releases/latest"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-2.5 rounded-xl transition text-sm shadow-sm"
+              className="inline-flex items-center justify-center gap-2 bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-3 rounded-xl transition text-sm shadow-sm w-full sm:w-auto active:scale-95"
             >
               <span>Xem tất cả bản tải về trên GitHub Releases</span>
               <ChevronRight className="w-4 h-4" />
