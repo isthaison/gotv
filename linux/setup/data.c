@@ -47,7 +47,7 @@ static void data_error(DataUi *u, const char *msg) {
 static gboolean data_persist(DataUi *u) {
     GError *err = NULL;
     if (!gtv_table_save(u->emoji, &err)) {
-        data_error(u, err ? err->message : "Không lưu được file dữ liệu.");
+        data_error(u, err ? err->message : gtv_i18n("Không lưu được file dữ liệu.", "Could not save data file."));
         g_clear_error(&err);
         return FALSE;
     }
@@ -88,7 +88,8 @@ static void on_save(GtkWidget *w, gpointer data) {
     gchar *key = g_strstrip(g_strdup(gtk_entry_get_text(GTK_ENTRY(u->key_entry))));
     gchar *val = g_strstrip(g_strdup(gtk_entry_get_text(GTK_ENTRY(u->val_entry))));
     if (!gtv_table_set(u->emoji, key, val)) {
-        data_error(u, "Khóa/giá trị không hợp lệ (khóa không chứa dấu cách hay dấu =, giá trị không rỗng).");
+        data_error(u, gtv_i18n("Khóa/giá trị không hợp lệ (khóa không chứa dấu cách hay dấu =, giá trị không rỗng).",
+                               "Invalid key/value (key cannot contain spaces or '=', value cannot be empty)."));
     } else if (data_persist(u)) {
         data_refresh(u);
     }
@@ -124,15 +125,15 @@ static void on_folder(GtkWidget *w, gpointer data) {
 
 void data_show(GtkWindow *parent) {
     DataUi u = {0};
-    u.dlg = gtk_dialog_new_with_buttons("GoTV — Dữ liệu",
-        parent, GTK_DIALOG_MODAL, "_Đóng", GTK_RESPONSE_CLOSE, NULL);
+    u.dlg = gtk_dialog_new_with_buttons(gtv_i18n("GoTV — Dữ liệu", "GoTV — Data"),
+        parent, GTK_DIALOG_MODAL, gtv_i18n("_Đóng", "_Close"), GTK_RESPONSE_CLOSE, NULL);
     gtk_window_set_default_size(GTK_WINDOW(u.dlg), 520, 430);
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(u.dlg));
     gtk_box_set_spacing(GTK_BOX(content), 8);
 
     GtkWidget *typebox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_pack_start(GTK_BOX(content), typebox, FALSE, FALSE, 0);
-    u.rb_macro = gtk_radio_button_new_with_label(NULL, "Macro (gõ tắt)");
+    u.rb_macro = gtk_radio_button_new_with_label(NULL, gtv_i18n("Macro (gõ tắt)", "Macro (shortcuts)"));
     GtkWidget *rb_emoji = gtk_radio_button_new_with_label_from_widget(
         GTK_RADIO_BUTTON(u.rb_macro), "Emoji");
     g_signal_connect(u.rb_macro, "toggled", G_CALLBACK(on_type_toggled), &u);
@@ -150,9 +151,9 @@ void data_show(GtkWindow *parent) {
     g_object_unref(u.store);
     GtkCellRenderer *rend = gtk_cell_renderer_text_new();
     gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(u.view),
-        -1, "Từ gõ", rend, "text", 0, NULL);
+        -1, gtv_i18n("Từ gõ", "Shortcut"), rend, "text", 0, NULL);
     gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(u.view),
-        -1, "Nội dung", rend, "text", 1, NULL);
+        -1, gtv_i18n("Nội dung", "Expansion"), rend, "text", 1, NULL);
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(u.view), TRUE);
     gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(u.view)),
         GTK_SELECTION_SINGLE);
@@ -164,12 +165,12 @@ void data_show(GtkWindow *parent) {
     gtk_grid_set_row_spacing(GTK_GRID(form), 6);
     gtk_grid_set_column_spacing(GTK_GRID(form), 8);
     gtk_box_pack_start(GTK_BOX(content), form, FALSE, FALSE, 0);
-    gtk_grid_attach(GTK_GRID(form), gtk_label_new("Từ gõ:"), 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(form), gtk_label_new(gtv_i18n("Từ gõ:", "Shortcut:")), 0, 0, 1, 1);
     u.key_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(u.key_entry), 255);
     gtk_widget_set_hexpand(u.key_entry, TRUE);
     gtk_grid_attach(GTK_GRID(form), u.key_entry, 1, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(form), gtk_label_new("Nội dung:"), 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(form), gtk_label_new(gtv_i18n("Nội dung:", "Expansion:")), 0, 1, 1, 1);
     u.val_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(u.val_entry), 1023);
     gtk_widget_set_hexpand(u.val_entry, TRUE);
@@ -177,9 +178,9 @@ void data_show(GtkWindow *parent) {
 
     GtkWidget *btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_box_pack_start(GTK_BOX(content), btns, FALSE, FALSE, 0);
-    GtkWidget *b_save = gtk_button_new_with_label("Lưu");
-    GtkWidget *b_del = gtk_button_new_with_label("Xóa");
-    GtkWidget *b_folder = gtk_button_new_with_label("Mở thư mục");
+    GtkWidget *b_save = gtk_button_new_with_label(gtv_i18n("Lưu", "Save"));
+    GtkWidget *b_del = gtk_button_new_with_label(gtv_i18n("Xóa", "Delete"));
+    GtkWidget *b_folder = gtk_button_new_with_label(gtv_i18n("Mở thư mục", "Open folder"));
     g_signal_connect(b_save, "clicked", G_CALLBACK(on_save), &u);
     g_signal_connect(b_del, "clicked", G_CALLBACK(on_delete), &u);
     g_signal_connect(b_folder, "clicked", G_CALLBACK(on_folder), &u);
@@ -187,8 +188,8 @@ void data_show(GtkWindow *parent) {
     gtk_box_pack_start(GTK_BOX(btns), b_del, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(btns), b_folder, FALSE, FALSE, 0);
 
-    GtkWidget *note = gtk_label_new("Thay đổi lưu vào file riêng của bạn. "
-        "Đóng cửa sổ này sẽ restart ibus để engine nhận bảng mới.");
+    GtkWidget *note = gtk_label_new(gtv_i18n("Thay đổi lưu vào file riêng của bạn. Đóng cửa sổ này sẽ restart ibus để engine nhận bảng mới.",
+                                             "Changes are saved to your personal file. Closing this window will restart ibus to load the new table."));
     gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
     gtk_label_set_xalign(GTK_LABEL(note), 0.0);
     gtk_box_pack_start(GTK_BOX(content), note, FALSE, FALSE, 0);

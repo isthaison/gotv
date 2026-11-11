@@ -204,6 +204,17 @@ static void overlay_file(GKeyFile *file, GtvConfig *config, gboolean input) {
         }
         read_bool(file, "input", "modern", &config->modern);
         read_bool(file, "input", "spellcheck", &config->spellcheck);
+        gchar *lang = g_key_file_get_string(file, "general", "lang", NULL);
+        if (!lang) lang = g_key_file_get_string(file, "ui", "lang", NULL);
+        if (!lang) lang = g_key_file_get_string(file, "input", "lang", NULL);
+        if (lang) {
+            g_strstrip(lang);
+            if (!g_ascii_strcasecmp(lang, "en") || !g_ascii_strcasecmp(lang, "english"))
+                config->ui_lang = GTV_LANG_EN;
+            else if (!g_ascii_strcasecmp(lang, "vi") || !g_ascii_strcasecmp(lang, "vietnamese"))
+                config->ui_lang = GTV_LANG_VI;
+            g_free(lang);
+        }
     }
     overlay_suggest(file, config);
 }
@@ -215,7 +226,7 @@ static void overlay_path(GtvConfig *config, const gchar *path, gboolean input) {
 }
 void gtv_config_load(GtvConfig *config, const gchar *directory) {
     *config = (GtvConfig){.mode = GTV_TELEX, .switch_key = GTV_SWITCH_CTRL_SHIFT,
-        .modern = TRUE, .spellcheck = FALSE, .suggest_enabled = TRUE};
+        .modern = TRUE, .spellcheck = FALSE, .suggest_enabled = TRUE, .ui_lang = GTV_LANG_VI};
     g_strlcpy(config->dicts, "vi,tsql,c,csharp", sizeof(config->dicts));
     /* Shipped defaults first (data/config), then user files. */
     gchar *path = gtv_data_path("config");
@@ -226,6 +237,7 @@ void gtv_config_load(GtvConfig *config, const gchar *directory) {
     g_free(path);
     gtv_dict_set_langs(config->dicts);
     g_strlcpy(config->dicts, gtv_dict_get_langs(), sizeof(config->dicts));
+    gtv_i18n_set_lang(config->ui_lang);
 }
 
 gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError **error) {
@@ -236,6 +248,7 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
     GKeyFile *file = g_key_file_new();
     gchar *path = g_build_filename(directory, "config", NULL);
     g_key_file_load_from_file(file, path, G_KEY_FILE_KEEP_COMMENTS, NULL);
+    g_key_file_set_string(file, "general", "lang", config->ui_lang == GTV_LANG_EN ? "en" : "vi");
     g_key_file_set_string(file, "input", "method", config->mode == GTV_VNI ? "vni" : "telex");
     g_key_file_set_string(file, "input", "switch_key", config->switch_key == GTV_SWITCH_ALT_Z ? "alt_z" : "ctrl_shift");
     g_key_file_set_boolean(file, "input", "modern", config->modern);

@@ -32,6 +32,42 @@ static char* tray_current_method(){
     return method;
 }
 
+static GtvUiLang tray_current_lang(void) {
+    char *path = gtv_user_path(g_get_user_config_dir(), "config");
+    GKeyFile *kf = g_key_file_new();
+    GtvUiLang res = GTV_LANG_VI;
+    if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL)) {
+        char *lang = g_key_file_get_string(kf, "general", "lang", NULL);
+        if (!lang) lang = g_key_file_get_string(kf, "ui", "lang", NULL);
+        if (lang) {
+            g_strstrip(lang);
+            if (!g_ascii_strcasecmp(lang, "en") || !g_ascii_strcasecmp(lang, "english")) res = GTV_LANG_EN;
+            g_free(lang);
+        }
+    }
+    g_key_file_free(kf);
+    g_free(path);
+    gtv_i18n_set_lang(res);
+    return res;
+}
+
+static void tray_update_config_lang(const char *lang) {
+    char *path = gtv_user_path(g_get_user_config_dir(), "config");
+    char *dir = g_path_get_dirname(path);
+    g_mkdir_with_parents(dir, 0755);
+    g_free(dir);
+    GKeyFile *kf = g_key_file_new();
+    g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL);
+    g_key_file_set_string(kf, "general", "lang", lang);
+    gsize len = 0;
+    gchar *data = g_key_file_to_data(kf, &len, NULL);
+    if (data) g_file_set_contents(path, data, (gssize)len, NULL);
+    g_free(data);
+    g_key_file_free(kf);
+    g_free(path);
+    gtv_i18n_set_lang(!g_ascii_strcasecmp(lang, "en") ? GTV_LANG_EN : GTV_LANG_VI);
+}
+
 static void tray_update_config_method(const char *method){
     char *path = gtv_user_path(g_get_user_config_dir(), "config");
     char *dir = g_path_get_dirname(path);
@@ -115,16 +151,16 @@ static void tray_on_activate_telex(GtkMenuItem *item, gpointer data){
     (void)data;
     if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
     tray_update_config_method("telex");
-    // Chỉ đổi method trong config (engine chung tự reload, engine ghim giữ
-    // nguyên); KHÔNG đụng input-sources để khỏi xóa nguồn Telex/VNI của user.
-    run_shell("notify-send 'GoTV' 'Đã chuyển sang Telex (s f r x j)' 2>/dev/null &");
+    run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang Telex (s f r x j)' 2>/dev/null &",
+                       "notify-send 'GoTV' 'Switched to Telex (s f r x j)' 2>/dev/null &"));
     tray_refresh_checks();
 }
 static void tray_on_activate_vni(GtkMenuItem *item, gpointer data){
     (void)data;
     if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
     tray_update_config_method("vni");
-    run_shell("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &");
+    run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &",
+                       "notify-send 'GoTV' 'Switched to VNI (1-5, 6-9)' 2>/dev/null &"));
     tray_refresh_checks();
 }
 static void tray_toggle_method(void){
@@ -133,12 +169,26 @@ static void tray_toggle_method(void){
     g_free(m);
     if (is_telex) {
         tray_update_config_method("vni");
-        run_shell("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &");
+        run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &",
+                           "notify-send 'GoTV' 'Switched to VNI (1-5, 6-9)' 2>/dev/null &"));
     } else {
         tray_update_config_method("telex");
-        run_shell("notify-send 'GoTV' 'Đã chuyển sang Telex (s f r x j)' 2>/dev/null &");
+        run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang Telex (s f r x j)' 2>/dev/null &",
+                           "notify-send 'GoTV' 'Switched to Telex (s f r x j)' 2>/dev/null &"));
     }
     tray_refresh_checks();
+}
+static void tray_on_activate_lang_vi(GtkMenuItem *item, gpointer data){
+    (void)data;
+    if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
+    tray_update_config_lang("vi");
+    run_shell("notify-send 'GoTV' 'Đã chuyển sang Tiếng Việt' 2>/dev/null &");
+}
+static void tray_on_activate_lang_en(GtkMenuItem *item, gpointer data){
+    (void)data;
+    if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
+    tray_update_config_lang("en");
+    run_shell("notify-send 'GoTV' 'Language switched to English' 2>/dev/null &");
 }
 static void tray_on_activate_toggle(GtkMenuItem *item, gpointer data){
     (void)item; (void)data;
@@ -371,13 +421,29 @@ int tray_run(int argc, char *argv[]){
     group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(tray_item_telex));
     tray_item_vni = gtk_radio_menu_item_new_with_label(group, "VNI (1-5, 6-9)");
 
-    GtkWidget *tray_item_toggle = gtk_menu_item_new_with_label("Chuyển kiểu gõ (Telex ↔ VNI)");
+    GtkWidget *tray_item_toggle = gtk_menu_item_new_with_label(gtv_i18n("Chuyển kiểu gõ (Telex ↔ VNI)", "Switch input mode (Telex ↔ VNI)"));
     g_signal_connect(tray_item_toggle, "activate", G_CALLBACK(tray_on_activate_toggle), NULL);
 
-    GtkWidget *tray_item_setup = gtk_menu_item_new_with_label("Mở GoTV Setup...");
-    GtkWidget *tray_item_data = gtk_menu_item_new_with_label("Quản lý Gõ tắt & Emoji...");
-    GtkWidget *tray_item_update = gtk_menu_item_new_with_label("Kiểm tra cập nhật...");
-    GtkWidget *tray_item_quit = gtk_menu_item_new_with_label("Thoát");
+    GtkWidget *tray_item_lang = gtk_menu_item_new_with_label(gtv_i18n("Ngôn ngữ giao diện", "Interface language"));
+    GtkWidget *lang_menu = gtk_menu_new();
+    GSList *lang_group = NULL;
+    GtkWidget *tray_lang_vi = gtk_radio_menu_item_new_with_label(lang_group, "Tiếng Việt");
+    lang_group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(tray_lang_vi));
+    GtkWidget *tray_lang_en = gtk_radio_menu_item_new_with_label(lang_group, "English");
+    if (tray_current_lang() == GTV_LANG_EN)
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(tray_lang_en), TRUE);
+    else
+        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(tray_lang_vi), TRUE);
+    g_signal_connect(tray_lang_vi, "toggled", G_CALLBACK(tray_on_activate_lang_vi), NULL);
+    g_signal_connect(tray_lang_en, "toggled", G_CALLBACK(tray_on_activate_lang_en), NULL);
+    gtk_menu_shell_append(GTK_MENU_SHELL(lang_menu), tray_lang_vi);
+    gtk_menu_shell_append(GTK_MENU_SHELL(lang_menu), tray_lang_en);
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(tray_item_lang), lang_menu);
+
+    GtkWidget *tray_item_setup = gtk_menu_item_new_with_label(gtv_i18n("Mở GoTV Setup...", "GoTV Settings..."));
+    GtkWidget *tray_item_data = gtk_menu_item_new_with_label(gtv_i18n("Quản lý Gõ tắt & Emoji...", "Manage Macros & Emoji..."));
+    GtkWidget *tray_item_update = gtk_menu_item_new_with_label(gtv_i18n("Kiểm tra cập nhật...", "Check for updates..."));
+    GtkWidget *tray_item_quit = gtk_menu_item_new_with_label(gtv_i18n("Thoát", "Quit"));
     g_signal_connect(tray_item_telex, "toggled", G_CALLBACK(tray_on_activate_telex), NULL);
     g_signal_connect(tray_item_vni, "toggled", G_CALLBACK(tray_on_activate_vni), NULL);
     g_signal_connect(tray_item_setup, "activate", G_CALLBACK(tray_on_activate_setup), NULL);
@@ -388,6 +454,8 @@ int tray_run(int argc, char *argv[]){
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_telex);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_vni);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_lang);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_setup);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_data);
@@ -412,6 +480,7 @@ int tray_run(int argc, char *argv[]){
 // --- Hết phần tray ---
 
 static GtkWidget *rb_telex, *rb_vni, *cb_modern, *cb_spell;
+static GtkWidget *rb_lang_vi, *rb_lang_en;
 static GtkWidget *lbl_preview;
 static GtkWidget *cb_suggest, *lbl_dict_ver, *lbl_dict_status, *btn_dict_update;
 static GtkWidget *cb_dict_packs[8];
@@ -514,7 +583,8 @@ static void on_save(GtkWidget *w, gpointer data){
     const char *suggest = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cb_suggest)) ? "true" : "false";
     GtvConfig config = {.mode = strcmp(method,"vni") == 0 ? GTV_VNI : GTV_TELEX,
         .modern = strcmp(modern,"true") == 0, .spellcheck = strcmp(spell,"true") == 0,
-        .suggest_enabled = strcmp(suggest,"true") == 0};
+        .suggest_enabled = strcmp(suggest,"true") == 0,
+        .ui_lang = (rb_lang_en && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(rb_lang_en))) ? GTV_LANG_EN : GTV_LANG_VI};
     gchar *sel = collect_selected_dicts();
     g_strlcpy(config.dicts, sel, sizeof(config.dicts));
     g_free(sel);
@@ -524,14 +594,15 @@ static void on_save(GtkWidget *w, gpointer data){
     g_free(directory);
     if(!saved){
         GtkWidget *failure = gtk_message_dialog_new(win,GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,
-            "Không lưu được cấu hình: %s",error->message);
+            "%s: %s", gtv_i18n("Không lưu được cấu hình", "Could not save configuration"), error ? error->message : "");
         gtk_dialog_run(GTK_DIALOG(failure));gtk_widget_destroy(failure);g_error_free(error);
         return;
     }
     // Restart ibus
     run_shell("ibus restart 2>/dev/null &");
     GtkWidget *dlg = gtk_message_dialog_new(win, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-        "Đã lưu %s, modern=%s, gợi ý từ điển=%s (%s). Đã restart ibus.",
+        gtv_i18n("Đã lưu %s, modern=%s, gợi ý từ điển=%s (%s). Đã restart ibus.",
+                 "Saved %s, modern=%s, suggestions=%s (%s). Restarted ibus."),
         method, modern, suggest, config.dicts);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
@@ -558,8 +629,8 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_window_set_default_icon_name("gotv");
 
     GtkWidget *win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(win), "GoTV Setup — github.com/isthaison/gotv");
-    gtk_window_set_default_size(GTK_WINDOW(win), 540, 620);
+    gtk_window_set_title(GTK_WINDOW(win), gtv_i18n("GoTV Cài đặt — github.com/isthaison/gotv", "GoTV Setup — github.com/isthaison/gotv"));
+    gtk_window_set_default_size(GTK_WINDOW(win), 540, 640);
     gtk_window_set_position(GTK_WINDOW(win), GTK_WIN_POS_CENTER);
     gtk_window_set_icon_name(GTK_WINDOW(win), "gotv");
     gtk_window_set_icon_from_file(GTK_WINDOW(win), "/usr/share/gotv/icons/gotv.png", NULL);
@@ -569,11 +640,12 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_container_add(GTK_CONTAINER(win), vbox);
 
     GtkWidget *title = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(title), "<b>GoTV</b> — Gõ Telex/VNI thuần hệ thống\n<span size='small'>Chỉ dùng lib hệ thống (Go + gtk+-3.0), không lib ngoài</span>");
+    gtk_label_set_markup(GTK_LABEL(title), gtv_i18n("<b>GoTV</b> — Gõ Telex/VNI thuần hệ thống\n<span size='small'>Chỉ dùng lib hệ thống (C + gtk+-3.0), không lib ngoài</span>",
+                                                   "<b>GoTV</b> — Native Telex/VNI Input Method\n<span size='small'>Pure system libraries (C + gtk+-3.0), zero bloat</span>"));
     gtk_label_set_justify(GTK_LABEL(title), GTK_JUSTIFY_CENTER);
     gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
 
-    GtkWidget *f1 = gtk_frame_new("Kiểu gõ");
+    GtkWidget *f1 = gtk_frame_new(gtv_i18n("Kiểu gõ", "Input method"));
     gtk_box_pack_start(GTK_BOX(vbox), f1, FALSE, FALSE, 0);
     GtkWidget *box1 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_set_border_width(GTK_CONTAINER(box1), 8);
@@ -585,12 +657,13 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_box_pack_start(GTK_BOX(box1), rb_telex, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(box1), rb_vni, FALSE, FALSE, 0);
 
-    GtkWidget *f2 = gtk_frame_new("Tùy chọn");
+    GtkWidget *f2 = gtk_frame_new(gtv_i18n("Tùy chọn", "Options"));
     gtk_box_pack_start(GTK_BOX(vbox), f2, FALSE, FALSE, 0);
     GtkWidget *box2 = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_set_border_width(GTK_CONTAINER(box2), 8);
     gtk_container_add(GTK_CONTAINER(f2), box2);
-    cb_modern = gtk_check_button_new_with_label("Kiểu mới (modern) — hòa thay vì hoà cho oa/oe/uy (Bộ GD 2018)");
+    cb_modern = gtk_check_button_new_with_label(gtv_i18n("Kiểu mới (modern) — hòa thay vì hoà cho oa/oe/uy (Bộ GD 2018)",
+                                                        "Modern style — hòa instead of hoà for oa/oe/uy"));
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_modern), strcmp(cur_modern,"true")==0);
     g_signal_connect(cb_modern, "toggled", G_CALLBACK(on_modern_toggled), NULL);
     gtk_box_pack_start(GTK_BOX(box2), cb_modern, FALSE, FALSE, 0);
@@ -599,25 +672,42 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_label_set_xalign(GTK_LABEL(lbl_preview), 0.0);
     update_preview();
     gtk_box_pack_start(GTK_BOX(box2), lbl_preview, FALSE, FALSE, 0);
-    cb_spell = gtk_check_button_new_with_label("Kiểm tra chính tả (chỉ gợi ý, không chặn)");
+    cb_spell = gtk_check_button_new_with_label(gtv_i18n("Kiểm tra chính tả (chỉ gợi ý, không chặn)",
+                                                       "Spell check (suggestions only, non-blocking)"));
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_spell), strcmp(cur_spell,"true")==0);
     gtk_box_pack_start(GTK_BOX(box2), cb_spell, FALSE, FALSE, 0);
-    GtkWidget *w2 = gtk_check_button_new_with_label("Cho phép w đơn -> ư (gõ w đầu từ ra ư)");
+    GtkWidget *w2 = gtk_check_button_new_with_label(gtv_i18n("Cho phép w đơn -> ư (gõ w đầu từ ra ư)",
+                                                            "Allow standalone w -> ư"));
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w2), TRUE);
     gtk_widget_set_sensitive(w2, FALSE);
     gtk_box_pack_start(GTK_BOX(box2), w2, FALSE, FALSE, 0);
 
+    // Language frame
+    GtkWidget *f_lang = gtk_frame_new(gtv_i18n("Ngôn ngữ giao diện", "Interface language"));
+    gtk_box_pack_start(GTK_BOX(vbox), f_lang, FALSE, FALSE, 0);
+    GtkWidget *box_lang = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_container_set_border_width(GTK_CONTAINER(box_lang), 8);
+    gtk_container_add(GTK_CONTAINER(f_lang), box_lang);
+    rb_lang_vi = gtk_radio_button_new_with_label(NULL, "Tiếng Việt");
+    rb_lang_en = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(rb_lang_vi), "English");
+    if(gtv_i18n_get_lang() == GTV_LANG_EN)
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(rb_lang_en), TRUE);
+    else
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(rb_lang_vi), TRUE);
+    gtk_box_pack_start(GTK_BOX(box_lang), rb_lang_vi, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box_lang), rb_lang_en, FALSE, FALSE, 0);
+
     // Dictionary frame (offline suggestions, GitHub-updated word list)
-    GtkWidget *f_dict = gtk_frame_new("Gợi ý từ điển & Keywords (offline)");
+    GtkWidget *f_dict = gtk_frame_new(gtv_i18n("Gợi ý từ điển & Keywords (offline)", "Dictionary & Keyword suggestions (offline)"));
     gtk_box_pack_start(GTK_BOX(vbox), f_dict, FALSE, FALSE, 0);
     GtkWidget *box_dict = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_container_set_border_width(GTK_CONTAINER(box_dict), 8);
     gtk_container_add(GTK_CONTAINER(f_dict), box_dict);
-    cb_suggest = gtk_check_button_new_with_label("Bật gợi ý từ thông minh");
+    cb_suggest = gtk_check_button_new_with_label(gtv_i18n("Bật gợi ý từ thông minh", "Enable smart word suggestions"));
     gtk_box_pack_start(GTK_BOX(box_dict), cb_suggest, FALSE, FALSE, 0);
     g_signal_connect(cb_suggest, "toggled", G_CALLBACK(on_suggest_toggled), NULL);
 
-    GtkWidget *lbl_packs = gtk_label_new("Chọn bộ từ điển / thư viện từ khóa:");
+    GtkWidget *lbl_packs = gtk_label_new(gtv_i18n("Chọn bộ từ điển / thư viện từ khóa:", "Select dictionaries / keyword libraries:"));
     gtk_label_set_xalign(GTK_LABEL(lbl_packs), 0.0);
     gtk_box_pack_start(GTK_BOX(box_dict), lbl_packs, FALSE, FALSE, 0);
     GtkWidget *grid_packs = gtk_grid_new();
@@ -630,7 +720,10 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
         const GtvDictInfo *info = gtv_dict_catalog_get(i);
         if(!info) continue;
         guint pwords = gtv_dict_pack_count(info->id);
-        gchar *label = g_strdup_printf("%s (%u)", info->title, pwords);
+        const char *title = info->title;
+        if (!strcmp(info->id, "vi")) title = gtv_i18n("Tiếng Việt", "Vietnamese");
+        else if (!strcmp(info->id, "en")) title = gtv_i18n("Tiếng Anh", "English");
+        gchar *label = g_strdup_printf("%s (%u)", title, pwords);
         cb_dict_packs[i] = gtk_check_button_new_with_label(label);
         g_free(label);
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_dict_packs[i]),
@@ -639,13 +732,14 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
         gtk_grid_attach(GTK_GRID(grid_packs), cb_dict_packs[i], (gint)(i % 3), (gint)(i / 3), 1, 1);
     }
 
-    lbl_dict_ver = gtk_label_new("Từ điển...");
+    lbl_dict_ver = gtk_label_new(gtv_i18n("Từ điển...", "Dictionary..."));
     gtk_label_set_xalign(GTK_LABEL(lbl_dict_ver), 0.0);
     gtk_box_pack_start(GTK_BOX(box_dict), lbl_dict_ver, FALSE, FALSE, 0);
-    btn_dict_update = gtk_button_new_with_label("Tải / Cập nhật bộ từ điển đã chọn từ GitHub...");
+    btn_dict_update = gtk_button_new_with_label(gtv_i18n("Tải / Cập nhật bộ từ điển đã chọn từ GitHub...",
+                                                         "Download / Update selected dictionaries from GitHub..."));
     g_signal_connect(btn_dict_update, "clicked", G_CALLBACK(on_dict_update), NULL);
     gtk_box_pack_start(GTK_BOX(box_dict), btn_dict_update, FALSE, FALSE, 0);
-    lbl_dict_status = gtk_label_new("Gợi ý offline 100%, không cần mạng.");
+    lbl_dict_status = gtk_label_new(gtv_i18n("Gợi ý offline 100%, không cần mạng.", "100% offline suggestions, no internet required."));
     gtk_label_set_line_wrap(GTK_LABEL(lbl_dict_status), TRUE);
     gtk_label_set_xalign(GTK_LABEL(lbl_dict_status), 0.0);
     gtk_box_pack_start(GTK_BOX(box_dict), lbl_dict_status, FALSE, FALSE, 0);
@@ -654,20 +748,21 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     dict_ui_refresh();
 
     GtkWidget *info = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(info), "<span size='small'>Cấu hình lưu tại <tt>~/.config/gotv/config</tt>\nGõ lại ký tự để xóa dấu: <tt>as-&gt;á, á s-&gt;a</tt>, <tt>uw-&gt;ư, ư w-&gt;u</tt></span>");
+    gtk_label_set_markup(GTK_LABEL(info), gtv_i18n("<span size='small'>Cấu hình lưu tại <tt>~/.config/gotv/config</tt>\nGõ lại ký tự để xóa dấu: <tt>as-&gt;á, á s-&gt;a</tt>, <tt>uw-&gt;ư, ư w-&gt;u</tt></span>",
+                                                   "<span size='small'>Configuration saved at <tt>~/.config/gotv/config</tt>\nRetype accent key to remove mark: <tt>as-&gt;á, á s-&gt;a</tt></span>"));
     gtk_label_set_line_wrap(GTK_LABEL(info), TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), info, FALSE, FALSE, 0);
 
     GtkWidget *bbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_widget_set_halign(bbox, GTK_ALIGN_END);
     gtk_box_pack_start(GTK_BOX(vbox), bbox, FALSE, FALSE, 0);
-    GtkWidget *btn_data = gtk_button_new_with_label("Dữ liệu...");
+    GtkWidget *btn_data = gtk_button_new_with_label(gtv_i18n("Dữ liệu...", "Data..."));
     g_signal_connect(btn_data, "clicked", G_CALLBACK(on_data), win);
     gtk_box_pack_start(GTK_BOX(bbox), btn_data, FALSE, FALSE, 0);
-    GtkWidget *btn_cancel = gtk_button_new_with_label("Hủy");
+    GtkWidget *btn_cancel = gtk_button_new_with_label(gtv_i18n("Hủy", "Cancel"));
     g_signal_connect(btn_cancel, "clicked", G_CALLBACK(on_cancel), NULL);
     gtk_box_pack_start(GTK_BOX(bbox), btn_cancel, FALSE, FALSE, 0);
-    GtkWidget *btn_ok = gtk_button_new_with_label("Lưu & Đóng");
+    GtkWidget *btn_ok = gtk_button_new_with_label(gtv_i18n("Lưu & Đóng", "Save & Close"));
     GtkStyleContext *ctx = gtk_widget_get_style_context(btn_ok);
     gtk_style_context_add_class(ctx, "suggested-action");
     g_signal_connect(btn_ok, "clicked", G_CALLBACK(on_save), win);

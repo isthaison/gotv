@@ -61,6 +61,12 @@ $macosController = Join-Path $rootDir "macos\GoTVInputController.m"
 if (Test-Path $macosController) {
     (Get-Content $macosController) -replace 'ver = @"[^"]*"', "ver = @`"$Version`"" | Set-Content $macosController
 }
+$macosPlist = Join-Path $rootDir "macos\Info.plist"
+if (Test-Path $macosPlist) {
+    (Get-Content $macosPlist) `
+        -replace '<key>CFBundleShortVersionString</key>\s*<string>[^<]*</string>', "<key>CFBundleShortVersionString</key>`n`t<string>$Version</string>" `
+        -replace '<key>CFBundleVersion</key>\s*<string>[^<]*</string>', "<key>CFBundleVersion</key>`n`t<string>$Version</string>" | Set-Content $macosPlist
+}
 
 # 8. linux
 $ibusXml = Join-Path $rootDir "linux\ibus\gotv.xml"
@@ -70,6 +76,16 @@ if (Test-Path $ibusXml) {
 $ibusEngineC = Join-Path $rootDir "linux\ibus\engine.c"
 if (Test-Path $ibusEngineC) {
     (Get-Content $ibusEngineC) -replace '"[0-9][0-9.]*","GPL"', "`"$Version`",`"GPL`"" | Set-Content $ibusEngineC
+}
+$ibusMeta = Join-Path $rootDir "linux\ibus\gotv.metainfo.xml"
+if (Test-Path $ibusMeta) {
+    $metaContent = Get-Content $ibusMeta -Raw
+    if ($metaContent -notmatch "<release version=`"$Version`"") {
+        $today = (Get-Date).ToString("yyyy-MM-dd")
+        $newRelease = "    <release version=`"$Version`" date=`"$today`">`n      <description>`n        <p>Phát hành ${Version}: Hỗ trợ song ngữ giao diện Tiếng Việt và Tiếng Anh.</p>`n      </description>`n    </release>"
+        $metaContent = $metaContent -replace '<releases>', "<releases>`n$newRelease"
+        Set-Content -Path $ibusMeta -Value $metaContent
+    }
 }
 
 # 9. dict tags

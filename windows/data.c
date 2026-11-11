@@ -14,8 +14,8 @@ static void list_setup_columns(HWND hwnd) {
     SendMessageW(list, LVM_SETEXTENDEDLISTVIEWSTYLE, 0,
                  LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
     struct { const char *text; int width; } cols[] = {
-        { "Từ gõ", 100 },
-        { "Nội dung", 140 },
+        { gtv_i18n("Từ gõ", "Shortcut"), 100 },
+        { gtv_i18n("Nội dung", "Expansion"), 140 },
     };
     for (int i = 0; i < 2; i++) {
         gunichar2 *w = g_utf8_to_utf16(cols[i].text, -1, NULL, NULL, NULL);
@@ -81,7 +81,7 @@ static void warn(HWND hwnd, const gchar *utf8) {
 static void persist_or_warn(HWND hwnd) {
     GError *err = NULL;
     if (!gtv_table_save(show_emoji, &err)) {
-        warn(hwnd, err ? err->message : "Không lưu được file dữ liệu.");
+        warn(hwnd, err ? err->message : gtv_i18n("Không lưu được file dữ liệu.", "Could not save data file."));
         g_clear_error(&err);
         return;
     }
@@ -94,7 +94,8 @@ static void on_save(HWND hwnd) {
     if (key) g_strstrip(key);
     if (val) g_strstrip(val);
     if (!gtv_table_set(show_emoji, key ? key : "", val ? val : "")) {
-        warn(hwnd, "Khóa/giá trị không hợp lệ (khóa không chứa dấu cách hay dấu =, giá trị không rỗng).");
+        warn(hwnd, gtv_i18n("Khóa/giá trị không hợp lệ (khóa không chứa dấu cách hay dấu =, giá trị không rỗng).",
+                            "Invalid key/value (key cannot contain spaces or '=', value cannot be empty)."));
     } else {
         persist_or_warn(hwnd);
         list_refresh(hwnd);
@@ -129,17 +130,18 @@ static INT_PTR CALLBACK DataDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     switch (msg) {
         case WM_INITDIALOG: {
             struct { int id; const char *text; } labels[] = {
-                { IDC_DATA_MACRO, "Macro (gõ tắt)" },
+                { IDC_DATA_MACRO, gtv_i18n("Macro (gõ tắt)", "Macro (shortcuts)") },
                 { IDC_DATA_EMOJI, "Emoji" },
-                { IDC_LBL_KEY, "Từ gõ:" },
-                { IDC_LBL_VALUE, "Nội dung:" },
-                { IDC_DATA_SAVE, "Lưu" },
-                { IDC_DATA_DELETE, "Xóa" },
-                { IDC_DATA_FOLDER, "Mở thư mục" },
-                { IDC_DATA_CLOSE, "Đóng" },
-                { IDC_DATA_NOTE, "Thay đổi lưu vào file riêng của bạn. App đang mở phải khởi động lại mới nhận bảng mới." },
+                { IDC_LBL_KEY, gtv_i18n("Từ gõ:", "Shortcut:") },
+                { IDC_LBL_VALUE, gtv_i18n("Nội dung:", "Expansion:") },
+                { IDC_DATA_SAVE, gtv_i18n("Lưu", "Save") },
+                { IDC_DATA_DELETE, gtv_i18n("Xóa", "Delete") },
+                { IDC_DATA_FOLDER, gtv_i18n("Mở thư mục", "Open folder") },
+                { IDC_DATA_CLOSE, gtv_i18n("Đóng", "Close") },
+                { IDC_DATA_NOTE, gtv_i18n("Thay đổi lưu vào file riêng của bạn. App đang mở phải khởi động lại mới nhận bảng mới.",
+                                          "Changes are saved to your personal file. Open apps must be restarted to reload the new table.") },
             };
-            gtv_win_set_window_text(hwnd, "GoTV - Dữ liệu");
+            gtv_win_set_window_text(hwnd, gtv_i18n("GoTV - Dữ liệu", "GoTV - Data"));
             for (guint i = 0; i < G_N_ELEMENTS(labels); i++) {
                 gtv_win_set_dlg_item_text(hwnd, labels[i].id, labels[i].text);
             }

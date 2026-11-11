@@ -94,7 +94,9 @@ static void tray_apply_icon_tip(void) {
     }
     nid.hIcon = icon_current;
     gtv_win_copy_utf8(nid.szTip, G_N_ELEMENTS(nid.szTip),
-                      g_app.config.mode == GTV_VNI ? "GoTV — VNI (Click để đổi Telex)" : "GoTV — Telex (Click để đổi VNI)");
+                      g_app.config.mode == GTV_VNI
+                          ? gtv_i18n("GoTV — VNI (Click để đổi Telex)", "GoTV — VNI (Click to switch to Telex)")
+                          : gtv_i18n("GoTV — Telex (Click để đổi VNI)", "GoTV — Telex (Click to switch to VNI)"));
 }
 
 gboolean gtv_tray_init(HWND hwnd) {
@@ -142,44 +144,55 @@ void gtv_tray_show_menu(HWND hwnd) {
     UINT az_flag = (g_app.config.switch_key == GTV_SWITCH_ALT_Z) ? MF_CHECKED : MF_UNCHECKED;
     gtv_win_menu_add_utf8(hSubSwitch, "Ctrl + Shift", cs_flag, ID_TRAY_SWITCH_CTRL_SHIFT);
     gtv_win_menu_add_utf8(hSubSwitch, "Alt + Z", az_flag, ID_TRAY_SWITCH_ALT_Z);
-    AppendMenuW(hmenu, MF_POPUP, (UINT_PTR)hSubSwitch, L"Phím chuyển đổi (E/V)");
+    gunichar2 *w_switch = g_utf8_to_utf16(gtv_i18n("Phím chuyển đổi (E/V)", "Switch key (E/V)"), -1, NULL, NULL, NULL);
+    AppendMenuW(hmenu, MF_POPUP, (UINT_PTR)hSubSwitch, (LPCWSTR)w_switch);
+    g_free(w_switch);
+
+    HMENU hSubLang = CreatePopupMenu();
+    UINT vi_flag = (g_app.config.ui_lang == GTV_LANG_VI) ? MF_CHECKED : MF_UNCHECKED;
+    UINT en_flag = (g_app.config.ui_lang == GTV_LANG_EN) ? MF_CHECKED : MF_UNCHECKED;
+    gtv_win_menu_add_utf8(hSubLang, "Tiếng Việt", vi_flag, ID_TRAY_LANG_VI);
+    gtv_win_menu_add_utf8(hSubLang, "English", en_flag, ID_TRAY_LANG_EN);
+    gunichar2 *w_lang = g_utf8_to_utf16(gtv_i18n("Ngôn ngữ giao diện", "Interface language"), -1, NULL, NULL, NULL);
+    AppendMenuW(hmenu, MF_POPUP, (UINT_PTR)hSubLang, (LPCWSTR)w_lang);
+    g_free(w_lang);
     gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
 
-    gtv_win_menu_add_utf8(hmenu, "Bảng điều khiển...", 0, ID_TRAY_SETTINGS);
-    gtv_win_menu_add_utf8(hmenu, "Quản lý gõ tắt & Emoji...", 0, ID_TRAY_DATA);
-    gtv_win_menu_add_utf8(hmenu, "Bàn phím (Win+Space)...", 0, ID_TRAY_KEYBOARDS);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Bảng điều khiển...", "Settings..."), 0, ID_TRAY_SETTINGS);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Quản lý gõ tắt & Emoji...", "Manage Macros & Emoji..."), 0, ID_TRAY_DATA);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Bàn phím (Win+Space)...", "Keyboards (Win+Space)..."), 0, ID_TRAY_KEYBOARDS);
     gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
 
     UINT telex_flag = (g_app.config.mode == GTV_TELEX) ? MF_CHECKED : MF_UNCHECKED;
     UINT vni_flag = (g_app.config.mode == GTV_VNI) ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Kiểu gõ Telex", telex_flag, ID_TRAY_MODE_TELEX);
-    gtv_win_menu_add_utf8(hmenu, "Kiểu gõ VNI", vni_flag, ID_TRAY_MODE_VNI);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Kiểu gõ Telex", "Telex mode"), telex_flag, ID_TRAY_MODE_TELEX);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Kiểu gõ VNI", "VNI mode"), vni_flag, ID_TRAY_MODE_VNI);
 
     UINT spell_flag = g_app.config.spellcheck ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Kiểm tra chính tả", spell_flag, ID_TRAY_SPELLCHECK);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Kiểm tra chính tả", "Spell check"), spell_flag, ID_TRAY_SPELLCHECK);
 
     UINT modern_flag = g_app.config.modern ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Đặt dấu chuẩn mới", modern_flag, ID_TRAY_MODERN);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Đặt dấu chuẩn mới", "Modern tone placement"), modern_flag, ID_TRAY_MODERN);
     UINT suggest_flag = g_app.config.suggest_enabled ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Gợi ý từ điển thông minh", suggest_flag, ID_TRAY_SUGGEST);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Gợi ý từ điển thông minh", "Smart dictionary suggestions"), suggest_flag, ID_TRAY_SUGGEST);
 
     /* One startup-mode query per menu open: gtv_startup_get() shells out
      * to schtasks, so calling it twice (once per flag) used to blink two
      * consoles and stall the menu. */
     GtvStartupMode startup_mode = gtv_startup_get();
     UINT start_flag = (startup_mode == GTV_STARTUP_USER) ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Khởi động cùng Windows", start_flag, ID_TRAY_STARTUP);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Khởi động cùng Windows", "Start with Windows"), start_flag, ID_TRAY_STARTUP);
 
 #ifndef GTV_STORE_BUILD
     UINT admin_flag = (startup_mode == GTV_STARTUP_ADMIN) ? MF_CHECKED : MF_UNCHECKED;
-    gtv_win_menu_add_utf8(hmenu, "Khởi động với quyền admin", admin_flag, ID_TRAY_STARTUP_ADMIN);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Khởi động với quyền admin", "Start with Administrator privileges"), admin_flag, ID_TRAY_STARTUP_ADMIN);
 #endif
 
 #ifndef GTV_STORE_BUILD
-    gtv_win_menu_add_utf8(hmenu, "Kiểm tra cập nhật...", 0, ID_TRAY_UPDATE);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Kiểm tra cập nhật...", "Check for updates..."), 0, ID_TRAY_UPDATE);
 #endif
     gtv_win_menu_add_utf8(hmenu, NULL, MF_SEPARATOR, 0);
-    gtv_win_menu_add_utf8(hmenu, "Thoát", 0, ID_TRAY_EXIT);
+    gtv_win_menu_add_utf8(hmenu, gtv_i18n("Thoát", "Exit"), 0, ID_TRAY_EXIT);
 
     SetForegroundWindow(hwnd);
     int cmd = TrackPopupMenu(hmenu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
@@ -196,6 +209,18 @@ void gtv_tray_show_menu(HWND hwnd) {
         case ID_TRAY_SWITCH_ALT_Z:
             g_app.config.switch_key = GTV_SWITCH_ALT_Z;
             gtv_hotkey_set_key(GTV_SWITCH_ALT_Z);
+            gtv_app_save_config();
+            gtv_tray_update_icon();
+            break;
+        case ID_TRAY_LANG_VI:
+            g_app.config.ui_lang = GTV_LANG_VI;
+            gtv_i18n_set_lang(GTV_LANG_VI);
+            gtv_app_save_config();
+            gtv_tray_update_icon();
+            break;
+        case ID_TRAY_LANG_EN:
+            g_app.config.ui_lang = GTV_LANG_EN;
+            gtv_i18n_set_lang(GTV_LANG_EN);
             gtv_app_save_config();
             gtv_tray_update_icon();
             break;

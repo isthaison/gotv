@@ -4,7 +4,7 @@
 GTV_VERSION := $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))../VERSION 2>/dev/null || echo 0.8.0)
 
 ENGINE_SRCS = engine/charset.c engine/compose.c engine/config.c \
-              engine/dict.c engine/engine.c engine/learn.c engine/macro.c \
+              engine/dict.c engine/engine.c engine/i18n.c engine/learn.c engine/macro.c \
               engine/phonology.c engine/promotion.c engine/spell.c \
               engine/suggest.c engine/telex.c engine/text.c engine/update.c engine/verdir.c engine/vni.c
 

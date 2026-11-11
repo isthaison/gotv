@@ -15,12 +15,12 @@
 /* Dictionary panel: version/word-count labels plus a worker that refreshes
  * dict-vi.txt from the GitHub release asset (offline-first: the bundled
  * seed always works, the download only upgrades it). */
-static const struct { int ctl_id; const char *dict_id; const char *label; } dict_pack_ctls[] = {
-    { IDC_CHECK_DICT_VI,     "vi",     "Tiếng Việt" },
-    { IDC_CHECK_DICT_TSQL,   "tsql",   "T-SQL" },
-    { IDC_CHECK_DICT_C,      "c",      "C / C++" },
-    { IDC_CHECK_DICT_CSHARP, "csharp", "C# (.NET)" },
-    { IDC_CHECK_DICT_EN,     "en",     "Tiếng Anh" },
+static const struct { int ctl_id; const char *dict_id; const char *label_vi; const char *label_en; } dict_pack_ctls[] = {
+    { IDC_CHECK_DICT_VI,     "vi",     "Tiếng Việt", "Vietnamese" },
+    { IDC_CHECK_DICT_TSQL,   "tsql",   "T-SQL",      "T-SQL" },
+    { IDC_CHECK_DICT_C,      "c",      "C / C++",    "C / C++" },
+    { IDC_CHECK_DICT_CSHARP, "csharp", "C# (.NET)",  "C# (.NET)" },
+    { IDC_CHECK_DICT_EN,     "en",     "Tiếng Anh",  "English" },
 };
 
 static gchar *collect_dlg_dicts(HWND hwnd) {
@@ -35,16 +35,63 @@ static gchar *collect_dlg_dicts(HWND hwnd) {
     return g_string_free(buf, FALSE);
 }
 
-static void dict_ui_refresh(HWND hwnd) {
+static GtvUiLang get_dlg_lang(HWND hwnd) {
+    return (IsDlgButtonChecked(hwnd, IDC_RADIO_LANG_EN) == BST_CHECKED) ? GTV_LANG_EN : GTV_LANG_VI;
+}
+
+static void dict_ui_refresh_lang(HWND hwnd, GtvUiLang lang) {
     guint n = gtv_dict_count();
     const gchar *tag = gtv_dict_tag();
     const gchar *langs = gtv_dict_get_langs();
+    const gchar *bundled_str = gtv_i18n_s(lang, "cài sẵn", "bundled");
     gchar *ver = (n > 0)
-        ? g_strdup_printf("Từ điển %s · %u từ (%s)", (tag && *tag) ? tag : "cài sẵn", n,
+        ? g_strdup_printf(gtv_i18n_s(lang, "Từ điển %s · %u từ (%s)", "Dictionary %s · %u words (%s)"),
+                          (tag && *tag) ? tag : bundled_str, n,
                           (langs && *langs) ? langs : "vi")
-        : g_strdup("Chưa có từ điển");
+        : g_strdup(gtv_i18n_s(lang, "Chưa có từ điển", "No dictionary available"));
     gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_VER, ver);
     g_free(ver);
+}
+
+static void dict_ui_refresh(HWND hwnd) {
+    dict_ui_refresh_lang(hwnd, get_dlg_lang(hwnd));
+}
+
+static void setup_apply_language(HWND hwnd, GtvUiLang lang) {
+    struct { int id; const char *vi; const char *en; } labels[] = {
+        { IDC_GROUP_TYPE, "Kiểu gõ", "Input method" },
+        { IDC_RADIO_TELEX, "Telex (gõ lặp: aa -> â, s/f/r/x/j)", "Telex (repeat: aa -> â, s/f/r/x/j)" },
+        { IDC_RADIO_VNI, "VNI (số: 1->sắc, 2->huyền, 6->mũ...)", "VNI (number: 1->acute, 2->grave, 6->hat...)" },
+        { IDC_GROUP_SWITCH, "Phím chuyển đổi (E/V)", "Switch key (E/V)" },
+        { IDC_RADIO_CTRL_SHIFT, "Ctrl + Shift", "Ctrl + Shift" },
+        { IDC_RADIO_ALT_Z, "Alt + Z", "Alt + Z" },
+        { IDC_GROUP_OPTS, "Tùy chọn", "Options" },
+        { IDC_CHECK_MODERN, "Đặt dấu theo chuẩn mới (hòa, thúy thay vì hoà, thuý)", "Modern tone placement (hòa, thúy instead of hoà, thuý)" },
+        { IDC_CHECK_SPELL, "Kiểm tra chính tả tiếng Việt", "Vietnamese spell check" },
+        { IDC_CHECK_STARTUP, "Khởi động cùng Windows", "Start with Windows" },
+        { IDC_GROUP_DICT, "Gợi ý từ điển (offline)", "Dictionary suggestions (offline)" },
+        { IDC_CHECK_SUGGEST, "Bật gợi ý từ thông minh", "Enable smart word suggestions" },
+        { IDC_LBL_DICT_VER, "Từ điển...", "Dictionary..." },
+        { IDC_BTN_DICT_UPDATE, "Cập nhật", "Update" },
+        { IDC_GROUP_LANG, "Ngôn ngữ giao diện", "Interface language" },
+        { IDC_RADIO_LANG_VI, "Tiếng Việt", "Tiếng Việt" },
+        { IDC_RADIO_LANG_EN, "English", "English" },
+        { IDC_BTN_OK, "Đồng ý", "OK" },
+        { IDC_BTN_CANCEL, "Hủy", "Cancel" },
+        { IDC_BTN_DATA, "Dữ liệu...", "Data..." },
+        { IDC_BTN_KEYBOARD, "Bàn phím...", "Keyboards..." },
+    };
+    gtv_win_set_window_text(hwnd, gtv_i18n_s(lang, "GoTV - Cài đặt", "GoTV - Settings"));
+    for (guint i = 0; i < G_N_ELEMENTS(labels); i++) {
+        gtv_win_set_dlg_item_text(hwnd, labels[i].id, gtv_i18n_s(lang, labels[i].vi, labels[i].en));
+    }
+    for (guint i = 0; i < G_N_ELEMENTS(dict_pack_ctls); i++) {
+        gtv_win_set_dlg_item_text(hwnd, dict_pack_ctls[i].ctl_id,
+            gtv_i18n_s(lang, dict_pack_ctls[i].label_vi, dict_pack_ctls[i].label_en));
+    }
+    dict_ui_refresh_lang(hwnd, lang);
+    gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,
+        gtv_i18n_s(lang, "Gợi ý offline 100%, không cần mạng.", "100% offline suggestions, no internet required."));
 }
 
 static gpointer dict_update_worker(gpointer data) {
@@ -86,37 +133,7 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     switch (msg) {
         case WM_INITDIALOG: {
             s_hwndSetup = hwnd;
-            /* Every visible string is set here in UTF-16 converted from
-             * UTF-8: the .rc file carries ASCII placeholders only, so the
-             * dialog renders Vietnamese correctly no matter which codepage
-             * the resource compiler assumed. */
-            struct { int id; const char *text; } labels[] = {
-                { IDC_GROUP_TYPE, "Kiểu gõ" },
-                { IDC_RADIO_TELEX, "Telex (gõ lặp: aa -> â, s/f/r/x/j)" },
-                { IDC_RADIO_VNI, "VNI (số: 1->sắc, 2->huyền, 6->mũ...)" },
-                { IDC_GROUP_SWITCH, "Phím chuyển đổi (E/V)" },
-                { IDC_RADIO_CTRL_SHIFT, "Ctrl + Shift" },
-                { IDC_RADIO_ALT_Z, "Alt + Z" },
-                { IDC_GROUP_OPTS, "Tùy chọn" },
-                { IDC_CHECK_MODERN, "Đặt dấu theo chuẩn mới (hòa, thúy thay vì hoà, thuý)" },
-                { IDC_CHECK_SPELL, "Kiểm tra chính tả tiếng Việt" },
-                { IDC_CHECK_STARTUP, "Khởi động cùng Windows" },
-                { IDC_GROUP_DICT, "Gợi ý từ điển (offline)" },
-                { IDC_CHECK_SUGGEST, "Bật gợi ý từ thông minh" },
-                { IDC_LBL_DICT_VER, "Từ điển..." },
-                { IDC_BTN_DICT_UPDATE, "Cập nhật" },
-                { IDC_LBL_DICT_STATUS, "Trạng thái từ điển..." },
-                { IDC_BTN_OK, "Đồng ý" },
-                { IDC_BTN_CANCEL, "Hủy" },
-                { IDC_BTN_DATA, "Dữ liệu..." },
-                { IDC_BTN_KEYBOARD, "Bàn phím..." },
-            };
-            gtv_win_set_window_text(hwnd, "GoTV - Cài đặt");
-            for (guint i = 0; i < G_N_ELEMENTS(labels); i++) {
-                gtv_win_set_dlg_item_text(hwnd, labels[i].id, labels[i].text);
-            }
             for (guint i = 0; i < G_N_ELEMENTS(dict_pack_ctls); i++) {
-                gtv_win_set_dlg_item_text(hwnd, dict_pack_ctls[i].ctl_id, dict_pack_ctls[i].label);
                 gboolean on = gtv_dict_lang_enabled(g_app.config.dicts, dict_pack_ctls[i].dict_id);
                 CheckDlgButton(hwnd, dict_pack_ctls[i].ctl_id, on ? BST_CHECKED : BST_UNCHECKED);
             }
@@ -133,13 +150,18 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 CheckRadioButton(hwnd, IDC_RADIO_CTRL_SHIFT, IDC_RADIO_ALT_Z, IDC_RADIO_CTRL_SHIFT);
             }
 
+            if (g_app.config.ui_lang == GTV_LANG_EN) {
+                CheckRadioButton(hwnd, IDC_RADIO_LANG_VI, IDC_RADIO_LANG_EN, IDC_RADIO_LANG_EN);
+            } else {
+                CheckRadioButton(hwnd, IDC_RADIO_LANG_VI, IDC_RADIO_LANG_EN, IDC_RADIO_LANG_VI);
+            }
+
             CheckDlgButton(hwnd, IDC_CHECK_MODERN, g_app.config.modern ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_SPELL, g_app.config.spellcheck ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_STARTUP, gtv_startup_get() != GTV_STARTUP_NONE ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_CHECK_SUGGEST, g_app.config.suggest_enabled ? BST_CHECKED : BST_UNCHECKED);
-            dict_ui_refresh(hwnd);
-            gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,
-                "Gợi ý offline 100%, không cần mạng.");
+
+            setup_apply_language(hwnd, g_app.config.ui_lang);
 
             /* Center dialog on screen */
             RECT rc, rcOwner;
@@ -170,6 +192,8 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 g_app.config.modern = (IsDlgButtonChecked(hwnd, IDC_CHECK_MODERN) == BST_CHECKED);
                 g_app.config.spellcheck = (IsDlgButtonChecked(hwnd, IDC_CHECK_SPELL) == BST_CHECKED);
                 g_app.config.suggest_enabled = (IsDlgButtonChecked(hwnd, IDC_CHECK_SUGGEST) == BST_CHECKED);
+                g_app.config.ui_lang = get_dlg_lang(hwnd);
+                gtv_i18n_set_lang(g_app.config.ui_lang);
                 gchar *sel = collect_dlg_dicts(hwnd);
                 g_strlcpy(g_app.config.dicts, sel, sizeof(g_app.config.dicts));
                 gtv_dict_set_langs(sel);
@@ -200,21 +224,26 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 g_free(sel);
                 dict_ui_refresh(hwnd);
                 return TRUE;
+            } else if (id == IDC_RADIO_LANG_VI || id == IDC_RADIO_LANG_EN) {
+                GtvUiLang new_lang = (id == IDC_RADIO_LANG_EN) ? GTV_LANG_EN : GTV_LANG_VI;
+                setup_apply_language(hwnd, new_lang);
+                return TRUE;
             } else if (id == IDC_BTN_DICT_UPDATE) {
                 gchar *sel = collect_dlg_dicts(hwnd);
                 gtv_dict_set_langs(sel);
                 g_free(sel);
                 HWND btn = GetDlgItem(hwnd, IDC_BTN_DICT_UPDATE);
                 if (btn) EnableWindow(btn, FALSE);
+                GtvUiLang cur_lang = get_dlg_lang(hwnd);
                 gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,
-                    "Đang kiểm tra từ điển mới trên GitHub...");
+                    gtv_i18n_s(cur_lang, "Đang kiểm tra từ điển mới trên GitHub...", "Checking for new dictionary on GitHub..."));
                 GThread *th = g_thread_new("gtv-dict-update", dict_update_worker, hwnd);
                 if (th) {
                     g_thread_unref(th);
                 } else {
                     if (btn) EnableWindow(btn, TRUE);
                     gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,
-                        "Không chạy được tiến trình cập nhật.");
+                        gtv_i18n_s(cur_lang, "Không chạy được tiến trình cập nhật.", "Could not start update worker."));
                 }
                 return TRUE;
             } else if (id == IDC_BTN_CANCEL || id == IDCANCEL) {
@@ -234,15 +263,16 @@ static INT_PTR CALLBACK SetupDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             HWND btn = GetDlgItem(hwnd, IDC_BTN_DICT_UPDATE);
             if (btn) EnableWindow(btn, TRUE);
             dict_ui_refresh(hwnd);
+            GtvUiLang cur_lang = get_dlg_lang(hwnd);
             if (wParam) {
                 const gchar *tag = gtv_dict_tag();
-                gchar *msg = g_strdup_printf("Đã cập nhật từ điển %s (%u từ).",
+                gchar *msg = g_strdup_printf(gtv_i18n_s(cur_lang, "Đã cập nhật từ điển %s (%u từ).", "Updated dictionary %s (%u words)."),
                     (tag && *tag) ? tag : "", gtv_dict_count());
                 gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS, msg);
                 g_free(msg);
             } else {
                 gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_STATUS,
-                    "Từ điển đã mới nhất (hoặc không có mạng).");
+                    gtv_i18n_s(cur_lang, "Từ điển đã mới nhất (hoặc không có mạng).", "Dictionary is up to date (or offline)."));
             }
             return TRUE;
         }

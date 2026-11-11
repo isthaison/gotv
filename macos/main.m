@@ -23,14 +23,13 @@ static NSString *bundleVersion(void) {
 }
 
 static void showAvailableAlert(NSString *tag, NSString *url) {
-    NSString *msg = [NSString stringWithFormat:
-        @"Có bản mới %@. Tải về file cài đặt ngay?",
-        tag];
+    NSString *fmt = [NSString stringWithUTF8String:gtv_i18n("Có bản mới %@. Tải về file cài đặt ngay?", "A new version %@ is available. Download installer now?")];
+    NSString *msg = [NSString stringWithFormat:fmt, tag];
     NSAlert *alert = [[[NSAlert alloc] init] autorelease];
-    [alert setMessageText:@"GoTV cập nhật"];
+    [alert setMessageText:[NSString stringWithUTF8String:gtv_i18n("GoTV cập nhật", "GoTV Update")]];
     [alert setInformativeText:msg];
-    [alert addButtonWithTitle:@"Tải về"];
-    [alert addButtonWithTitle:@"Để sau"];
+    [alert addButtonWithTitle:[NSString stringWithUTF8String:gtv_i18n("Tải về", "Download")]];
+    [alert addButtonWithTitle:[NSString stringWithUTF8String:gtv_i18n("Để sau", "Later")]];
     if ([alert runModal] != NSAlertFirstButtonReturn) return;
     NSString *ext = [url pathExtension];
     if (![ext length]) ext = @"dmg";
@@ -41,8 +40,8 @@ static void showAvailableAlert(NSString *tag, NSString *url) {
             [NSArray arrayWithObject:[NSURL fileURLWithPath:dest]]];
     } else {
         NSAlert *err = [[[NSAlert alloc] init] autorelease];
-        [err setMessageText:@"GoTV cập nhật"];
-        [err setInformativeText:@"Không tải được bản mới (cần mạng và curl)."];
+        [err setMessageText:[NSString stringWithUTF8String:gtv_i18n("GoTV cập nhật", "GoTV Update")]];
+        [err setInformativeText:[NSString stringWithUTF8String:gtv_i18n("Không tải được bản mới (cần mạng và curl).", "Failed to download update (requires network and curl).")]];
         [err runModal];
     }
 }
@@ -100,10 +99,12 @@ static void showAvailableAlert(NSString *tag, NSString *url) {
         showAvailableAlert(nstag, nsurl);
     } else if (manual) {
         NSAlert *alert = [[[NSAlert alloc] init] autorelease];
-        [alert setMessageText:@"GoTV cập nhật"];
+        [alert setMessageText:[NSString stringWithUTF8String:gtv_i18n("GoTV cập nhật", "GoTV Update")]];
+        NSString *curFmt = [NSString stringWithUTF8String:gtv_i18n("Đang dùng bản mới nhất (%@).", "You are using the latest version (%@).")];
+        NSString *failStr = [NSString stringWithUTF8String:gtv_i18n("Không kiểm tra được bản mới. Thử lại sau.", "Could not check for updates. Try again later.")];
         [alert setInformativeText:(st == GTV_UPDATE_CURRENT)
-            ? [NSString stringWithFormat:@"Đang dùng bản mới nhất (%@).", current]
-            : @"Không kiểm tra được bản mới. Thử lại sau."];
+            ? [NSString stringWithFormat:curFmt, current]
+            : failStr];
         [alert runModal];
     }
 }
@@ -138,6 +139,13 @@ void GoTVCheckForUpdates(BOOL manual) {
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
     gtv_init();
+
+    gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gtv_config_load(&cfg, config_dir);
+    g_free(config_dir);
+    gtv_config_clear(&cfg);
 
     /* Bundled tables live in Contents/Resources/data (packaged by make);
      * user files in ~/.config/gotv win as usual. */

@@ -18,6 +18,7 @@
 #include "input_setup.h"
 #include "resource.h"
 #include "win_utf.h"
+#include "engine.h"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -364,8 +365,10 @@ static void on_remove(HWND hwnd) {
     if (sel < 0) return;
     if (st->working->items->len <= 1) {
         msg_box(hwnd,
-                "Cần ít nhất một bàn phím.\n"
-                "Windows không cho phép Win+Space không có gì để chuyển.",
+                gtv_i18n("Cần ít nhất một bàn phím.\n"
+                         "Windows không cho phép Win+Space không có gì để chuyển.",
+                         "At least one keyboard is required.\n"
+                         "Windows does not allow an empty keyboard list."),
                 MB_OK | MB_ICONWARNING);
         return;
     }
@@ -378,14 +381,18 @@ static void on_default(HWND hwnd) {
     KbdState *st = (KbdState *)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
     if (!st) return;
     if (ask(hwnd,
-            "Khôi phục mặc định của GoTV?\n\n"
-            "Anh (US) + Tiếng Việt (GoTV).\n"
-            "Các bàn phím khác bạn đã thêm sẽ bị gỡ.") != IDYES)
+            gtv_i18n("Khôi phục mặc định của GoTV?\n\n"
+                     "Anh (US) + Tiếng Việt (GoTV).\n"
+                     "Các bàn phím khác bạn đã thêm sẽ bị gỡ.",
+                     "Restore GoTV defaults?\n\n"
+                     "English (US) + Vietnamese (GoTV).\n"
+                     "Other keyboards you added will be removed.")) != IDYES)
         return;
     gtv_kbd_list_set_default(st->working);
     st->dirty = TRUE;
     list_fill(hwnd);
-    status_set(hwnd, "Đã đưa về mặc định — bấm \"Đóng\" để lưu.");
+    status_set(hwnd, gtv_i18n("Đã đưa về mặc định — bấm \"Đóng\" để lưu.",
+                              "Restored to defaults — click \"Close\" to save."));
 }
 
 static void on_add(HWND hwnd) {
@@ -402,7 +409,8 @@ static void on_add(HWND hwnd) {
     g_clear_pointer(&add.choices, gtv_kbd_choices_free);
     if (!gtv_kbd_list_equals(before, st->working)) {
         st->dirty = TRUE;
-        status_set(hwnd, "Đã thêm bàn phím — bấm \"Đóng\" để lưu.");
+        status_set(hwnd, gtv_i18n("Đã thêm bàn phím — bấm \"Đóng\" để lưu.",
+                                  "Keyboard added — click \"Close\" to save."));
     }
     gtv_kbd_list_free(before);
     list_fill(hwnd);
@@ -415,8 +423,10 @@ static void on_close(HWND hwnd) {
     if (st && st->busy) return;
     if (st && st->dirty) {
         if (ask(hwnd,
-                "Lưu danh sách bàn phím mới?\n\n"
-                "Chọn \"Có\" để lưu, \"Không\" để bỏ qua.") != IDYES) {
+                gtv_i18n("Lưu danh sách bàn phím mới?\n\n"
+                         "Chọn \"Có\" để lưu, \"Không\" để bỏ qua.",
+                         "Save new keyboard list?\n\n"
+                         "Select \"Yes\" to save, \"No\" to discard.")) != IDYES) {
             EndDialog(hwnd, IDCANCEL);
             return;
         }
@@ -429,14 +439,14 @@ static void on_close(HWND hwnd) {
         job->is_save = TRUE;
         st->busy = TRUE;
         set_busy(hwnd, TRUE);
-        status_set(hwnd, "Đang lưu danh sách bàn phím...");
+        status_set(hwnd, gtv_i18n("Đang lưu danh sách bàn phím...", "Saving keyboard list..."));
         GThread *th = g_thread_new("gtv-kbd-save", worker_write, job);
         if (th) g_thread_unref(th);
         else {
             job_free(job);
             st->busy = FALSE;
             set_busy(hwnd, FALSE);
-            status_set(hwnd, "Không tạo được luồng lưu.");
+            status_set(hwnd, gtv_i18n("Không tạo được luồng lưu.", "Could not create save worker."));
         }
         return;
     }
@@ -447,15 +457,15 @@ static INT_PTR CALLBACK KbdDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
     switch (msg) {
         case WM_INITDIALOG: {
             struct { int id; const char *text; } labels[] = {
-                { IDC_KBD_LBL_CURRENT, "Danh sách bàn phím (thứ tự Win+Space)" },
-                { IDC_KBD_UP, "Lên" },
-                { IDC_KBD_DOWN, "Xuống" },
-                { IDC_KBD_REMOVE, "Xóa" },
-                { IDC_KBD_ADD, "Thêm..." },
-                { IDC_KBD_DEFAULT, "Mặc định" },
-                { IDC_KBD_CLOSE, "Đóng" },
+                { IDC_KBD_LBL_CURRENT, gtv_i18n("Danh sách bàn phím (thứ tự Win+Space)", "Keyboard list (Win+Space order)") },
+                { IDC_KBD_UP, gtv_i18n("Lên", "Up") },
+                { IDC_KBD_DOWN, gtv_i18n("Xuống", "Down") },
+                { IDC_KBD_REMOVE, gtv_i18n("Xóa", "Remove") },
+                { IDC_KBD_ADD, gtv_i18n("Thêm...", "Add...") },
+                { IDC_KBD_DEFAULT, gtv_i18n("Mặc định", "Default") },
+                { IDC_KBD_CLOSE, gtv_i18n("Đóng", "Close") },
             };
-            gtv_win_set_window_text(hwnd, "GoTV - Bàn phím");
+            gtv_win_set_window_text(hwnd, gtv_i18n("GoTV - Bàn phím", "GoTV - Keyboards"));
             for (guint i = 0; i < G_N_ELEMENTS(labels); i++)
                 gtv_win_set_dlg_item_text(hwnd, labels[i].id, labels[i].text);
 
@@ -468,7 +478,7 @@ static INT_PTR CALLBACK KbdDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             SendMessageW(GetDlgItem(hwnd, IDC_KBD_LIST), LVM_SETCOLUMNWIDTH, 1, 92);
 
             set_busy(hwnd, TRUE);
-            status_set(hwnd, "Đang đọc danh sách bàn phím...");
+            status_set(hwnd, gtv_i18n("Đang đọc danh sách bàn phím...", "Reading keyboard list..."));
             run_job(hwnd, worker_read);
 
             RECT rc, desk;
@@ -494,13 +504,13 @@ static INT_PTR CALLBACK KbdDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                     gtv_kbd_list_copy(st->working, job->list);
                     st->dirty = FALSE;
                     list_fill(hwnd);
-                    status_set(hwnd, "Đã lưu danh sách bàn phím.");
+                    status_set(hwnd, gtv_i18n("Đã lưu danh sách bàn phím.", "Keyboard list saved."));
                     set_busy(hwnd, FALSE);
                 } else {
-                    status_set(hwnd, job->error ? job->error : "Không lưu được.");
+                    status_set(hwnd, job->error ? job->error : gtv_i18n("Không lưu được.", "Failed to save."));
                     msg_box(hwnd,
                             job->error ? job->error
-                                       : "Không áp dụng được danh sách bàn phím.",
+                                       : gtv_i18n("Không áp dụng được danh sách bàn phím.", "Could not apply keyboard list."),
                             MB_OK | MB_ICONWARNING);
                     set_busy(hwnd, FALSE);
                 }
@@ -516,7 +526,7 @@ static INT_PTR CALLBACK KbdDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                     status_set(hwnd, "");
                 } else {
                     status_set(hwnd, job->error ? job->error
-                                               : "Không đọc được danh sách bàn phím.");
+                                               : gtv_i18n("Không đọc được danh sách bàn phím.", "Could not read keyboard list."));
                 }
                 set_busy(hwnd, FALSE);
             }

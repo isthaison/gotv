@@ -8,10 +8,12 @@ G_BEGIN_DECLS
 /* Returned strings and arrays belong to the caller (g_free/g_ptr_array_unref). */
 typedef enum { GTV_TELEX, GTV_VNI } GtvMode;
 typedef enum { GTV_SWITCH_CTRL_SHIFT = 0, GTV_SWITCH_ALT_Z = 1 } GtvSwitchKey;
+typedef enum { GTV_LANG_VI = 0, GTV_LANG_EN = 1 } GtvUiLang;
 typedef struct {
     GtvMode mode;
     GtvSwitchKey switch_key;
     gboolean modern, spellcheck, suggest_enabled;
+    GtvUiLang ui_lang;
     gchar dicts[128];
 } GtvConfig;
 typedef struct {
@@ -87,6 +89,12 @@ gboolean gtv_update_download(const gchar *url, const gchar *dest_path);
 const gchar *gtv_update_last_error(void);
 gboolean gtv_update_should_autocheck(void);
 void gtv_update_mark_checked(void);
+
+/* UI Localization (Vietnamese / English) */
+void gtv_i18n_set_lang(GtvUiLang lang);
+GtvUiLang gtv_i18n_get_lang(void);
+const gchar *gtv_i18n_s(GtvUiLang lang, const gchar *vi, const gchar *en);
+const gchar *gtv_i18n(const gchar *vi, const gchar *en);
 
 G_END_DECLS
 

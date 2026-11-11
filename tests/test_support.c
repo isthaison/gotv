@@ -68,6 +68,22 @@ static void test_config(void) {
     gtv_config_load(&loaded,directory);
     g_assert_false(loaded.suggest_enabled);
     gtv_config_clear(&loaded);
+    /* Test general.lang saving and loading */
+    config.ui_lang = GTV_LANG_EN;
+    g_assert_true(gtv_config_save(&config, directory, NULL));
+    gtv_config_load(&loaded, directory);
+    g_assert_cmpint(loaded.ui_lang, ==, GTV_LANG_EN);
+    g_assert_cmpint(gtv_i18n_get_lang(), ==, GTV_LANG_EN);
+    g_assert_cmpstr(gtv_i18n("Tiếng Việt", "English"), ==, "English");
+    g_assert_cmpstr(gtv_i18n_s(GTV_LANG_VI, "Tiếng Việt", "English"), ==, "Tiếng Việt");
+    gtv_config_clear(&loaded);
+    config.ui_lang = GTV_LANG_VI;
+    g_assert_true(gtv_config_save(&config, directory, NULL));
+    gtv_config_load(&loaded, directory);
+    g_assert_cmpint(loaded.ui_lang, ==, GTV_LANG_VI);
+    g_assert_cmpint(gtv_i18n_get_lang(), ==, GTV_LANG_VI);
+    g_assert_cmpstr(gtv_i18n("Tiếng Việt", "English"), ==, "Tiếng Việt");
+    gtv_config_clear(&loaded);
     g_remove(path);g_free(path);
     path=g_build_filename(directory,"config",NULL);g_remove(path);g_free(path);
     g_rmdir(directory);g_free(directory);

@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.15" date="2026-11-11">
+      <description>
+        <p>Phát hành 0.9.15: Hỗ trợ song ngữ giao diện Tiếng Việt và Tiếng Anh.</p>
+      </description>
+    </release>
     <release version="0.9.13" date="2026-11-10">
       <description>
         <p>Kich hoat chuyen doi ban phim he thong Windows bang phim tat Ctrl+Shift hoac Alt+Z.</p>
@@ -283,3 +288,4 @@
   </releases>
   <content_rating type="oars-1.1" />
 </component>
+

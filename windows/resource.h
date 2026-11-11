@@ -40,10 +40,15 @@
 #define ID_TRAY_TOGGLE_VI   316
 #define ID_TRAY_SWITCH_CTRL_SHIFT 317
 #define ID_TRAY_SWITCH_ALT_Z 318
+#define ID_TRAY_LANG_VI     319
+#define ID_TRAY_LANG_EN     320
 
 #define IDC_GROUP_SWITCH    254
 #define IDC_RADIO_CTRL_SHIFT 255
 #define IDC_RADIO_ALT_Z     256
+#define IDC_GROUP_LANG      257
+#define IDC_RADIO_LANG_VI   258
+#define IDC_RADIO_LANG_EN   259
 
 #define IDC_BTN_DATA        217
 #define IDC_BTN_KEYBOARD    253
