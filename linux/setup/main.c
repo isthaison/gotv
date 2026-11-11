@@ -519,10 +519,29 @@ static void dict_ui_refresh(void){
     guint n = gtv_dict_count();
     const gchar *tag = gtv_dict_tag();
     const gchar *langs = gtv_dict_get_langs();
+    GtvUiLang lang = gtv_i18n_get_lang();
+
+    const gchar *disp_langs = langs;
+    guint total = gtv_dict_catalog_count();
+    gboolean all_selected = (total > 0);
+    for (guint i = 0; i < total; i++) {
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if (!info || !gtv_dict_lang_enabled(langs, info->id)) {
+            all_selected = FALSE;
+            break;
+        }
+    }
+    if (all_selected) {
+        disp_langs = gtv_i18n_s(lang, "tất cả", "all");
+    } else if (!disp_langs || !*disp_langs) {
+        disp_langs = "vi";
+    }
+
+    const gchar *bundled_str = gtv_i18n_s(lang, "cài sẵn", "bundled");
     gchar *ver = (n > 0)
-        ? g_strdup_printf("Từ điển %s · %u từ (%s)", (tag && *tag) ? tag : "cài sẵn", n,
-                          (langs && *langs) ? langs : "vi")
-        : g_strdup("Chưa có từ điển");
+        ? g_strdup_printf(gtv_i18n_s(lang, "Từ điển %s · %u từ (%s)", "Dictionary %s · %u words (%s)"),
+                          (tag && *tag) ? tag : bundled_str, n, disp_langs)
+        : g_strdup(gtv_i18n_s(lang, "Chưa có từ điển", "No dictionary available"));
     gtk_label_set_text(GTK_LABEL(lbl_dict_ver), ver);
     g_free(ver);
 }

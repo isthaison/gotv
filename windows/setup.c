@@ -44,10 +44,26 @@ static void dict_ui_refresh_lang(HWND hwnd, GtvUiLang lang) {
     const gchar *tag = gtv_dict_tag();
     const gchar *langs = gtv_dict_get_langs();
     const gchar *bundled_str = gtv_i18n_s(lang, "cài sẵn", "bundled");
+
+    const gchar *disp_langs = langs;
+    guint total = gtv_dict_catalog_count();
+    gboolean all_selected = (total > 0);
+    for (guint i = 0; i < total; i++) {
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if (!info || !gtv_dict_lang_enabled(langs, info->id)) {
+            all_selected = FALSE;
+            break;
+        }
+    }
+    if (all_selected) {
+        disp_langs = gtv_i18n_s(lang, "tất cả", "all");
+    } else if (!disp_langs || !*disp_langs) {
+        disp_langs = "vi";
+    }
+
     gchar *ver = (n > 0)
         ? g_strdup_printf(gtv_i18n_s(lang, "Từ điển %s · %u từ (%s)", "Dictionary %s · %u words (%s)"),
-                          (tag && *tag) ? tag : bundled_str, n,
-                          (langs && *langs) ? langs : "vi")
+                          (tag && *tag) ? tag : bundled_str, n, disp_langs)
         : g_strdup(gtv_i18n_s(lang, "Chưa có từ điển", "No dictionary available"));
     gtv_win_set_dlg_item_text(hwnd, IDC_LBL_DICT_VER, ver);
     g_free(ver);
