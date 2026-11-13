@@ -30,6 +30,7 @@ static const GtvDictInfo dict_catalog[] = {
 typedef struct {
     gchar *word;   /* NFC lowercase display form */
     gchar *folded; /* accent-folded for prefix/edit matching */
+    guint32 ascii_mask; /* 26-bit a-z bitmask of folded for fast pre-filter */
 } DictEntry;
 
 typedef struct {
@@ -179,6 +180,17 @@ static gint entry_cmp_folded(gconstpointer a, gconstpointer b) {
     return strcmp(ea->word, eb->word);
 }
 
+static guint32 folded_ascii_mask(const gchar *s) {
+    guint32 mask = 0;
+    if (!s) return 0;
+    for (const gchar *p = s; *p; p++) {
+        guchar c = (guchar)*p;
+        if (c >= 'a' && c <= 'z')
+            mask |= (1u << (c - 'a'));
+    }
+    return mask;
+}
+
 static void dict_parse_into(const gchar *path, DictStore *ds) {
     gchar *contents = NULL;
     if (!path || !g_file_get_contents(path, &contents, NULL, NULL)) return;
@@ -206,6 +218,7 @@ static void dict_parse_into(const gchar *path, DictStore *ds) {
             dict_entry_free(e);
             continue;
         }
+        e->ascii_mask = folded_ascii_mask(e->folded);
         g_ptr_array_add(ds->entries, e);
     }
     g_strfreev(lines);
@@ -524,27 +537,82 @@ static guint edit_distance_cap(const gchar *a, const gchar *b, guint cap) {
  * (â, ă, ê, ô, ơ, ư, đ) and tones. */
 static guint compute_mark_affinity(const gchar *typed_lower, const gchar *cand_word) {
     guint score = 0;
+    int typed_tone = TONE_NONE;
     for (const gchar *pa = typed_lower; *pa; pa = g_utf8_next_char(pa)) {
         gunichar ca = g_utf8_get_char(pa);
         int da = get_diac(ca);
         int ta = get_tone(ca);
+        if (ta != TONE_NONE && typed_tone == TONE_NONE) typed_tone = ta;
         if (da == DIAC_NONE && ta == TONE_NONE) continue;
         gunichar ba = bare_lower(ca);
         for (const gchar *pb = cand_word; *pb; pb = g_utf8_next_char(pb)) {
             gunichar cb = g_utf8_get_char(pb);
             if (bare_lower(cb) != ba) continue;
             if (da != DIAC_NONE && get_diac(cb) == da) score += 2;
-            if (ta != TONE_NONE && get_tone(cb) == ta) score += 1;
+            if (ta != TONE_NONE && get_tone(cb) == ta) score += 2;
             break;
+        }
+    }
+    if (typed_tone != TONE_NONE) {
+        for (const gchar *pb = cand_word; *pb; pb = g_utf8_next_char(pb)) {
+            if (get_tone(g_utf8_get_char(pb)) == typed_tone) {
+                score += 1;
+                break;
+            }
         }
     }
     return score;
 }
 
+static guint popcount32(guint32 x) {
+    x = x - ((x >> 1) & 0x55555555u);
+    x = (x & 0x33333333u) + ((x >> 2) & 0x33333333u);
+    return (((x + (x >> 4)) & 0x0F0F0F0Fu) * 0x01010101u) >> 24;
+}
+
+static guint vn_onset_rank(const gchar *a, const gchar *b) {
+    if (!a || !*a || !b || !*b) return 2;
+    if (a[0] == b[0]) return 0;
+    /* Common Vietnamese onset/orthographic confusion pairs */
+    if ((a[0] == 'c' && (b[0] == 'k' || b[0] == 'q')) ||
+        (a[0] == 'k' && (b[0] == 'c' || b[0] == 'q')) ||
+        (a[0] == 'q' && (b[0] == 'c' || b[0] == 'k')))
+        return 1;
+    if ((a[0] == 's' && b[0] == 'x') || (a[0] == 'x' && b[0] == 's'))
+        return 1;
+    if ((a[0] == 'l' && b[0] == 'n') || (a[0] == 'n' && b[0] == 'l'))
+        return 1;
+    if ((a[0] == 'd' && (b[0] == 'g' || b[0] == 'r')) ||
+        (a[0] == 'g' && (b[0] == 'd' || b[0] == 'r')) ||
+        (a[0] == 'r' && (b[0] == 'd' || b[0] == 'g')))
+        return 1;
+    if ((g_str_has_prefix(a, "tr") && g_str_has_prefix(b, "ch")) ||
+        (g_str_has_prefix(a, "ch") && g_str_has_prefix(b, "tr")))
+        return 1;
+    return 2;
+}
+
+static gboolean is_iy_equiv(const gchar *a, const gchar *b) {
+    if (!a || !b) return FALSE;
+    gboolean diff_iy = FALSE;
+    while (*a && *b) {
+        if (*a != *b) {
+            if ((*a == 'i' && *b == 'y') || (*a == 'y' && *b == 'i'))
+                diff_iy = TRUE;
+            else
+                return FALSE;
+        }
+        a++;
+        b++;
+    }
+    return diff_iy && *a == '\0' && *b == '\0';
+}
+
 typedef struct {
     const gchar *word;
     guint dist;
-    guint first_rank;    /* 0 = same 1st char, 1 = c/k onset pair, 2 = other */
+    guint first_rank;    /* 0 = same 1st char, 1 = Vietnamese onset pair, 2 = other */
+    guint iy_bonus;      /* 1 = differs only by i<->y, 0 = otherwise */
     guint mark_affinity; /* higher = better match for typed diacritics/tones */
     gsize len_diff;
     gsize prefix_match;  /* shared folded prefix length */
@@ -553,6 +621,7 @@ typedef struct {
 static gint correct_cmp(gconstpointer a, gconstpointer b) {
     const CorrectCand *ca = a, *cb = b;
     if (ca->dist != cb->dist) return ca->dist < cb->dist ? -1 : 1;
+    if (ca->iy_bonus != cb->iy_bonus) return ca->iy_bonus > cb->iy_bonus ? -1 : 1;
     if (ca->first_rank != cb->first_rank) return ca->first_rank < cb->first_rank ? -1 : 1;
     if (ca->mark_affinity != cb->mark_affinity)
         return ca->mark_affinity > cb->mark_affinity ? -1 : 1;
@@ -562,9 +631,10 @@ static gint correct_cmp(gconstpointer a, gconstpointer b) {
     return strcmp(ca->word, cb->word);
 }
 
-/* Corrections for a misspelled word: folded Damerau-Levenshtein distance <= 2,
- * ranked by distance, onset/first-letter match, diacritic/tone affinity,
- * length closeness, shared prefix length, then alphabetically. */
+/* Corrections for a misspelled word: folded Damerau-Levenshtein distance <= max_dist,
+ * pre-filtered by length and 26-bit ASCII letter mask, then ranked by distance,
+ * i/y equivalence, onset match, diacritic/tone affinity, length closeness,
+ * shared prefix length, and alphabetically. */
 void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
     if (!word || !*word || !out || max == 0) return;
     gchar *lower = gtv_word_key(word);
@@ -582,6 +652,8 @@ void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
         }
     }
     gsize want_len = strlen(folded);
+    guint max_dist = (want_len <= 2) ? 1 : 2;
+    guint32 want_mask = folded_ascii_mask(folded);
     const DictStore *ds = gtv_dict_get();
     if (ds && ds->entries) {
         GArray *cands = g_array_new(FALSE, FALSE, sizeof(CorrectCand));
@@ -591,22 +663,18 @@ void gtv_dict_correct(const gchar *word, GPtrArray *out, guint max) {
             if (!strcmp(e->word, lower)) continue;
             gsize elen = strlen(e->folded);
             gsize diff = elen > want_len ? elen - want_len : want_len - elen;
-            if (diff > 2) continue;
-            guint d = edit_distance_cap(folded, e->folded, 2);
-            if (d <= 2) {
+            if (diff > max_dist) continue;
+            if (popcount32(e->ascii_mask ^ want_mask) > max_dist * 2) continue;
+            guint d = edit_distance_cap(folded, e->folded, max_dist);
+            if (d <= max_dist) {
                 if (d == 0) has_dist_zero = TRUE;
-                guint first_rank = 2;
-                if (folded[0] && e->folded[0] == folded[0]) {
-                    first_rank = 0;
-                } else if ((folded[0] == 'k' && e->folded[0] == 'c') ||
-                           (folded[0] == 'c' && e->folded[0] == 'k')) {
-                    first_rank = 1;
-                }
+                guint first_rank = vn_onset_rank(folded, e->folded);
+                guint iy_bonus = (d == 1 && is_iy_equiv(folded, e->folded)) ? 1 : 0;
                 guint mark_aff = has_non_ascii ? compute_mark_affinity(lower, e->word) : 0;
                 gsize pfx = 0;
                 while (folded[pfx] && e->folded[pfx] && folded[pfx] == e->folded[pfx])
                     pfx++;
-                CorrectCand c = { e->word, d, first_rank, mark_aff, diff, pfx };
+                CorrectCand c = { e->word, d, first_rank, iy_bonus, mark_aff, diff, pfx };
                 g_array_append_val(cands, c);
             }
         }

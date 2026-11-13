@@ -311,6 +311,22 @@ static void test_dict(void) {
     g_assert_cmpuint(out->len, >, 0);
     g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "thành");
     g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("quí", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "quý");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("nghành", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "ngành");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("đượcc", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "được");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("hcọ", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "học");
+    g_ptr_array_set_size(out, 0);
     /* Dictionary membership and diacritic-preserving prefix completion. */
     g_assert_true(gtv_dict_contains("được"));
     g_assert_false(gtv_dict_contains("khoog"));

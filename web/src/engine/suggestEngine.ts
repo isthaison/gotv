@@ -185,5 +185,174 @@ export function getSuggestions(prefix: string, maxCount = 6): SuggestionItem[] {
     }
   }
 
+  // 3. Typo correction fallback when no prefix matches exist
+  if (results.length === 0) {
+    return correctTypos(trimmed, lowerPrefix, foldedPrefix, maxCount);
+  }
+
+  return results;
+}
+
+function popcount32(x: number): number {
+  x = x - ((x >>> 1) & 0x55555555);
+  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+  return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+}
+
+function editDistanceCap(a: string, b: string, cap: number): number {
+  const na = a.length;
+  const nb = b.length;
+  if (Math.abs(na - nb) > cap) return cap + 1;
+
+  let prev2 = new Array<number>(nb + 1).fill(0);
+  let prev = new Array<number>(nb + 1);
+  for (let j = 0; j <= nb; j++) prev[j] = j;
+
+  for (let i = 1; i <= na; i++) {
+    const cur = new Array<number>(nb + 1);
+    cur[0] = i;
+    let rowMin = cur[0];
+    for (let j = 1; j <= nb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let m = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        const trans = prev2[j - 2] + 1;
+        if (trans < m) m = trans;
+      }
+      cur[j] = m;
+      if (m < rowMin) rowMin = m;
+    }
+    if (rowMin > cap) return cap + 1;
+    prev2 = prev;
+    prev = cur;
+  }
+  return prev[nb];
+}
+
+function vnOnsetRank(a: string, b: string): number {
+  if (!a || !b) return 2;
+  if (a[0] === b[0]) return 0;
+  const a0 = a[0];
+  const b0 = b[0];
+  if (
+    ('ckq'.includes(a0) && 'ckq'.includes(b0)) ||
+    ('sx'.includes(a0) && 'sx'.includes(b0)) ||
+    ('ln'.includes(a0) && 'ln'.includes(b0)) ||
+    ('dgr'.includes(a0) && 'dgr'.includes(b0)) ||
+    (a.startsWith('tr') && b.startsWith('ch')) ||
+    (a.startsWith('ch') && b.startsWith('tr'))
+  ) {
+    return 1;
+  }
+  return 2;
+}
+
+function isIyEquiv(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diffIy = false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      if ((a[i] === 'i' && b[i] === 'y') || (a[i] === 'y' && b[i] === 'i')) {
+        diffIy = true;
+      } else {
+        return false;
+      }
+    }
+  }
+  return diffIy;
+}
+
+function computeMarkAffinity(typedLower: string, candLower: string): number {
+  let score = 0;
+  for (const chA of typedLower) {
+    if (chA.charCodeAt(0) < 0x80) continue;
+    const baseA = foldAccents(chA);
+    for (const chB of candLower) {
+      if (foldAccents(chB) !== baseA) continue;
+      if (chA === chB) score += 3;
+      else score += 1;
+      break;
+    }
+  }
+  return score;
+}
+
+function correctTypos(
+  trimmed: string,
+  lowerPrefix: string,
+  foldedPrefix: string,
+  maxCount: number
+): SuggestionItem[] {
+  const wantLen = foldedPrefix.length;
+  const maxDist = wantLen <= 2 ? 1 : 2;
+  const wantMask = foldedAsciiMask(foldedPrefix);
+  const hasNonAscii = lowerPrefix !== foldedPrefix;
+
+  interface Cand {
+    item: IndexedWord;
+    dist: number;
+    iyBonus: number;
+    firstRank: number;
+    markAff: number;
+    commonBonus: number;
+    lenDiff: number;
+    prefixMatch: number;
+  }
+
+  const cands: Cand[] = [];
+  let hasDistZero = false;
+
+  for (let i = 0; i < INDEXED_DICT.length; i++) {
+    const item = INDEXED_DICT[i];
+    if (item.lower === lowerPrefix) continue;
+    const lenDiff = Math.abs(item.folded.length - wantLen);
+    if (lenDiff > maxDist) continue;
+    if (popcount32((item.asciiMask ^ wantMask) >>> 0) > maxDist * 2) continue;
+
+    const d = editDistanceCap(foldedPrefix, item.folded, maxDist);
+    if (d <= maxDist) {
+      if (d === 0) hasDistZero = true;
+      let pfx = 0;
+      while (pfx < wantLen && pfx < item.folded.length && foldedPrefix[pfx] === item.folded[pfx]) {
+        pfx++;
+      }
+      cands.push({
+        item,
+        dist: d,
+        iyBonus: d === 1 && isIyEquiv(foldedPrefix, item.folded) ? 1 : 0,
+        firstRank: vnOnsetRank(foldedPrefix, item.folded),
+        markAff: hasNonAscii ? computeMarkAffinity(lowerPrefix, item.lower) : 0,
+        commonBonus: COMMON_PRIORITY.has(item.lower) ? 1 : 0,
+        lenDiff,
+        prefixMatch: pfx,
+      });
+    }
+  }
+
+  cands.sort((a, b) => {
+    if (a.dist !== b.dist) return a.dist - b.dist;
+    if (a.iyBonus !== b.iyBonus) return b.iyBonus - a.iyBonus;
+    if (a.firstRank !== b.firstRank) return a.firstRank - b.firstRank;
+    if (a.markAff !== b.markAff) return b.markAff - a.markAff;
+    if (a.commonBonus !== b.commonBonus) return b.commonBonus - a.commonBonus;
+    if (a.lenDiff !== b.lenDiff) return a.lenDiff - b.lenDiff;
+    if (a.prefixMatch !== b.prefixMatch) return b.prefixMatch - a.prefixMatch;
+    return a.item.lower.localeCompare(b.item.lower);
+  });
+
+  const results: SuggestionItem[] = [];
+  const seen = new Set<string>();
+  for (const c of cands) {
+    if (hasNonAscii && hasDistZero && c.dist > 0) continue;
+    if (seen.has(c.item.lower)) continue;
+    seen.add(c.item.lower);
+    const cased = matchCase(trimmed, c.item.raw);
+    results.push({
+      word: cased,
+      display: cased,
+      kind: 'correction',
+    });
+    if (results.length >= maxCount) break;
+  }
   return results;
 }
