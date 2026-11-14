@@ -542,10 +542,102 @@ static void on_cancel(GtkWidget *w, gpointer data){
 }
 typedef struct {
     GtkWidget *list;
-    GtkWidget *entry_app;
+    GtkWidget *combo_app;
     GtkWidget *checks[8];
     GPtrArray *rules;
 } AppDictDlg;
+
+typedef struct {
+    gchar *id;
+    gchar *label;
+} AppComboItem;
+
+static void app_combo_item_free(gpointer p) {
+    AppComboItem *it = p;
+    if (!it) return;
+    g_free(it->id);
+    g_free(it->label);
+    g_free(it);
+}
+
+static gint app_combo_item_cmp(gconstpointer a, gconstpointer b) {
+    const AppComboItem *ia = *(const AppComboItem * const *)a;
+    const AppComboItem *ib = *(const AppComboItem * const *)b;
+    return g_utf8_collate(ia->label ? ia->label : "", ib->label ? ib->label : "");
+}
+
+static gboolean is_generic_launcher(const gchar *id) {
+    if (!id || !*id) return TRUE;
+    const char * const generic[] = {
+        "sh", "bash", "zsh", "env", "flatpak", "snap", "python", "python3", "java", "xdg-open", NULL
+    };
+    for (int i = 0; generic[i]; i++) {
+        if (g_strcmp0(id, generic[i]) == 0) return TRUE;
+    }
+    return FALSE;
+}
+
+static void app_dict_populate_combo(AppDictDlg *d) {
+    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(d->combo_app));
+    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    GPtrArray *items = g_ptr_array_new_with_free_func(app_combo_item_free);
+
+    GList *apps = g_app_info_get_all();
+    for (GList *l = apps; l; l = l->next) {
+        GAppInfo *app = G_APP_INFO(l->data);
+        if (!app || !g_app_info_should_show(app)) continue;
+        const char *name = g_app_info_get_display_name(app);
+        const char *exec = g_app_info_get_executable(app);
+        gchar *norm = gtv_app_dict_normalize_id(exec);
+        if (is_generic_launcher(norm)) {
+            g_free(norm);
+            norm = gtv_app_dict_normalize_id(g_app_info_get_id(app));
+            if (norm && g_str_has_suffix(norm, ".desktop")) {
+                norm[strlen(norm) - 8] = '\0';
+            }
+        }
+        if (!norm || !*norm) {
+            g_free(norm);
+            continue;
+        }
+        if (g_hash_table_contains(seen, norm)) {
+            g_free(norm);
+            continue;
+        }
+        g_hash_table_insert(seen, g_strdup(norm), GINT_TO_POINTER(1));
+        AppComboItem *it = g_new0(AppComboItem, 1);
+        it->id = norm;
+        it->label = (name && *name && g_ascii_strcasecmp(name, norm) != 0)
+            ? g_strdup_printf("%s (%s)", name, norm)
+            : g_strdup(norm);
+        g_ptr_array_add(items, it);
+    }
+    g_list_free_full(apps, g_object_unref);
+
+    if (d->rules) {
+        for (guint i = 0; i < d->rules->len; i++) {
+            GtvAppDictRule *r = d->rules->pdata[i];
+            if (!r || !r->app_id || g_hash_table_contains(seen, r->app_id)) continue;
+            g_hash_table_insert(seen, g_strdup(r->app_id), GINT_TO_POINTER(1));
+            AppComboItem *it = g_new0(AppComboItem, 1);
+            it->id = g_strdup(r->app_id);
+            it->label = g_strdup(r->app_id);
+            g_ptr_array_add(items, it);
+        }
+    }
+
+    g_ptr_array_sort(items, app_combo_item_cmp);
+    for (guint i = 0; i < items->len; i++) {
+        AppComboItem *it = items->pdata[i];
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(d->combo_app), it->id, it->label);
+    }
+    if (items->len > 0) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(d->combo_app), 0);
+    }
+
+    g_ptr_array_unref(items);
+    g_hash_table_destroy(seen);
+}
 
 static void app_dict_dlg_refresh(AppDictDlg *d) {
     GList *children = gtk_container_get_children(GTK_CONTAINER(d->list));
@@ -577,7 +669,10 @@ static void on_app_dict_row_selected(GtkListBox *box, GtkListBoxRow *row, gpoint
     guint idx = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(row), "rule-index"));
     if (idx >= d->rules->len) return;
     GtvAppDictRule *r = d->rules->pdata[idx];
-    gtk_entry_set_text(GTK_ENTRY(d->entry_app), r->app_id);
+    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(d->combo_app), r->app_id)) {
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(d->combo_app), r->app_id, r->app_id);
+        gtk_combo_box_set_active_id(GTK_COMBO_BOX(d->combo_app), r->app_id);
+    }
     guint n = gtv_dict_catalog_count();
     for (guint i = 0; i < n && i < G_N_ELEMENTS(d->checks); i++) {
         const GtvDictInfo *info = gtv_dict_catalog_get(i);
@@ -591,7 +686,8 @@ static void on_app_dict_row_selected(GtkListBox *box, GtkListBoxRow *row, gpoint
 static void on_app_dict_add(GtkButton *btn, gpointer data) {
     (void)btn;
     AppDictDlg *d = data;
-    gchar *norm = gtv_app_dict_normalize_id(gtk_entry_get_text(GTK_ENTRY(d->entry_app)));
+    const gchar *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(d->combo_app));
+    gchar *norm = gtv_app_dict_normalize_id(active_id);
     if (!norm) return;
     GString *sel = g_string_new("");
     guint n = gtv_dict_catalog_count();
@@ -651,7 +747,7 @@ static void on_app_dicts(GtkWidget *w, gpointer data) {
     gtk_container_set_border_width(GTK_CONTAINER(box), 10);
     gtk_box_pack_start(GTK_BOX(content), box, TRUE, TRUE, 0);
 
-    GtkWidget *hint = gtk_label_new("Nhập tên ứng dụng / tiến trình (vd: code, firefox, libreoffice):");
+    GtkWidget *hint = gtk_label_new("Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:");
     gtk_label_set_xalign(GTK_LABEL(hint), 0.0);
     gtk_box_pack_start(GTK_BOX(box), hint, FALSE, FALSE, 0);
 
@@ -666,9 +762,9 @@ static void on_app_dicts(GtkWidget *w, gpointer data) {
     gtk_box_pack_start(GTK_BOX(box), sc, TRUE, TRUE, 0);
     g_signal_connect(d.list, "row-selected", G_CALLBACK(on_app_dict_row_selected), &d);
 
-    d.entry_app = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(d.entry_app), "Tên app (vd: code, gedit, firefox)");
-    gtk_box_pack_start(GTK_BOX(box), d.entry_app, FALSE, FALSE, 0);
+    d.combo_app = gtk_combo_box_text_new();
+    gtk_box_pack_start(GTK_BOX(box), d.combo_app, FALSE, FALSE, 0);
+    app_dict_populate_combo(&d);
 
     GtkWidget *grid = gtk_grid_new();
     gtk_grid_set_column_spacing(GTK_GRID(grid), 10);

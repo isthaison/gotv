@@ -89,6 +89,184 @@ static void pin_dialog_font(HWND hwnd) {
 
 static HWND s_hwndSetup = NULL;
 static GPtrArray *s_app_rules = NULL;
+static GPtrArray *s_combo_app_ids = NULL;
+
+typedef struct {
+    gchar *id;
+    gchar *label;
+} WinAppComboItem;
+
+static void win_app_combo_item_free(gpointer p) {
+    WinAppComboItem *it = p;
+    if (!it) return;
+    g_free(it->id);
+    g_free(it->label);
+    g_free(it);
+}
+
+static gint win_app_combo_item_cmp(gconstpointer a, gconstpointer b) {
+    const WinAppComboItem *ia = *(const WinAppComboItem * const *)a;
+    const WinAppComboItem *ib = *(const WinAppComboItem * const *)b;
+    return g_ascii_strcasecmp(ia->id ? ia->id : "", ib->id ? ib->id : "");
+}
+
+typedef struct {
+    GHashTable *seen;
+    GPtrArray *items;
+} WinAppEnumCtx;
+
+static gboolean is_ignored_win_exe(const gchar *id) {
+    if (!id || !*id) return TRUE;
+    const char * const ignored[] = {
+        "explorer.exe", "applicationframehost.exe", "textinputhost.exe",
+        "shellexperiencehost.exe", "searchhost.exe", "startmenuexperiencehost.exe",
+        "systemsettings.exe", "gotv.exe", "setup.exe", "update.exe", NULL
+    };
+    for (int i = 0; ignored[i]; i++) {
+        if (g_strcmp0(id, ignored[i]) == 0) return TRUE;
+    }
+    if (g_str_has_prefix(id, "unins")) return TRUE;
+    return FALSE;
+}
+
+static void win_app_add_item(WinAppEnumCtx *ctx, const gchar *raw_id, const gchar *title) {
+    gchar *norm = gtv_app_dict_normalize_id(raw_id);
+    if (!norm || !*norm || is_ignored_win_exe(norm)) {
+        g_free(norm);
+        return;
+    }
+    if (!g_str_has_suffix(norm, ".exe")) {
+        gchar *with_exe = g_strconcat(norm, ".exe", NULL);
+        g_free(norm);
+        norm = with_exe;
+    }
+    if (g_hash_table_contains(ctx->seen, norm)) {
+        g_free(norm);
+        return;
+    }
+    g_hash_table_insert(ctx->seen, g_strdup(norm), GINT_TO_POINTER(1));
+    WinAppComboItem *it = g_new0(WinAppComboItem, 1);
+    it->id = norm;
+    if (title && *title) {
+        gchar *short_title = g_utf8_substring(title, 0, MIN(g_utf8_strlen(title, -1), 42));
+        it->label = g_strdup_printf("%s — %s", norm, short_title);
+        g_free(short_title);
+    } else {
+        it->label = g_strdup(norm);
+    }
+    g_ptr_array_add(ctx->items, it);
+}
+
+static BOOL CALLBACK ad_enum_win_cb(HWND w, LPARAM lParam) {
+    WinAppEnumCtx *ctx = (WinAppEnumCtx *)lParam;
+    if (!IsWindowVisible(w) || GetWindowTextLengthW(w) <= 0) return TRUE;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(w, &pid);
+    if (!pid) return TRUE;
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return TRUE;
+    WCHAR exePath[MAX_PATH];
+    DWORD sz = MAX_PATH;
+    if (QueryFullProcessImageNameW(hProc, 0, exePath, &sz) && sz > 0) {
+        WCHAR wtitle[128] = {0};
+        GetWindowTextW(w, wtitle, 127);
+        gchar *u8_path = g_utf16_to_utf8((const gunichar2 *)exePath, -1, NULL, NULL, NULL);
+        gchar *u8_title = g_utf16_to_utf8((const gunichar2 *)wtitle, -1, NULL, NULL, NULL);
+        if (u8_path) win_app_add_item(ctx, u8_path, u8_title);
+        g_free(u8_path);
+        g_free(u8_title);
+    }
+    CloseHandle(hProc);
+    return TRUE;
+}
+
+static void ad_collect_reg_app_paths(WinAppEnumCtx *ctx, HKEY root) {
+    HKEY hKey = NULL;
+    if (RegOpenKeyExW(root, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths",
+                      0, KEY_READ, &hKey) != ERROR_SUCCESS)
+        return;
+    WCHAR subName[256];
+    for (DWORD idx = 0; ; idx++) {
+        DWORD len = G_N_ELEMENTS(subName);
+        if (RegEnumKeyExW(hKey, idx, subName, &len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+            break;
+        gchar *u8 = g_utf16_to_utf8((const gunichar2 *)subName, -1, NULL, NULL, NULL);
+        if (u8) {
+            if (g_str_has_suffix(u8, ".exe") || g_str_has_suffix(u8, ".EXE"))
+                win_app_add_item(ctx, u8, NULL);
+            g_free(u8);
+        }
+    }
+    RegCloseKey(hKey);
+}
+
+static void ad_select_combo_app(HWND hwnd, const gchar *app_id) {
+    HWND combo = GetDlgItem(hwnd, IDC_AD_APP);
+    if (!combo || !s_combo_app_ids || !app_id || !*app_id) return;
+    gchar *norm = gtv_app_dict_normalize_id(app_id);
+    if (!norm) return;
+    gchar *with_exe = g_str_has_suffix(norm, ".exe") ? g_strdup(norm) : g_strconcat(norm, ".exe", NULL);
+    for (guint i = 0; i < s_combo_app_ids->len; i++) {
+        const gchar *cid = g_ptr_array_index(s_combo_app_ids, i);
+        if (g_strcmp0(cid, norm) == 0 || g_strcmp0(cid, with_exe) == 0) {
+            SendMessageW(combo, CB_SETCURSEL, (WPARAM)i, 0);
+            g_free(norm);
+            g_free(with_exe);
+            return;
+        }
+    }
+    /* Not in list yet: append it dynamically */
+    gunichar2 *w = g_utf8_to_utf16(norm, -1, NULL, NULL, NULL);
+    if (w) {
+        LRESULT idx = SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)w);
+        if (idx >= 0) {
+            g_ptr_array_add(s_combo_app_ids, g_strdup(norm));
+            SendMessageW(combo, CB_SETCURSEL, (WPARAM)idx, 0);
+        }
+        g_free(w);
+    }
+    g_free(norm);
+    g_free(with_exe);
+}
+
+static void ad_populate_combo(HWND hwnd) {
+    HWND combo = GetDlgItem(hwnd, IDC_AD_APP);
+    SendMessageW(combo, CB_RESETCONTENT, 0, 0);
+    if (s_combo_app_ids) g_ptr_array_unref(s_combo_app_ids);
+    s_combo_app_ids = g_ptr_array_new_with_free_func(g_free);
+
+    WinAppEnumCtx ctx;
+    ctx.seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    ctx.items = g_ptr_array_new_with_free_func(win_app_combo_item_free);
+
+    EnumWindows(ad_enum_win_cb, (LPARAM)&ctx);
+    ad_collect_reg_app_paths(&ctx, HKEY_CURRENT_USER);
+    ad_collect_reg_app_paths(&ctx, HKEY_LOCAL_MACHINE);
+
+    if (s_app_rules) {
+        for (guint i = 0; i < s_app_rules->len; i++) {
+            const GtvAppDictRule *r = g_ptr_array_index(s_app_rules, i);
+            if (r && r->app_id) win_app_add_item(&ctx, r->app_id, NULL);
+        }
+    }
+
+    g_ptr_array_sort(ctx.items, win_app_combo_item_cmp);
+    for (guint i = 0; i < ctx.items->len; i++) {
+        WinAppComboItem *it = g_ptr_array_index(ctx.items, i);
+        gunichar2 *w = g_utf8_to_utf16(it->label, -1, NULL, NULL, NULL);
+        if (w) {
+            SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)w);
+            g_ptr_array_add(s_combo_app_ids, g_strdup(it->id));
+            g_free(w);
+        }
+    }
+    if (s_combo_app_ids->len > 0) {
+        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+    }
+
+    g_ptr_array_unref(ctx.items);
+    g_hash_table_destroy(ctx.seen);
+}
 
 static const DictPackCtl app_dict_ctls[] = {
     { IDC_AD_VI,     "vi",     "Tiếng Việt" },
@@ -156,7 +334,7 @@ static void ad_load_selection(HWND hwnd) {
     int idx = ad_selection(hwnd);
     if (idx < 0 || !s_app_rules || (guint)idx >= s_app_rules->len) return;
     const GtvAppDictRule *r = g_ptr_array_index(s_app_rules, (guint)idx);
-    gtv_win_set_dlg_item_text(hwnd, IDC_AD_APP, r->app_id ? r->app_id : "");
+    ad_select_combo_app(hwnd, r->app_id);
     for (guint i = 0; i < G_N_ELEMENTS(app_dict_ctls); i++) {
         gboolean on = gtv_dict_lang_enabled(r->dicts, app_dict_ctls[i].dict_id);
         CheckDlgButton(hwnd, app_dict_ctls[i].ctl_id, on ? BST_CHECKED : BST_UNCHECKED);
@@ -184,7 +362,7 @@ static INT_PTR CALLBACK AppDictsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_AD_SAVE, "Thêm / Cập nhật" },
                 { IDC_AD_DELETE, "Xóa" },
                 { IDC_AD_CLOSE, "Đóng" },
-                { IDC_AD_NOTE, "Nhập tên tiến trình (.exe), ví dụ: ssms.exe, code.exe, winword.exe. Ứng dụng không có quy tắc riêng sẽ dùng danh sách mặc định." },
+                { IDC_AD_NOTE, "Chọn ứng dụng từ danh sách các ứng dụng đang chạy hoặc đã cài trên máy. Ứng dụng không có quy tắc riêng sẽ dùng danh sách mặc định." },
             };
             gtv_win_set_window_text(hwnd, "Từ điển theo từng ứng dụng");
             for (guint i = 0; i < G_N_ELEMENTS(labels); i++)
@@ -195,10 +373,10 @@ static INT_PTR CALLBACK AppDictsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 CheckDlgButton(hwnd, app_dict_ctls[i].ctl_id, on ? BST_CHECKED : BST_UNCHECKED);
             }
             pin_dialog_font(hwnd);
-            SendMessageW(GetDlgItem(hwnd, IDC_AD_APP), EM_LIMITTEXT, 255, 0);
             gchar *cfg_dir = gtv_app_config_dir();
             s_app_rules = gtv_app_dicts_load(cfg_dir);
             g_free(cfg_dir);
+            ad_populate_combo(hwnd);
             ad_setup_columns(hwnd);
             ad_refresh_list(hwnd);
             RECT rc, rcOwner;
@@ -222,11 +400,12 @@ static INT_PTR CALLBACK AppDictsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         case WM_COMMAND: {
             int id = LOWORD(wParam);
             if (id == IDC_AD_SAVE) {
-                gchar *raw = gtv_win_get_dlg_item_text(hwnd, IDC_AD_APP, 256);
-                gchar *norm = gtv_app_dict_normalize_id(raw);
-                g_free(raw);
+                LRESULT sel = SendMessageW(GetDlgItem(hwnd, IDC_AD_APP), CB_GETCURSEL, 0, 0);
+                const gchar *sel_id = (sel >= 0 && s_combo_app_ids && (guint)sel < s_combo_app_ids->len)
+                    ? g_ptr_array_index(s_combo_app_ids, (guint)sel) : NULL;
+                gchar *norm = gtv_app_dict_normalize_id(sel_id);
                 if (!norm) {
-                    ad_warn(hwnd, "Vui lòng nhập tên tiến trình (ví dụ: ssms.exe hoặc code.exe).");
+                    ad_warn(hwnd, "Vui lòng chọn một ứng dụng từ danh sách.");
                     return TRUE;
                 }
                 gchar *dicts = collect_dicts_from(hwnd, app_dict_ctls, G_N_ELEMENTS(app_dict_ctls));
@@ -256,7 +435,6 @@ static INT_PTR CALLBACK AppDictsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                     g_ptr_array_remove_index(s_app_rules, (guint)idx);
                     ad_save_rules(hwnd);
                     ad_refresh_list(hwnd);
-                    gtv_win_set_dlg_item_text(hwnd, IDC_AD_APP, "");
                 }
                 return TRUE;
             } else if (id == IDC_AD_CLOSE || id == IDCANCEL) {
@@ -272,6 +450,10 @@ static INT_PTR CALLBACK AppDictsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             if (s_app_rules) {
                 g_ptr_array_unref(s_app_rules);
                 s_app_rules = NULL;
+            }
+            if (s_combo_app_ids) {
+                g_ptr_array_unref(s_combo_app_ids);
+                s_combo_app_ids = NULL;
             }
             HFONT fixed = (HFONT)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
             if (fixed)

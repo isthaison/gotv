@@ -4,7 +4,7 @@
 # Standard syllables: strictly conforms to official Vietnamese orthographic rules (Quy chuẩn chính tả tiếng Việt).
 # Regenerate: ./tools/mkdict.sh vX.Y.Z
 # Format: '#' comments and blank lines ignored; validated with gtv_word_key on load.
-# dict-tag: v0.9.15
+# dict-tag: v0.9.16
 a
 ai
 am

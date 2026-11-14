@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.16" date="2026-11-14">
+      <description>
+        <p>Chuyển phần chọn ứng dụng trong từ điển theo ứng dụng sang dạng select (dropdown) trên Linux, Windows và macOS</p>
+      </description>
+    </release>
     <release version="0.9.15" date="2026-11-14">
       <description>
         <p>Hỗ trợ thiết lập bộ từ điển riêng cho từng ứng dụng (Windows, macOS, Linux) và tối ưu bộ nhớ đệm từ điển.</p>

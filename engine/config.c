@@ -426,10 +426,19 @@ const gchar *gtv_config_resolve_dicts(const GtvConfig *config, const gchar *app_
             gchar *no_exe = g_strndup(norm_id, strlen(norm_id) - 4);
             hit = g_hash_table_lookup(app_dicts_cache, no_exe);
             g_free(no_exe);
+        } else if (g_str_has_suffix(norm_id, ".desktop")) {
+            gchar *no_dt = g_strndup(norm_id, strlen(norm_id) - 8);
+            hit = g_hash_table_lookup(app_dicts_cache, no_dt);
+            g_free(no_dt);
         } else {
             gchar *with_exe = g_strconcat(norm_id, ".exe", NULL);
             hit = g_hash_table_lookup(app_dicts_cache, with_exe);
             g_free(with_exe);
+            if (!hit) {
+                gchar *with_dt = g_strconcat(norm_id, ".desktop", NULL);
+                hit = g_hash_table_lookup(app_dicts_cache, with_dt);
+                g_free(with_dt);
+            }
         }
     }
     if (hit && *hit) {

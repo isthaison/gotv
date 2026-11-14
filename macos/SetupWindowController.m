@@ -34,13 +34,14 @@ extern void GoTVCheckForUpdates(BOOL manual);
 @interface GtvAppDictsWindow : NSObject <NSTableViewDataSource, NSTableViewDelegate> {
     NSWindow *window;
     NSTableView *table;
-    NSTextField *appField;
+    NSPopUpButton *appPop;
     NSButton *checks[5];
     GPtrArray *rules;
 }
 + (instancetype)shared;
 - (void)show;
 - (void)refresh;
+- (void)populateApps;
 - (IBAction)addOrUpdate:(id)sender;
 - (IBAction)removeSelected:(id)sender;
 @end
@@ -69,7 +70,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [window setReleasedWhenClosed:NO];
         NSView *view = [window contentView];
 
-        NSTextField *note = [NSTextField labelWithString:@"Nhập Bundle ID (vd: com.microsoft.VSCode, com.apple.Terminal):"];
+        NSTextField *note = [NSTextField labelWithString:@"Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:"];
         [note setFrame:NSMakeRect(12, 356, 456, 22)];
         [view addSubview:note];
 
@@ -93,9 +94,8 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [scroll setDocumentView:table];
         [view addSubview:scroll];
 
-        appField = [[[NSTextField alloc] initWithFrame:NSMakeRect(12, 128, 456, 24)] autorelease];
-        [appField setPlaceholderString:@"com.microsoft.VSCode"];
-        [view addSubview:appField];
+        appPop = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(12, 126, 456, 26) pullsDown:NO] autorelease];
+        [view addSubview:appPop];
 
         const char *titles[5] = { "Tiếng Việt", "T-SQL", "C / C++", "C# (.NET)", "Tiếng Anh" };
         for (int i = 0; i < 5; i++) {
@@ -129,9 +129,71 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [window makeKeyAndOrderFront:nil];
 }
 
+- (void)populateApps {
+    if (!appPop) return;
+    [appPop removeAllItems];
+    NSMutableDictionary *entries = [NSMutableDictionary dictionary];
+
+    for (NSRunningApplication *ra in [[NSWorkspace sharedWorkspace] runningApplications]) {
+        if ([ra activationPolicy] != NSApplicationActivationPolicyRegular) continue;
+        NSString *bid = [[ra bundleIdentifier] lowercaseString];
+        if (!bid || [bid length] == 0) continue;
+        NSString *name = [ra localizedName];
+        NSString *label = (name && [name length] > 0)
+            ? [NSString stringWithFormat:@"%@ (%@)", name, bid]
+            : bid;
+        if (![entries objectForKey:bid]) [entries setObject:label forKey:bid];
+    }
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray *dirs = [NSArray arrayWithObjects:
+        @"/Applications",
+        @"/System/Applications",
+        @"/System/Applications/Utilities",
+        [NSHomeDirectory() stringByAppendingPathComponent:@"Applications"],
+        nil];
+    for (NSString *dir in dirs) {
+        NSArray *items = [fm contentsOfDirectoryAtPath:dir error:nil];
+        for (NSString *item in items) {
+            if (![[item pathExtension] isEqualToString:@"app"]) continue;
+            NSString *full = [dir stringByAppendingPathComponent:item];
+            NSBundle *b = [NSBundle bundleWithPath:full];
+            NSString *bid = [[b bundleIdentifier] lowercaseString];
+            if (!bid || [bid length] == 0 || [entries objectForKey:bid]) continue;
+            NSString *disp = [b objectForInfoDictionaryKey:@"CFBundleDisplayName"];
+            if (!disp || [disp length] == 0) disp = [b objectForInfoDictionaryKey:@"CFBundleName"];
+            if (!disp || [disp length] == 0) disp = [item stringByDeletingPathExtension];
+            [entries setObject:[NSString stringWithFormat:@"%@ (%@)", disp, bid] forKey:bid];
+        }
+    }
+
+    if (rules) {
+        for (guint i = 0; i < rules->len; i++) {
+            GtvAppDictRule *r = (GtvAppDictRule *)rules->pdata[i];
+            if (!r || !r->app_id) continue;
+            NSString *bid = [[NSString stringWithUTF8String:r->app_id] lowercaseString];
+            if (bid && ![entries objectForKey:bid]) {
+                [entries setObject:bid forKey:bid];
+            }
+        }
+    }
+
+    NSArray *sortedKeys = [[entries allKeys] sortedArrayUsingComparator:^NSComparisonResult(NSString *k1, NSString *k2) {
+        return [[entries objectForKey:k1] localizedCaseInsensitiveCompare:[entries objectForKey:k2]];
+    }];
+
+    for (NSString *bid in sortedKeys) {
+        NSString *label = [entries objectForKey:bid];
+        [appPop addItemWithTitle:label];
+        NSMenuItem *mi = [appPop lastItem];
+        [mi setRepresentedObject:bid];
+    }
+}
+
 - (void)refresh {
     if (rules) g_ptr_array_unref(rules);
     rules = gtv_app_dicts_load(NULL);
+    [self populateApps];
     [table reloadData];
 }
 
@@ -155,7 +217,22 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSInteger row = [table selectedRow];
     if (!rules || row < 0 || (guint)row >= rules->len) return;
     GtvAppDictRule *r = (GtvAppDictRule *)rules->pdata[row];
-    if (r->app_id) [appField setStringValue:[NSString stringWithUTF8String:r->app_id]];
+    if (r->app_id) {
+        NSString *target = [[NSString stringWithUTF8String:r->app_id] lowercaseString];
+        BOOL found = NO;
+        for (NSMenuItem *mi in [appPop itemArray]) {
+            if ([[mi representedObject] isEqualToString:target]) {
+                [appPop selectItem:mi];
+                found = YES;
+                break;
+            }
+        }
+        if (!found) {
+            [appPop addItemWithTitle:target];
+            [[appPop lastItem] setRepresentedObject:target];
+            [appPop selectItem:[appPop lastItem]];
+        }
+    }
     const char *ids[5] = { "vi", "tsql", "c", "csharp", "en" };
     for (int i = 0; i < 5; i++) {
         [checks[i] setState:(gtv_dict_lang_enabled(r->dicts, ids[i]) ? NSOnState : NSOffState)];
@@ -164,7 +241,8 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
 - (IBAction)addOrUpdate:(id)sender {
     (void)sender;
-    const gchar *raw = [[appField stringValue] UTF8String];
+    NSString *selBid = [[appPop selectedItem] representedObject];
+    const gchar *raw = selBid ? [selBid UTF8String] : NULL;
     gchar *norm = gtv_app_dict_normalize_id(raw);
     if (!norm) return;
     const char *ids[5] = { "vi", "tsql", "c", "csharp", "en" };

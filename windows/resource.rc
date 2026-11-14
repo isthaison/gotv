@@ -123,7 +123,7 @@ BEGIN
                     LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP | WS_VSCROLL,
                     10, 10, 270, 96
     LTEXT           "App:", IDC_AD_LBL_APP, 10, 114, 58, 10
-    EDITTEXT        IDC_AD_APP, 70, 112, 210, 12, ES_AUTOHSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_AD_APP, 70, 111, 210, 160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "Dicts:", IDC_AD_LBL_DICTS, 10, 130, 58, 10
     AUTOCHECKBOX    "Vietnamese", IDC_AD_VI, 70, 130, 62, 10, WS_TABSTOP
     AUTOCHECKBOX    "T-SQL", IDC_AD_TSQL, 138, 130, 52, 10, WS_TABSTOP
@@ -137,8 +137,8 @@ BEGIN
 END
 
 1 VERSIONINFO
-FILEVERSION     0,9,15,0
-PRODUCTVERSION  0,9,15,0
+FILEVERSION     0,9,16,0
+PRODUCTVERSION  0,9,16,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          0x40004L
@@ -151,12 +151,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "GoTV Open Source Project\0"
             VALUE "FileDescription", "GoTV - Vietnamese Input (Native)\0"
-            VALUE "FileVersion", "0.9.15.0\0"
+            VALUE "FileVersion", "0.9.16.0\0"
             VALUE "InternalName", "gotv\0"
             VALUE "LegalCopyright", "Copyright (C) 2026\0"
             VALUE "OriginalFilename", "gotv.exe\0"
             VALUE "ProductName", "GoTV\0"
-            VALUE "ProductVersion", "0.9.15.0\0"
+            VALUE "ProductVersion", "0.9.16.0\0"
         END
     END
     BLOCK "VarFileInfo"

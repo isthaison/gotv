@@ -571,7 +571,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSMenu *m = [[[NSMenu alloc] initWithTitle:@"GoTV"] autorelease];
 
     NSString *ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    if (!ver) ver = @"0.9.15";
+    if (!ver) ver = @"0.9.16";
     NSString *titleStr = [NSString stringWithFormat:@"GoTV v%@", ver];
     NSMenuItem *titleItem = [m addItemWithTitle:titleStr action:nil keyEquivalent:@""];
     [titleItem setEnabled:NO];
