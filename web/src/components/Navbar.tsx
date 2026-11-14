@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ basePath = '/gotv/', active = 'h
       <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         {/* Brand Logo & Version */}
         <a href={basePath} className="flex items-center gap-2 text-stone-900 font-extrabold text-lg sm:text-xl group shrink-0 whitespace-nowrap">
-          <GoTvAppIcon className="w-8 h-8 rounded-xl shadow-sm group-hover:scale-105 transition shrink-0" />
+          <GoTvAppIcon className="w-8 h-8 group-hover:scale-105 transition shrink-0" />
           <span>GoTV</span>
           <span className="text-[11px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold shrink-0">
             v{APP_VERSION}

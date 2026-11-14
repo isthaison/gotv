@@ -16,7 +16,7 @@
 
 IDI_APP_ICON    ICON    "icons/gotv.ico"
 
-IDD_SETUP_DIALOG DIALOGEX 0, 0, 240, 335
+IDD_SETUP_DIALOG DIALOGEX 0, 0, 240, 350
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "GoTV - Setup"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -37,7 +37,7 @@ BEGIN
     AUTOCHECKBOX    "Spellcheck and smart suggestions", IDC_CHECK_SPELL, 20, 130, 200, 10, WS_TABSTOP
     AUTOCHECKBOX    "Start with Windows", IDC_CHECK_STARTUP, 20, 146, 200, 10, WS_TABSTOP
 
-    GROUPBOX        "Dictionary suggestions (offline)", IDC_GROUP_DICT, 10, 170, 220, 92, WS_GROUP
+    GROUPBOX        "Dictionary suggestions (offline)", IDC_GROUP_DICT, 10, 170, 220, 108, WS_GROUP
     AUTOCHECKBOX    "Enable smart suggestions", IDC_CHECK_SUGGEST, 20, 184, 200, 10, WS_TABSTOP
     AUTOCHECKBOX    "Vietnamese", IDC_CHECK_DICT_VI, 20, 198, 62, 10, WS_TABSTOP
     AUTOCHECKBOX    "T-SQL", IDC_CHECK_DICT_TSQL, 86, 198, 52, 10, WS_TABSTOP
@@ -47,15 +47,16 @@ BEGIN
     PUSHBUTTON      "Update", IDC_BTN_DICT_UPDATE, 156, 210, 64, 14, WS_TABSTOP
     LTEXT           "Dict:", IDC_LBL_DICT_VER, 20, 228, 200, 10, SS_LEFTNOWORDWRAP
     LTEXT           "Status", IDC_LBL_DICT_STATUS, 20, 244, 200, 10
+    PUSHBUTTON      "Per-app...", IDC_BTN_APP_DICTS, 20, 258, 105, 14, WS_TABSTOP
 
-    GROUPBOX        "Language", IDC_GROUP_LANG, 10, 266, 220, 32, WS_GROUP
-    AUTORADIOBUTTON "Tiếng Việt", IDC_RADIO_LANG_VI, 20, 280, 80, 10, WS_GROUP | WS_TABSTOP
-    AUTORADIOBUTTON "English", IDC_RADIO_LANG_EN, 110, 280, 80, 10
+    GROUPBOX        "Language", IDC_GROUP_LANG, 10, 283, 220, 32, WS_GROUP
+    AUTORADIOBUTTON "Tiếng Việt", IDC_RADIO_LANG_VI, 20, 297, 80, 10, WS_GROUP | WS_TABSTOP
+    AUTORADIOBUTTON "English", IDC_RADIO_LANG_EN, 110, 297, 80, 10
 
-    DEFPUSHBUTTON   "OK", IDC_BTN_OK, 126, 311, 50, 14, WS_GROUP | WS_TABSTOP
-    PUSHBUTTON      "Cancel", IDC_BTN_CANCEL, 179, 311, 50, 14, WS_TABSTOP
-    PUSHBUTTON      "Data", IDC_BTN_DATA, 5, 311, 55, 14, WS_TABSTOP
-    PUSHBUTTON      "Keyboards", IDC_BTN_KEYBOARD, 63, 311, 60, 14, WS_TABSTOP
+    DEFPUSHBUTTON   "OK", IDC_BTN_OK, 126, 325, 50, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON      "Cancel", IDC_BTN_CANCEL, 179, 325, 50, 14, WS_TABSTOP
+    PUSHBUTTON      "Data", IDC_BTN_DATA, 5, 325, 55, 14, WS_TABSTOP
+    PUSHBUTTON      "Keyboards", IDC_BTN_KEYBOARD, 63, 325, 60, 14, WS_TABSTOP
 END
 
 IDD_DATA_DIALOG DIALOGEX 0, 0, 280, 232
@@ -116,9 +117,32 @@ BEGIN
     PUSHBUTTON      "Cancel", IDCANCEL, 172, 178, 66, 14
 END
 
+IDD_APP_DICTS_DIALOG DIALOGEX 0, 0, 290, 236
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "GoTV - Per-app dictionaries"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    /* ASCII placeholders only: real strings are set at runtime in UTF-16. */
+    CONTROL         "", IDC_AD_LIST, "SysListView32",
+                    LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP | WS_VSCROLL,
+                    10, 10, 270, 96
+    LTEXT           "App:", IDC_AD_LBL_APP, 10, 114, 58, 10
+    COMBOBOX        IDC_AD_APP, 70, 111, 210, 160, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Dicts:", IDC_AD_LBL_DICTS, 10, 130, 58, 10
+    AUTOCHECKBOX    "Vietnamese", IDC_AD_VI, 70, 130, 62, 10, WS_TABSTOP
+    AUTOCHECKBOX    "T-SQL", IDC_AD_TSQL, 138, 130, 52, 10, WS_TABSTOP
+    AUTOCHECKBOX    "C / C++", IDC_AD_C, 196, 130, 74, 10, WS_TABSTOP
+    AUTOCHECKBOX    "C# (.NET)", IDC_AD_CSHARP, 70, 144, 62, 10, WS_TABSTOP
+    AUTOCHECKBOX    "English", IDC_AD_EN, 138, 144, 70, 10, WS_TABSTOP
+    PUSHBUTTON      "Save", IDC_AD_SAVE, 10, 164, 72, 14, WS_TABSTOP
+    PUSHBUTTON      "Delete", IDC_AD_DELETE, 88, 164, 56, 14, WS_TABSTOP
+    PUSHBUTTON      "Close", IDC_AD_CLOSE, 220, 164, 60, 14, WS_TABSTOP
+    LTEXT           "Note", IDC_AD_NOTE, 10, 186, 270, 42
+END
+
 1 VERSIONINFO
-FILEVERSION     0,9,15,0
-PRODUCTVERSION  0,9,15,0
+FILEVERSION     0,9,16,0
+PRODUCTVERSION  0,9,16,0
 FILEFLAGSMASK   0x3fL
 FILEFLAGS       0x0L
 FILEOS          0x40004L
@@ -131,12 +155,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "GoTV Open Source Project\0"
             VALUE "FileDescription", "GoTV - Vietnamese Input (Native)\0"
-            VALUE "FileVersion", "0.9.13.0\0"
+            VALUE "FileVersion", "0.9.16.0\0"
             VALUE "InternalName", "gotv\0"
             VALUE "LegalCopyright", "Copyright (C) 2026\0"
             VALUE "OriginalFilename", "gotv.exe\0"
             VALUE "ProductName", "GoTV\0"
-            VALUE "ProductVersion", "0.9.13.0\0"
+            VALUE "ProductVersion", "0.9.16.0\0"
         END
     END
     BLOCK "VarFileInfo"

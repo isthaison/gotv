@@ -630,6 +630,261 @@ static void on_save(GtkWidget *w, gpointer data){
 static void on_cancel(GtkWidget *w, gpointer data){
     gtk_main_quit();
 }
+typedef struct {
+    GtkWidget *list;
+    GtkWidget *combo_app;
+    GtkWidget *checks[8];
+    GPtrArray *rules;
+} AppDictDlg;
+
+typedef struct {
+    gchar *id;
+    gchar *label;
+} AppComboItem;
+
+static void app_combo_item_free(gpointer p) {
+    AppComboItem *it = p;
+    if (!it) return;
+    g_free(it->id);
+    g_free(it->label);
+    g_free(it);
+}
+
+static gint app_combo_item_cmp(gconstpointer a, gconstpointer b) {
+    const AppComboItem *ia = *(const AppComboItem * const *)a;
+    const AppComboItem *ib = *(const AppComboItem * const *)b;
+    return g_utf8_collate(ia->label ? ia->label : "", ib->label ? ib->label : "");
+}
+
+static gboolean is_generic_launcher(const gchar *id) {
+    if (!id || !*id) return TRUE;
+    const char * const generic[] = {
+        "sh", "bash", "zsh", "env", "flatpak", "snap", "python", "python3", "java", "xdg-open", NULL
+    };
+    for (int i = 0; generic[i]; i++) {
+        if (g_strcmp0(id, generic[i]) == 0) return TRUE;
+    }
+    return FALSE;
+}
+
+static void app_dict_populate_combo(AppDictDlg *d) {
+    gtk_combo_box_text_remove_all(GTK_COMBO_BOX_TEXT(d->combo_app));
+    GHashTable *seen = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    GPtrArray *items = g_ptr_array_new_with_free_func(app_combo_item_free);
+
+    GList *apps = g_app_info_get_all();
+    for (GList *l = apps; l; l = l->next) {
+        GAppInfo *app = G_APP_INFO(l->data);
+        if (!app || !g_app_info_should_show(app)) continue;
+        const char *name = g_app_info_get_display_name(app);
+        const char *exec = g_app_info_get_executable(app);
+        gchar *norm = gtv_app_dict_normalize_id(exec);
+        if (is_generic_launcher(norm)) {
+            g_free(norm);
+            norm = gtv_app_dict_normalize_id(g_app_info_get_id(app));
+            if (norm && g_str_has_suffix(norm, ".desktop")) {
+                norm[strlen(norm) - 8] = '\0';
+            }
+        }
+        if (!norm || !*norm) {
+            g_free(norm);
+            continue;
+        }
+        if (g_hash_table_contains(seen, norm)) {
+            g_free(norm);
+            continue;
+        }
+        g_hash_table_insert(seen, g_strdup(norm), GINT_TO_POINTER(1));
+        AppComboItem *it = g_new0(AppComboItem, 1);
+        it->id = norm;
+        it->label = (name && *name && g_ascii_strcasecmp(name, norm) != 0)
+            ? g_strdup_printf("%s (%s)", name, norm)
+            : g_strdup(norm);
+        g_ptr_array_add(items, it);
+    }
+    g_list_free_full(apps, g_object_unref);
+
+    if (d->rules) {
+        for (guint i = 0; i < d->rules->len; i++) {
+            GtvAppDictRule *r = d->rules->pdata[i];
+            if (!r || !r->app_id || g_hash_table_contains(seen, r->app_id)) continue;
+            g_hash_table_insert(seen, g_strdup(r->app_id), GINT_TO_POINTER(1));
+            AppComboItem *it = g_new0(AppComboItem, 1);
+            it->id = g_strdup(r->app_id);
+            it->label = g_strdup(r->app_id);
+            g_ptr_array_add(items, it);
+        }
+    }
+
+    g_ptr_array_sort(items, app_combo_item_cmp);
+    for (guint i = 0; i < items->len; i++) {
+        AppComboItem *it = items->pdata[i];
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(d->combo_app), it->id, it->label);
+    }
+    if (items->len > 0) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(d->combo_app), 0);
+    }
+
+    g_ptr_array_unref(items);
+    g_hash_table_destroy(seen);
+}
+
+static void app_dict_dlg_refresh(AppDictDlg *d) {
+    GList *children = gtk_container_get_children(GTK_CONTAINER(d->list));
+    for (GList *l = children; l; l = l->next)
+        gtk_widget_destroy(GTK_WIDGET(l->data));
+    g_list_free(children);
+    for (guint i = 0; i < d->rules->len; i++) {
+        GtvAppDictRule *r = d->rules->pdata[i];
+        gchar *txt = g_strdup_printf("%s  →  %s", r->app_id, r->dicts);
+        GtkWidget *lbl = gtk_label_new(txt);
+        gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
+        gtk_widget_set_margin_start(lbl, 6);
+        gtk_widget_set_margin_end(lbl, 6);
+        gtk_widget_set_margin_top(lbl, 4);
+        gtk_widget_set_margin_bottom(lbl, 4);
+        GtkWidget *row = gtk_list_box_row_new();
+        gtk_container_add(GTK_CONTAINER(row), lbl);
+        g_object_set_data(G_OBJECT(row), "rule-index", GUINT_TO_POINTER(i));
+        gtk_list_box_insert(GTK_LIST_BOX(d->list), row, -1);
+        g_free(txt);
+    }
+    gtk_widget_show_all(d->list);
+}
+
+static void on_app_dict_row_selected(GtkListBox *box, GtkListBoxRow *row, gpointer data) {
+    (void)box;
+    AppDictDlg *d = data;
+    if (!row) return;
+    guint idx = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(row), "rule-index"));
+    if (idx >= d->rules->len) return;
+    GtvAppDictRule *r = d->rules->pdata[idx];
+    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(d->combo_app), r->app_id)) {
+        gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(d->combo_app), r->app_id, r->app_id);
+        gtk_combo_box_set_active_id(GTK_COMBO_BOX(d->combo_app), r->app_id);
+    }
+    guint n = gtv_dict_catalog_count();
+    for (guint i = 0; i < n && i < G_N_ELEMENTS(d->checks); i++) {
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if (d->checks[i] && info) {
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(d->checks[i]),
+                gtv_dict_lang_enabled(r->dicts, info->id));
+        }
+    }
+}
+
+static void on_app_dict_add(GtkButton *btn, gpointer data) {
+    (void)btn;
+    AppDictDlg *d = data;
+    const gchar *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(d->combo_app));
+    gchar *norm = gtv_app_dict_normalize_id(active_id);
+    if (!norm) return;
+    GString *sel = g_string_new("");
+    guint n = gtv_dict_catalog_count();
+    for (guint i = 0; i < n && i < G_N_ELEMENTS(d->checks); i++) {
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if (d->checks[i] && info && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(d->checks[i]))) {
+            if (sel->len > 0) g_string_append_c(sel, ',');
+            g_string_append(sel, info->id);
+        }
+    }
+    if (sel->len == 0) g_string_assign(sel, "vi");
+    gboolean updated = FALSE;
+    for (guint i = 0; i < d->rules->len; i++) {
+        GtvAppDictRule *r = d->rules->pdata[i];
+        if (g_strcmp0(r->app_id, norm) == 0) {
+            g_free(r->dicts);
+            r->dicts = g_string_free(sel, FALSE);
+            updated = TRUE;
+            break;
+        }
+    }
+    if (!updated) {
+        GtvAppDictRule *r = g_new0(GtvAppDictRule, 1);
+        r->app_id = norm;
+        r->dicts = g_string_free(sel, FALSE);
+        g_ptr_array_add(d->rules, r);
+    } else {
+        g_free(norm);
+    }
+    gtv_app_dicts_save(d->rules, NULL, NULL);
+    app_dict_dlg_refresh(d);
+}
+
+static void on_app_dict_remove(GtkButton *btn, gpointer data) {
+    (void)btn;
+    AppDictDlg *d = data;
+    GtkListBoxRow *row = gtk_list_box_get_selected_row(GTK_LIST_BOX(d->list));
+    if (!row) return;
+    guint idx = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(row), "rule-index"));
+    if (idx < d->rules->len) {
+        g_ptr_array_remove_index(d->rules, idx);
+        gtv_app_dicts_save(d->rules, NULL, NULL);
+        app_dict_dlg_refresh(d);
+    }
+}
+
+static void on_app_dicts(GtkWidget *w, gpointer data) {
+    (void)w;
+    GtkWindow *parent = GTK_WINDOW(data);
+    GtkWidget *dlg = gtk_dialog_new_with_buttons(
+        "Từ điển theo từng ứng dụng", parent,
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "Đóng", GTK_RESPONSE_CLOSE, NULL);
+    gtk_window_set_default_size(GTK_WINDOW(dlg), 460, 380);
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
+    gtk_box_pack_start(GTK_BOX(content), box, TRUE, TRUE, 0);
+
+    GtkWidget *hint = gtk_label_new("Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:");
+    gtk_label_set_xalign(GTK_LABEL(hint), 0.0);
+    gtk_box_pack_start(GTK_BOX(box), hint, FALSE, FALSE, 0);
+
+    AppDictDlg d = {0};
+    d.rules = gtv_app_dicts_load(NULL);
+
+    GtkWidget *sc = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sc), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_size_request(sc, -1, 160);
+    d.list = gtk_list_box_new();
+    gtk_container_add(GTK_CONTAINER(sc), d.list);
+    gtk_box_pack_start(GTK_BOX(box), sc, TRUE, TRUE, 0);
+    g_signal_connect(d.list, "row-selected", G_CALLBACK(on_app_dict_row_selected), &d);
+
+    d.combo_app = gtk_combo_box_text_new();
+    gtk_box_pack_start(GTK_BOX(box), d.combo_app, FALSE, FALSE, 0);
+    app_dict_populate_combo(&d);
+
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
+    gtk_box_pack_start(GTK_BOX(box), grid, FALSE, FALSE, 0);
+    guint n = gtv_dict_catalog_count();
+    for (guint i = 0; i < n && i < G_N_ELEMENTS(d.checks); i++) {
+        const GtvDictInfo *info = gtv_dict_catalog_get(i);
+        if (!info) continue;
+        d.checks[i] = gtk_check_button_new_with_label(info->title);
+        if (i == 0) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(d.checks[i]), TRUE);
+        gtk_grid_attach(GTK_GRID(grid), d.checks[i], (gint)(i % 3), (gint)(i / 3), 1, 1);
+    }
+
+    GtkWidget *act = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_pack_start(GTK_BOX(box), act, FALSE, FALSE, 0);
+    GtkWidget *btn_add = gtk_button_new_with_label("Thêm / Cập nhật");
+    GtkWidget *btn_del = gtk_button_new_with_label("Xóa đã chọn");
+    gtk_box_pack_start(GTK_BOX(act), btn_add, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(act), btn_del, FALSE, FALSE, 0);
+    g_signal_connect(btn_add, "clicked", G_CALLBACK(on_app_dict_add), &d);
+    g_signal_connect(btn_del, "clicked", G_CALLBACK(on_app_dict_remove), &d);
+
+    app_dict_dlg_refresh(&d);
+    gtk_widget_show_all(dlg);
+    gtk_dialog_run(GTK_DIALOG(dlg));
+    gtk_widget_destroy(dlg);
+    g_ptr_array_unref(d.rules);
+}
+
 static void on_data(GtkWidget *w, gpointer data){
     (void)w;
     data_show(GTK_WINDOW(data));
@@ -758,6 +1013,10 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
                                                          "Download / Update selected dictionaries from GitHub..."));
     g_signal_connect(btn_dict_update, "clicked", G_CALLBACK(on_dict_update), NULL);
     gtk_box_pack_start(GTK_BOX(box_dict), btn_dict_update, FALSE, FALSE, 0);
+    GtkWidget *btn_app_dicts = gtk_button_new_with_label(
+        gtv_i18n("Thiết lập từ điển theo từng ứng dụng...", "Per-app dictionary settings..."));
+    g_signal_connect(btn_app_dicts, "clicked", G_CALLBACK(on_app_dicts), win);
+    gtk_box_pack_start(GTK_BOX(box_dict), btn_app_dicts, FALSE, FALSE, 0);
     lbl_dict_status = gtk_label_new(gtv_i18n("Gợi ý offline 100%, không cần mạng.", "100% offline suggestions, no internet required."));
     gtk_label_set_line_wrap(GTK_LABEL(lbl_dict_status), TRUE);
     gtk_label_set_xalign(GTK_LABEL(lbl_dict_status), 0.0);

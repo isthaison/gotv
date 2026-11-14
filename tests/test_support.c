@@ -327,6 +327,22 @@ static void test_dict(void) {
     g_assert_cmpuint(out->len, >, 0);
     g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "thành");
     g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("quí", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "quý");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("nghành", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "ngành");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("đượcc", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "được");
+    g_ptr_array_set_size(out, 0);
+    gtv_dict_correct("hcọ", out, 5);
+    g_assert_cmpuint(out->len, >, 0);
+    g_assert_cmpstr(g_ptr_array_index(out, 0), ==, "học");
+    g_ptr_array_set_size(out, 0);
     /* Dictionary membership and diacritic-preserving prefix completion. */
     g_assert_true(gtv_dict_contains("được"));
     g_assert_false(gtv_dict_contains("khoog"));
@@ -802,6 +818,105 @@ static void test_brand_migration(void) {
     g_free(next); g_free(legacy_words); g_free(legacy_file); g_free(legacy); g_free(base);
 }
 
+static void test_app_dicts(void) {
+    /* Normalization handles Windows paths, Unix paths, whitespace, and case. */
+    gchar *n1 = gtv_app_dict_normalize_id("  C:\\Program Files\\VS Code\\Code.exe  ");
+    g_assert_cmpstr(n1, ==, "code.exe");
+    g_free(n1);
+    gchar *n2 = gtv_app_dict_normalize_id("/usr/bin/Alacritty");
+    g_assert_cmpstr(n2, ==, "alacritty");
+    g_free(n2);
+    gchar *n3 = gtv_app_dict_normalize_id("com.microsoft.VSCode");
+    g_assert_cmpstr(n3, ==, "com.microsoft.vscode");
+    g_free(n3);
+    g_assert_null(gtv_app_dict_normalize_id("   "));
+    g_assert_null(gtv_app_dict_normalize_id(NULL));
+
+    /* Save/load roundtrip preserves existing [input]/[suggest] sections. */
+    gchar *tmp = g_dir_make_tmp("gotv-appdicts-XXXXXX", NULL);
+    g_assert_nonnull(tmp);
+    gchar *cfg_path = g_build_filename(tmp, "config", NULL);
+    g_assert_true(g_file_set_contents(cfg_path,
+        "[input]\nmethod=telex\n[suggest]\ndicts=vi\n", -1, NULL));
+
+    GPtrArray *rules = g_ptr_array_new_with_free_func((GDestroyNotify)gtv_app_dict_rule_free);
+    GtvAppDictRule *r1 = g_new0(GtvAppDictRule, 1);
+    r1->app_id = g_strdup("ssms.exe");
+    r1->dicts = g_strdup("vi,tsql");
+    g_ptr_array_add(rules, r1);
+    GtvAppDictRule *r2 = g_new0(GtvAppDictRule, 1);
+    r2->app_id = g_strdup("com.microsoft.vscode");
+    r2->dicts = g_strdup("vi,c,csharp,en");
+    g_ptr_array_add(rules, r2);
+
+    GError *err = NULL;
+    g_assert_true(gtv_app_dicts_save(rules, tmp, &err));
+    g_assert_no_error(err);
+    g_ptr_array_unref(rules);
+
+    gchar *saved = NULL;
+    g_assert_true(g_file_get_contents(cfg_path, &saved, NULL, NULL));
+    g_assert_nonnull(strstr(saved, "[input]"));
+    g_assert_nonnull(strstr(saved, "method=telex"));
+    g_assert_nonnull(strstr(saved, "[app_dicts]"));
+    g_free(saved);
+
+    GPtrArray *loaded = gtv_app_dicts_load(tmp);
+    g_assert_cmpuint(loaded->len, ==, 2);
+    g_ptr_array_unref(loaded);
+
+    /* Resolution: exact match, .exe stem fallback, and default fallback. */
+    GtvConfig cfg = {.suggest_enabled = TRUE};
+    g_strlcpy(cfg.dicts, "vi", sizeof(cfg.dicts));
+    gchar out[128] = {0};
+
+    g_assert_cmpstr(gtv_config_resolve_dicts(&cfg, "C:\\SSMS\\Ssms.exe", tmp, out, sizeof(out)), ==, "vi,tsql");
+    g_assert_cmpstr(gtv_config_resolve_dicts(&cfg, "ssms", tmp, out, sizeof(out)), ==, "vi,tsql");
+    g_assert_cmpstr(gtv_config_resolve_dicts(&cfg, "com.microsoft.VSCode", tmp, out, sizeof(out)), ==, "vi,c,csharp,en");
+    g_assert_cmpstr(gtv_config_resolve_dicts(&cfg, "notepad.exe", tmp, out, sizeof(out)), ==, "vi");
+
+    /* End-to-end suggestion switching by app_id using the process user config dir. */
+    gchar *gotv_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    g_assert_cmpint(g_mkdir_with_parents(gotv_dir, 0700), ==, 0);
+    gchar *gotv_cfg = g_build_filename(gotv_dir, "config", NULL);
+    gchar *orig_cfg = NULL;
+    gboolean had_orig = g_file_get_contents(gotv_cfg, &orig_cfg, NULL, NULL);
+
+    rules = g_ptr_array_new_with_free_func((GDestroyNotify)gtv_app_dict_rule_free);
+    GtvAppDictRule *r3 = g_new0(GtvAppDictRule, 1);
+    r3->app_id = g_strdup("ssms.exe");
+    r3->dicts = g_strdup("vi,tsql");
+    g_ptr_array_add(rules, r3);
+    g_assert_true(gtv_app_dicts_save(rules, gotv_dir, NULL));
+    g_ptr_array_unref(rules);
+
+    /* Without T-SQL (notepad.exe -> default "vi"), "nvarch" has no T-SQL completion. */
+    GPtrArray *s_default = gtv_suggest_combined_for_app(&cfg, "notepad.exe", "", "nvarch", FALSE);
+    gboolean has_nvarchar = FALSE;
+    for (guint i = 0; i < s_default->len; i++) {
+        if (!strcmp(g_ptr_array_index(s_default, i), "nvarchar")) has_nvarchar = TRUE;
+    }
+    g_assert_false(has_nvarchar);
+    g_ptr_array_unref(s_default);
+
+    /* With T-SQL (ssms.exe -> "vi,tsql"), "nvarch" completes to "nvarchar". */
+    GPtrArray *s_ssms = gtv_suggest_combined_for_app(&cfg, "ssms.exe", "", "nvarch", FALSE);
+    has_nvarchar = FALSE;
+    for (guint i = 0; i < s_ssms->len; i++) {
+        if (!strcmp(g_ptr_array_index(s_ssms, i), "nvarchar")) has_nvarchar = TRUE;
+    }
+    g_assert_true(has_nvarchar);
+    g_ptr_array_unref(s_ssms);
+
+    if (had_orig) g_file_set_contents(gotv_cfg, orig_cfg, -1, NULL);
+    else g_remove(gotv_cfg);
+    g_free(orig_cfg);
+    g_free(gotv_cfg);
+    g_free(gotv_dir);
+    g_remove(cfg_path); g_free(cfg_path);
+    g_rmdir(tmp); g_free(tmp);
+}
+
 int main(int argc,char **argv) {
     /* Isolate user dirs: suggestions must come from shipped seeds only,
      * never from the developer's real ~/.config files. */
@@ -815,6 +930,7 @@ int main(int argc,char **argv) {
     g_test_add_func("/support/config",test_config);
     g_test_add_func("/support/update",test_update);
     g_test_add_func("/support/dict",test_dict);
+    g_test_add_func("/support/app-dicts",test_app_dicts);
     g_test_add_func("/support/suggest-combined",test_suggest_combined);
     g_test_add_func("/support/spelling",test_spelling);
     g_test_add_func("/support/macro-and-emoji",test_macro_and_emoji);

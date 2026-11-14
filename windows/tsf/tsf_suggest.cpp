@@ -1263,8 +1263,22 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
     gboolean used_ai = FALSE;
 
     if (cfg.suggest_enabled) {
+        static gchar self_app[128] = {0};
+        static gboolean self_init = FALSE;
+        if (!self_init) {
+            WCHAR wpath[MAX_PATH];
+            DWORD wlen = GetModuleFileNameW(NULL, wpath, MAX_PATH);
+            if (wlen > 0 && wlen < MAX_PATH) {
+                gchar *u8 = g_utf16_to_utf8((const gunichar2 *)wpath, -1, NULL, NULL, NULL);
+                gchar *norm = gtv_app_dict_normalize_id(u8);
+                if (norm) g_strlcpy(self_app, norm, sizeof(self_app));
+                g_free(norm);
+                g_free(u8);
+            }
+            self_init = TRUE;
+        }
         /* Prefix completions only (works for vi, tsql, c, csharp, en, etc.) */
-        GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+        GPtrArray *comp_sugs = gtv_suggest_combined_for_app(&cfg, self_app[0] ? self_app : NULL, "", buf, FALSE);
         if (comp_sugs && comp_sugs->len > 0) {
             collect_unique_candidates(out, comp_sugs, GTV_SUGGEST_MAX);
         }

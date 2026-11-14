@@ -119,37 +119,35 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
 - (void)configDidChange:(NSNotification *)note {
     (void)note;
-    gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
-    GtvConfig config;
-    memset(&config, 0, sizeof(config));
-    gtv_config_load(&config, config_dir);
-    g_free(config_dir);
-    gtv_i18n_set_lang(config.ui_lang);
     if (engine) {
+        gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        GtvConfig config;
+        memset(&config, 0, sizeof(config));
+        gtv_config_load(&config, config_dir);
+        g_free(config_dir);
         engine->mode = config.mode;
         engine->modern = config.modern;
         engine->spellcheck = config.spellcheck;
+        suggestEnabled = config.suggest_enabled;
+        gtv_config_clear(&config);
     }
-    suggestEnabled = config.suggest_enabled;
-    gtv_config_clear(&config);
 }
 
 - (void)activateServer:(id)sender
 {
-    gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
-    GtvConfig config;
-    memset(&config, 0, sizeof(config));
-    gtv_config_load(&config, config_dir);
-    g_free(config_dir);
-    gtv_i18n_set_lang(config.ui_lang);
     if (engine) {
+        gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        GtvConfig config;
+        memset(&config, 0, sizeof(config));
+        gtv_config_load(&config, config_dir);
+        g_free(config_dir);
         engine->mode = config.mode;
         engine->modern = config.modern;
         engine->spellcheck = config.spellcheck;
+        suggestEnabled = config.suggest_enabled;
+        gtv_config_clear(&config);
         gtv_engine_reset(engine);
     }
-    suggestEnabled = config.suggest_enabled;
-    gtv_config_clear(&config);
     composing = NO;
     if (candidates && [candidates isVisible]) {
         [candidates hide];
@@ -252,7 +250,16 @@ extern void GoTVCheckForUpdates(BOOL manual);
             [self ensureLearned];
             GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
 
-            GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+            NSString *bundleId = nil;
+            id targetClient = sender ? sender : [self client];
+            if (targetClient && [targetClient respondsToSelector:@selector(bundleIdentifier)]) {
+                bundleId = [targetClient bundleIdentifier];
+            }
+            if (!bundleId || [bundleId length] == 0) {
+                bundleId = [[[NSWorkspace sharedWorkspace] frontmostApplication] bundleIdentifier];
+            }
+            const gchar *appId = (bundleId && [bundleId length] > 0) ? [bundleId UTF8String] : NULL;
+            GPtrArray *comp_sugs = gtv_suggest_combined_for_app(&cfg, appId, "", buf, FALSE);
             if (comp_sugs && comp_sugs->len > 0) {
                 for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
                     const gchar *cand = (const gchar *)comp_sugs->pdata[i];
@@ -564,77 +571,55 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSMenu *m = [[[NSMenu alloc] initWithTitle:@"GoTV"] autorelease];
 
     NSString *ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    if (!ver) ver = @"0.9.15";
+    if (!ver) ver = @"0.9.16";
     NSString *titleStr = [NSString stringWithFormat:@"GoTV v%@", ver];
     NSMenuItem *titleItem = [m addItemWithTitle:titleStr action:nil keyEquivalent:@""];
     [titleItem setEnabled:NO];
 
     [m addItem:[NSMenuItem separatorItem]];
 
-    NSMenuItem *langMenuRoot = [m addItemWithTitle:[NSString stringWithUTF8String:gtv_i18n("Ngôn ngữ giao diện", "Interface language")] action:nil keyEquivalent:@""];
-    NSMenu *langSubMenu = [[[NSMenu alloc] initWithTitle:@"Language"] autorelease];
-    NSMenuItem *langViItem = [langSubMenu addItemWithTitle:@"Tiếng Việt" action:@selector(selectLangViAction:) keyEquivalent:@""];
-    [langViItem setTarget:self];
-    [langViItem setState:(gtv_i18n_get_lang() == GTV_LANG_VI ? NSControlStateValueOn : NSControlStateValueOff)];
-    NSMenuItem *langEnItem = [langSubMenu addItemWithTitle:@"English" action:@selector(selectLangEnAction:) keyEquivalent:@""];
-    [langEnItem setTarget:self];
-    [langEnItem setState:(gtv_i18n_get_lang() == GTV_LANG_EN ? NSControlStateValueOn : NSControlStateValueOff)];
-    [m setSubmenu:langSubMenu forItem:langMenuRoot];
-
-    [m addItem:[NSMenuItem separatorItem]];
-
     BOOL isTelex = (!engine || engine->mode == GTV_TELEX);
-    NSString *telexTitle = [NSString stringWithUTF8String:gtv_i18n("Kiểu gõ: Telex", "Input method: Telex")];
-    NSMenuItem *telexItem = [m addItemWithTitle:telexTitle action:@selector(selectTelexAction:) keyEquivalent:@""];
+    NSMenuItem *telexItem = [m addItemWithTitle:@"Kiểu gõ: Telex" action:@selector(selectTelexAction:) keyEquivalent:@""];
     [telexItem setTarget:self];
     [telexItem setState:(isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
 
-    NSString *vniTitle = [NSString stringWithUTF8String:gtv_i18n("Kiểu gõ: VNI", "Input method: VNI")];
-    NSMenuItem *vniItem = [m addItemWithTitle:vniTitle action:@selector(selectVniAction:) keyEquivalent:@""];
+    NSMenuItem *vniItem = [m addItemWithTitle:@"Kiểu gõ: VNI" action:@selector(selectVniAction:) keyEquivalent:@""];
     [vniItem setTarget:self];
     [vniItem setState:(!isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
 
     [m addItem:[NSMenuItem separatorItem]];
 
     BOOL isModern = (engine && engine->modern);
-    NSString *modernTitle = [NSString stringWithUTF8String:gtv_i18n("Bỏ dấu kiểu mới (hòa, thúy)", "Modern tone placement (hòa, thúy)")];
-    NSMenuItem *modernItem = [m addItemWithTitle:modernTitle action:@selector(toggleModernAction:) keyEquivalent:@""];
+    NSMenuItem *modernItem = [m addItemWithTitle:@"Bỏ dấu kiểu mới (hòa, thúy)" action:@selector(toggleModernAction:) keyEquivalent:@""];
     [modernItem setTarget:self];
     [modernItem setState:(isModern ? NSControlStateValueOn : NSControlStateValueOff)];
 
     BOOL isSpell = (engine && engine->spellcheck);
-    NSString *spellTitle = [NSString stringWithUTF8String:gtv_i18n("Kiểm tra chính tả", "Spell check")];
-    NSMenuItem *spellItem = [m addItemWithTitle:spellTitle action:@selector(toggleSpellcheckAction:) keyEquivalent:@""];
+    NSMenuItem *spellItem = [m addItemWithTitle:@"Kiểm tra chính tả" action:@selector(toggleSpellcheckAction:) keyEquivalent:@""];
     [spellItem setTarget:self];
     [spellItem setState:(isSpell ? NSControlStateValueOn : NSControlStateValueOff)];
 
-    NSString *sugTitle = [NSString stringWithUTF8String:gtv_i18n("Gợi ý từ điển thông minh", "Candidate word suggestions")];
-    NSMenuItem *sugItem = [m addItemWithTitle:sugTitle action:@selector(toggleSuggestAction:) keyEquivalent:@""];
+    NSMenuItem *sugItem = [m addItemWithTitle:@"Gợi ý từ điển thông minh" action:@selector(toggleSuggestAction:) keyEquivalent:@""];
     [sugItem setTarget:self];
     [sugItem setState:(suggestEnabled ? NSControlStateValueOn : NSControlStateValueOff)];
 
     [m addItem:[NSMenuItem separatorItem]];
 
-    NSString *dataTitle = [NSString stringWithUTF8String:gtv_i18n("Bảng gõ tắt & Emoji...", "Shortcuts & Emoji table...")];
-    NSMenuItem *dataItem = [m addItemWithTitle:dataTitle action:@selector(openDataWindowAction:) keyEquivalent:@""];
+    NSMenuItem *dataItem = [m addItemWithTitle:@"Bảng gõ tắt & Emoji..." action:@selector(openDataWindowAction:) keyEquivalent:@""];
     [dataItem setTarget:self];
 
-    NSString *prefTitle = [NSString stringWithUTF8String:gtv_i18n("Cài đặt...", "Settings...")];
-    NSMenuItem *prefItem = [m addItemWithTitle:prefTitle action:@selector(openSettingsAction:) keyEquivalent:@","];
+    NSMenuItem *prefItem = [m addItemWithTitle:@"Cài đặt..." action:@selector(openSettingsAction:) keyEquivalent:@","];
     [prefItem setTarget:self];
 
-    NSString *updateTitle = [NSString stringWithUTF8String:gtv_i18n("Kiểm tra cập nhật...", "Check for updates...")];
-    NSMenuItem *updateItem = [m addItemWithTitle:updateTitle action:@selector(checkUpdatesAction:) keyEquivalent:@""];
+    NSMenuItem *updateItem = [m addItemWithTitle:@"Kiểm tra cập nhật..." action:@selector(checkUpdatesAction:) keyEquivalent:@""];
     [updateItem setTarget:self];
 
     [m addItem:[NSMenuItem separatorItem]];
 
-    NSString *homeTitle = [NSString stringWithUTF8String:gtv_i18n("Trang chủ GoTV...", "GoTV Homepage...")];
-    NSMenuItem *homeItem = [m addItemWithTitle:homeTitle action:@selector(openHomepageAction:) keyEquivalent:@""];
+    NSMenuItem *homeItem = [m addItemWithTitle:@"Trang chủ GoTV..." action:@selector(openHomepageAction:) keyEquivalent:@""];
     [homeItem setTarget:self];
 
-    NSString *issuesTitle = [NSString stringWithUTF8String:gtv_i18n("Góp ý & Báo lỗi trên GitHub...", "Feedback & Issues on GitHub...")];
-    NSMenuItem *issuesItem = [m addItemWithTitle:issuesTitle action:@selector(openIssuesAction:) keyEquivalent:@""];
+    NSMenuItem *issuesItem = [m addItemWithTitle:@"Góp ý & Báo lỗi trên GitHub..." action:@selector(openIssuesAction:) keyEquivalent:@""];
     [issuesItem setTarget:self];
 
     return m;
@@ -645,32 +630,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
     gtv_config_save(cfg, dir, NULL);
     g_free(dir);
     [[NSNotificationCenter defaultCenter] postNotificationName:@"GoTVConfigDidChange" object:nil];
-}
-
-- (void)selectLangViAction:(id)sender {
-    (void)sender;
-    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
-    GtvConfig cfg;
-    memset(&cfg, 0, sizeof(cfg));
-    gtv_config_load(&cfg, dir);
-    g_free(dir);
-    cfg.ui_lang = GTV_LANG_VI;
-    gtv_i18n_set_lang(GTV_LANG_VI);
-    [self saveAndBroadcastConfig:&cfg];
-    gtv_config_clear(&cfg);
-}
-
-- (void)selectLangEnAction:(id)sender {
-    (void)sender;
-    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
-    GtvConfig cfg;
-    memset(&cfg, 0, sizeof(cfg));
-    gtv_config_load(&cfg, dir);
-    g_free(dir);
-    cfg.ui_lang = GTV_LANG_EN;
-    gtv_i18n_set_lang(GTV_LANG_EN);
-    [self saveAndBroadcastConfig:&cfg];
-    gtv_config_clear(&cfg);
 }
 
 - (void)selectTelexAction:(id)sender {

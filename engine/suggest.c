@@ -42,13 +42,15 @@ static GHashTable *load_user_fixes(void){
     return map;
 }
 
-static GPtrArray *suggest(const GtvConfig *config,const gchar *context,const gchar *prefix,gboolean bad){
+static GPtrArray *suggest_for_app(const GtvConfig *config,const gchar *app_id,const gchar *context,const gchar *prefix,gboolean bad){
     GPtrArray *out=g_ptr_array_new_with_free_func(g_free);
     (void)context;
     if(!config || !config->suggest_enabled)return out;
     if(prefix && !g_utf8_validate(prefix,-1,NULL))return out;
     if(!prefix || !*prefix)return out;
-    if(config->dicts[0])gtv_dict_set_langs(config->dicts);
+    gchar eff_dicts[128];
+    gtv_config_resolve_dicts(config, app_id, NULL, eff_dicts, sizeof(eff_dicts));
+    if(eff_dicts[0])gtv_dict_set_langs(eff_dicts);
     if(bad){
         GHashTable *fixes=load_user_fixes();
         if(fixes){
@@ -78,10 +80,17 @@ gboolean gtv_dict_available(const GtvConfig *config){
     return gtv_dict_count()>0;
 }
 
-GPtrArray *gtv_suggest_combined(const GtvConfig *config,const gchar *context,const gchar *preedit,gboolean bad){return suggest(config,context,preedit,bad);}
+GPtrArray *gtv_suggest_combined(const GtvConfig *config,const gchar *context,const gchar *preedit,gboolean bad){
+    return suggest_for_app(config,NULL,context,preedit,bad);
+}
+
+GPtrArray *gtv_suggest_combined_for_app(const GtvConfig *config,const gchar *app_id,const gchar *context,const gchar *preedit,gboolean bad){
+    return suggest_for_app(config,app_id,context,preedit,bad);
+}
 
 typedef struct {
     GtvConfig config;
+    gchar *app_id;
     gchar *context;
     gchar *preedit;
     gboolean bad;
@@ -91,6 +100,7 @@ static void suggest_task_data_free(gpointer data) {
     SuggestTaskData *d = data;
     if (!d) return;
     gtv_config_clear(&d->config);
+    g_free(d->app_id);
     g_free(d->context);
     g_free(d->preedit);
     g_free(d);
@@ -99,7 +109,7 @@ static void suggest_task_data_free(gpointer data) {
 static void suggest_worker_thread(GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable) {
     SuggestTaskData *d = task_data;
     if (g_task_return_error_if_cancelled(task)) return;
-    GPtrArray *results = suggest(&d->config, d->context, d->preedit, d->bad);
+    GPtrArray *results = suggest_for_app(&d->config, d->app_id, d->context, d->preedit, d->bad);
     if (g_task_return_error_if_cancelled(task)) {
         g_ptr_array_unref(results);
         return;
@@ -107,19 +117,26 @@ static void suggest_worker_thread(GTask *task, gpointer source_object, gpointer 
     g_task_return_pointer(task, results, (GDestroyNotify)g_ptr_array_unref);
 }
 
-void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad,
-                               GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+void gtv_suggest_combined_for_app_async(const GtvConfig *config, const gchar *app_id,
+                                        const gchar *context, const gchar *preedit, gboolean bad,
+                                        GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
     GTask *task = g_task_new(NULL, cancellable, callback, user_data);
     SuggestTaskData *d = g_new0(SuggestTaskData, 1);
     if (config) {
         d->config = *config;
     }
+    d->app_id = g_strdup(app_id);
     d->context = g_strdup(context);
     d->preedit = g_strdup(preedit);
     d->bad = bad;
     g_task_set_task_data(task, d, suggest_task_data_free);
     g_task_run_in_thread(task, suggest_worker_thread);
     g_object_unref(task);
+}
+
+void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad,
+                               GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    gtv_suggest_combined_for_app_async(config, NULL, context, preedit, bad, cancellable, callback, user_data);
 }
 
 GPtrArray *gtv_suggest_combined_finish(GAsyncResult *res, GError **error) {

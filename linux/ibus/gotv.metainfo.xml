@@ -34,9 +34,14 @@
     </screenshot>
   </screenshots>
   <releases>
-    <release version="0.9.15" date="2026-11-11">
+    <release version="0.9.16" date="2026-11-14">
       <description>
-        <p>Phát hành 0.9.15: Hỗ trợ song ngữ giao diện Tiếng Việt và Tiếng Anh.</p>
+        <p>Chuyển phần chọn ứng dụng trong từ điển theo ứng dụng sang dạng select (dropdown) trên Linux, Windows và macOS</p>
+      </description>
+    </release>
+    <release version="0.9.15" date="2026-11-14">
+      <description>
+        <p>Hỗ trợ song ngữ giao diện Tiếng Việt và Tiếng Anh, thiết lập bộ từ điển riêng cho từng ứng dụng (Windows, macOS, Linux) và tối ưu bộ nhớ đệm từ điển.</p>
       </description>
     </release>
     <release version="0.9.13" date="2026-11-10">

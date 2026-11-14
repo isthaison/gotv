@@ -1,12 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">GoTV</title>
   <desc id="desc">Bộ gõ tiếng Việt Telex và VNI cho Windows, Linux và macOS</desc>
+  <defs>
+    <linearGradient id="gotv-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E53935"/>
+      <stop offset="100%" stop-color="#B71C1C"/>
+    </linearGradient>
+  </defs>
   <rect width="1200" height="630" fill="#faf7f2"/>
   <circle cx="1050" cy="80" r="240" fill="#f4e5dc"/>
   <circle cx="90" cy="610" r="260" fill="#efe1d5"/>
-  <rect x="96" y="106" width="112" height="112" rx="24" fill="#b22222"/>
-  <text x="152" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="76" font-weight="700" fill="#fff">T</text>
-  <text x="240" y="184" font-family="Arial, sans-serif" font-size="68" font-weight="700" fill="#2b2320">GoTV</text>
+  <rect x="96" y="106" width="112" height="112" rx="24" fill="url(#gotv-bg)"/>
+  <rect x="97.75" y="107.75" width="108.5" height="108.5" rx="22.25" fill="none" stroke="#7F0000" stroke-width="3.5" opacity="0.55"/>
+  <text x="152" y="187" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" font-size="64" font-weight="900" fill="#FFFFFF">Ắ</text>
+  <rect x="128" y="196" width="48" height="6" rx="3" fill="#FFEB3B" opacity="0.95"/>
+  <text x="240" y="184" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" font-size="68" font-weight="800" fill="#2b2320">GoTV</text>
   <text x="96" y="320" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#2b2320">Bộ gõ tiếng Việt Telex/VNI</text>
   <text x="96" y="392" font-family="Arial, sans-serif" font-size="38" fill="#6f625c">Windows · Linux · macOS</text>
   <rect x="96" y="458" width="540" height="70" rx="35" fill="#b22222"/>

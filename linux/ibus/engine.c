@@ -1,6 +1,7 @@
 /* IBus adapter for the shared C input engine. */
 #include <ibus.h>
 #include <sys/stat.h>
+#include <dlfcn.h>
 #include "../engine/internal.h"
 
 #include <stdarg.h>
@@ -38,6 +39,7 @@ struct _GoTVEngine {
     gboolean spellcheck;
     guint purpose;
     gchar *focus_id;
+    gchar *client_id;
     /* Unfinished composition kept across a mouse click away from the
      * input, with the focus it belongs to. focus_in restores it only
      * for the same input; a different input abandons it. */
@@ -222,7 +224,7 @@ static gboolean request_suggestions(gpointer data){
     IBusGoTVEngine *e=data;e->suggest_timer=0;
     e->pending_bad=FALSE;
     e->suggest_cancellable=g_cancellable_new();
-    gtv_suggest_combined_async(&e->config,e->sentence_context->str,e->preedit->str,FALSE,
+    gtv_suggest_combined_for_app_async(&e->config,e->client_id,e->sentence_context->str,e->preedit->str,FALSE,
         e->suggest_cancellable,on_suggest_ready,g_object_ref(e));
     return G_SOURCE_REMOVE;
 }
@@ -583,12 +585,133 @@ static void focus_out_id(IBusEngine *engine, const gchar *id){
 static void ibus_gotv_engine_focus_out(IBusEngine *engine){
     focus_out_id(engine, NULL);
 }
+typedef void GtvX11Display;
+typedef unsigned long GtvX11Window;
+typedef unsigned long GtvX11Atom;
+typedef int (*GtvX11ErrorFn)(GtvX11Display *, void *);
+
+static struct {
+    GtvX11Display *(*open)(const char *);
+    int (*close)(GtvX11Display *);
+    GtvX11Window (*root)(GtvX11Display *);
+    GtvX11Atom (*atom)(GtvX11Display *, const char *, int);
+    int (*prop)(GtvX11Display *, GtvX11Window, GtvX11Atom, long, long, int,
+                GtvX11Atom, GtvX11Atom *, int *, unsigned long *, unsigned long *, unsigned char **);
+    int (*free_mem)(void *);
+    GtvX11ErrorFn (*set_err)(GtvX11ErrorFn);
+} x11;
+
+static int x11_ignore_error(GtvX11Display *dpy, void *ev) { (void)dpy; (void)ev; return 0; }
+
+static gboolean x11_ensure_loaded(void) {
+    static gsize once = 0;
+    if (g_once_init_enter(&once)) {
+        void *lib = dlopen("libX11.so.6", RTLD_LAZY | RTLD_LOCAL);
+        const struct { const char *name; void *slot; } syms[] = {
+            {"XOpenDisplay", &x11.open}, {"XCloseDisplay", &x11.close},
+            {"XDefaultRootWindow", &x11.root}, {"XInternAtom", &x11.atom},
+            {"XGetWindowProperty", &x11.prop}, {"XFree", &x11.free_mem},
+            {"XSetErrorHandler", &x11.set_err},
+        };
+        gboolean ok = (lib != NULL);
+        for (guint i = 0; ok && i < G_N_ELEMENTS(syms); i++) {
+            void *fn = dlsym(lib, syms[i].name);
+            if (fn) memcpy(syms[i].slot, &fn, sizeof(fn));
+            else ok = FALSE;
+        }
+        if (!ok) memset(&x11, 0, sizeof(x11));
+        g_once_init_leave(&once, 1);
+    }
+    return x11.open != NULL;
+}
+
+static unsigned char *x11_prop(GtvX11Display *dpy, GtvX11Window win, const char *name,
+                               int want_fmt, unsigned long words, unsigned long *nitems) {
+    GtvX11Atom atom = x11.atom(dpy, name, 1), type = 0;
+    int fmt = 0;
+    unsigned long n = 0, after = 0;
+    unsigned char *buf = NULL;
+    if (!atom || x11.prop(dpy, win, atom, 0, (long)words, 0, 0L, &type, &fmt, &n, &after, &buf) != 0 || !buf)
+        return NULL;
+    if (fmt != want_fmt || n == 0) { x11.free_mem(buf); return NULL; }
+    if (nitems) *nitems = n;
+    return buf;
+}
+
+static gchar *x11_active_app_id(void) {
+    if (!g_getenv("DISPLAY") || !x11_ensure_loaded()) return NULL;
+    GtvX11Display *dpy = x11.open(NULL);
+    if (!dpy) return NULL;
+
+    GtvX11ErrorFn prev_err = x11.set_err(x11_ignore_error);
+    gchar *result = NULL;
+    unsigned long n = 0;
+    unsigned char *p = x11_prop(dpy, x11.root(dpy), "_NET_ACTIVE_WINDOW", 32, 1, NULL);
+    GtvX11Window win = p ? *(unsigned long *)p : 0;
+    if (p) x11.free_mem(p);
+
+    if (win && (p = x11_prop(dpy, win, "_NET_WM_PID", 32, 1, NULL))) {
+        gchar *path = g_strdup_printf("/proc/%lu/comm", *(unsigned long *)p);
+        gchar *comm = NULL;
+        if (g_file_get_contents(path, &comm, NULL, NULL) && comm) {
+            result = gtv_app_dict_normalize_id(comm);
+            g_free(comm);
+        }
+        g_free(path);
+        x11.free_mem(p);
+    }
+    if (!result && win && (p = x11_prop(dpy, win, "WM_CLASS", 8, 256, &n))) {
+        const char *inst = (const char *)p;
+        size_t len0 = strnlen(inst, n);
+        const char *cls = (len0 + 1 < n) ? (inst + len0 + 1) : NULL;
+        result = gtv_app_dict_normalize_id((cls && *cls) ? cls : inst);
+        x11.free_mem(p);
+    }
+
+    x11.set_err(prev_err);
+    x11.close(dpy);
+    return result;
+}
+
+static gboolean is_generic_ibus_client(const gchar *norm) {
+    static const char * const generic[] = {
+        "xim", "wayland", "fake", "gnome-shell", "qt", "ibus-gtk", "qibus", "gtk-im", "gtk2-im", "gtk3-im", "gtk4-im"
+    };
+    if (!norm || !*norm) return TRUE;
+    for (guint i = 0; i < G_N_ELEMENTS(generic); i++)
+        if (g_str_has_prefix(norm, generic[i])) return TRUE;
+    return FALSE;
+}
+
+static gchar *gnome_focus_app_id(void) {
+    const gchar *rdir = g_get_user_runtime_dir();
+    if (!rdir) return NULL;
+    gchar *path = g_build_filename(rdir, "gotv-focus", NULL);
+    gchar *raw = NULL;
+    gchar *res = (g_file_get_contents(path, &raw, NULL, NULL) && raw) ? gtv_app_dict_normalize_id(raw) : NULL;
+    g_free(raw);
+    g_free(path);
+    return res;
+}
+
+static gchar *resolve_linux_client_id(const gchar *client) {
+    gchar *norm = (client && *client) ? gtv_app_dict_normalize_id(client) : NULL;
+    if (norm && !is_generic_ibus_client(norm)) return norm;
+    gboolean is_xim = (norm && !g_strcmp0(norm, "xim"));
+    g_free(norm);
+    gchar *gnome_app = gnome_focus_app_id();
+    if (gnome_app) return gnome_app;
+    return (!g_getenv("WAYLAND_DISPLAY") || is_xim) ? x11_active_app_id() : NULL;
+}
+
 static void focus_in_id(IBusEngine *engine, const gchar *id, const gchar *client){
     IBusGoTVEngine *e=(IBusGoTVEngine*)engine;
-    (void)client;
-    debug_log("[focus_in_id] engine=%p id='%s'\n", engine, id ? id : "");
     g_free(e->focus_id);
     e->focus_id=g_strdup(id);
+    g_free(e->client_id);
+    e->client_id=resolve_linux_client_id(client);
+    debug_log("[focus_in_id] engine=%p id='%s' client='%s' resolved='%s'\n",
+              engine, id ? id : "", client ? client : "", e->client_id ? e->client_id : "");
     if(e->preedit && e->preedit->len>0 && e->focus_id && *e->focus_id
        && e->preedit_focus_id && *e->preedit_focus_id
        && g_strcmp0(e->focus_id, e->preedit_focus_id)!=0){
@@ -655,7 +778,7 @@ static void ibus_gotv_engine_finalize(GObject *object){
     gtv_config_clear(&e->config);
     g_clear_pointer(&e->learned_words,g_hash_table_unref);g_free(e->learned_path);
     g_clear_pointer(&e->learned_fixes,g_hash_table_unref);g_free(e->learned_fixes_path);
-    g_free(e->focus_id);g_free(e->preedit_focus_id);
+    g_free(e->focus_id);g_free(e->client_id);g_free(e->preedit_focus_id);
     if(e->preedit) g_string_free(e->preedit,TRUE);
     if(e->sentence_context) g_string_free(e->sentence_context,TRUE);
     G_OBJECT_CLASS(ibus_gotv_engine_parent_class)->finalize(object);
@@ -741,7 +864,7 @@ static void bus_connected_cb(IBusBus *b, gpointer user_data){
         c = ibus_component_new_from_file("/usr/share/ibus/component/gotv.xml");
     }
     if(!c){
-        c = ibus_component_new("org.freedesktop.IBus.GoTV","GoTV Engine (thuần hệ thống)","0.9.15","GPL","GoTV Project","https://github.com/isthaison/gotv","/usr/libexec/ibus-engine-gotv --ibus","gotv");
+        c = ibus_component_new("org.freedesktop.IBus.GoTV","GoTV Engine (thuần hệ thống)","0.9.16","GPL","GoTV Project","https://github.com/isthaison/gotv","/usr/libexec/ibus-engine-gotv --ibus","gotv");
         IBusEngineDesc *d = ibus_engine_desc_new_varargs(
             "name", "gotv",
             "longname", "GoTV",

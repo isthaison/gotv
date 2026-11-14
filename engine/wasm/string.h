@@ -4,32 +4,9 @@
 
 size_t strlen(const char *s);
 size_t wcslen(const int *s);
-
-static inline void *memset(void *dest, int val, size_t len) {
-    unsigned char *d = (unsigned char *)dest;
-    while (len--) *d++ = (unsigned char)val;
-    return dest;
-}
-
-static inline void *memcpy(void *dest, const void *src, size_t len) {
-    unsigned char *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-    while (len--) *d++ = *s++;
-    return dest;
-}
-
-static inline void *memmove(void *dest, const void *src, size_t len) {
-    unsigned char *d = (unsigned char *)dest;
-    const unsigned char *s = (const unsigned char *)src;
-    if (d < s) {
-        while (len--) *d++ = *s++;
-    } else {
-        d += len;
-        s += len;
-        while (len--) *--d = *--s;
-    }
-    return dest;
-}
+void *memset(void *dest, int val, size_t len);
+void *memcpy(void *dest, const void *src, size_t len);
+void *memmove(void *dest, const void *src, size_t len);
 
 static inline char *strchr(const char *s, int c) {
     while (*s) {

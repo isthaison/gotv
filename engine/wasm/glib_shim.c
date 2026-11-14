@@ -50,6 +50,32 @@ size_t strlen_wasm(const char *s) {
     return strlen(s);
 }
 
+void *memset(void *dest, int val, size_t len) {
+    volatile unsigned char *d = (volatile unsigned char *)dest;
+    while (len--) *d++ = (unsigned char)val;
+    return dest;
+}
+
+void *memcpy(void *dest, const void *src, size_t len) {
+    volatile unsigned char *d = (volatile unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    while (len--) *d++ = *s++;
+    return dest;
+}
+
+void *memmove(void *dest, const void *src, size_t len) {
+    volatile unsigned char *d = (volatile unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    if ((const unsigned char *)dest < s) {
+        while (len--) *d++ = *s++;
+    } else {
+        d += len;
+        s += len;
+        while (len--) *--d = *--s;
+    }
+    return dest;
+}
+
 gchar *g_strdup(const gchar *str) {
     if (!str) return NULL;
     size_t len = strlen_wasm(str);
