@@ -1,0 +1,8 @@
+{
+  "uuid": "gotv-focus@isthaison.github.io",
+  "name": "GoTV Active App Helper",
+  "description": "Reports the focused window app ID to GoTV for per-application dictionary switching on GNOME Wayland.",
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "url": "https://github.com/isthaison/gotv",
+  "version": 1
+}

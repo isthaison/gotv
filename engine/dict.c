@@ -42,7 +42,8 @@ typedef struct {
 } DictStore;
 
 static GMutex dict_lock;
-static DictStore *dict_cache = NULL;
+static GHashTable *merged_cache = NULL; /* sig -> DictStore* */
+static const DictStore *active_store = NULL;
 static gchar active_langs[128] = "vi";
 
 guint gtv_dict_catalog_count(void) {
@@ -135,27 +136,6 @@ gchar *gtv_dict_lang_toggle(const gchar *langs, const gchar *id, gboolean enable
     return g_string_free(buf, FALSE);
 }
 
-void gtv_dict_set_langs(const gchar *langs) {
-    gchar norm[128];
-    normalize_langs(langs, norm, sizeof(norm));
-    g_mutex_lock(&dict_lock);
-    if (strcmp(active_langs, norm) != 0) {
-        g_strlcpy(active_langs, norm, sizeof(active_langs));
-        if (dict_cache) {
-            if (dict_cache->entries) g_ptr_array_unref(dict_cache->entries);
-            g_free(dict_cache->path);
-            g_free(dict_cache->tag);
-            g_free(dict_cache);
-            dict_cache = NULL;
-        }
-    }
-    g_mutex_unlock(&dict_lock);
-}
-
-const gchar *gtv_dict_get_langs(void) {
-    return active_langs;
-}
-
 static void dict_entry_free(gpointer p) {
     DictEntry *e = p;
     if (!e) return;
@@ -164,12 +144,28 @@ static void dict_entry_free(gpointer p) {
     g_free(e);
 }
 
-static void dict_store_free(DictStore *ds) {
+static void dict_store_free(gpointer p) {
+    DictStore *ds = p;
     if (!ds) return;
     if (ds->entries) g_ptr_array_unref(ds->entries);
     g_free(ds->path);
     g_free(ds->tag);
     g_free(ds);
+}
+
+void gtv_dict_set_langs(const gchar *langs) {
+    gchar norm[128];
+    normalize_langs(langs, norm, sizeof(norm));
+    g_mutex_lock(&dict_lock);
+    if (strcmp(active_langs, norm) != 0) {
+        g_strlcpy(active_langs, norm, sizeof(active_langs));
+        active_store = NULL;
+    }
+    g_mutex_unlock(&dict_lock);
+}
+
+const gchar *gtv_dict_get_langs(void) {
+    return active_langs;
 }
 
 static gint entry_cmp_folded(gconstpointer a, gconstpointer b) {
@@ -257,24 +253,61 @@ gchar *gtv_dict_user_path(void) {
     return dict_pack_user_path(GTV_DICT_NAME);
 }
 
-/* Load one pack (downloaded copy wins when non-empty; otherwise shipped seed). */
-static DictStore *dict_load_one_pack(const GtvDictInfo *info) {
+static DictStore *pack_cache[G_N_ELEMENTS(dict_catalog)] = { NULL };
+
+static const gchar *dict_pack_resolve_path(const GtvDictInfo *info, gchar **out_allocated) {
     gchar *user = dict_pack_user_path(info->filename);
-    DictStore *ds = NULL;
     if (g_file_test(user, G_FILE_TEST_EXISTS)) {
-        ds = dict_parse_file(user);
-        if (ds->entries->len == 0) {
-            dict_store_free(ds);
-            ds = NULL;
-        }
+        *out_allocated = user;
+        return user;
     }
     g_free(user);
-    if (!ds) {
-        gchar *seed = gtv_data_path(info->filename);
-        ds = dict_parse_file(seed);
-        g_free(seed);
+    gchar *seed = gtv_data_path(info->filename);
+    *out_allocated = seed;
+    return seed;
+}
+
+/* Load one pack with per-pack mtime/size cache (caller holds dict_lock). */
+static const DictStore *dict_get_pack_locked(guint idx) {
+    const GtvDictInfo *info = &dict_catalog[idx];
+    gchar *alloc_path = NULL;
+    const gchar *path = dict_pack_resolve_path(info, &alloc_path);
+    GStatBuf st;
+    gint64 mtime = 0;
+    goffset size = 0;
+    gboolean exists = (path && g_stat(path, &st) == 0);
+    if (exists) {
+        mtime = (gint64)st.st_mtime;
+        size = (goffset)st.st_size;
     }
-    return ds;
+    DictStore *cached = pack_cache[idx];
+    if (cached && exists && g_strcmp0(cached->path, path) == 0 &&
+        cached->mtime == mtime && cached->size == size) {
+        g_free(alloc_path);
+        return cached;
+    }
+    dict_store_free(pack_cache[idx]);
+    pack_cache[idx] = NULL;
+    if (exists) {
+        DictStore *ds = dict_parse_file(path);
+        if (ds->entries->len == 0) {
+            dict_store_free(ds);
+            gchar *seed = gtv_data_path(info->filename);
+            if (g_strcmp0(seed, path) != 0) {
+                ds = dict_parse_file(seed);
+            } else {
+                ds = NULL;
+            }
+            g_free(seed);
+        }
+        if (ds) {
+            ds->mtime = mtime;
+            ds->size = size;
+            pack_cache[idx] = ds;
+        }
+    }
+    g_free(alloc_path);
+    return pack_cache[idx];
 }
 
 /* Load and merge all enabled packs in active_langs. */
@@ -286,7 +319,7 @@ static DictStore *dict_load_locked(void) {
     for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
         if (!gtv_dict_lang_enabled(active_langs, dict_catalog[i].id))
             continue;
-        DictStore *one = dict_load_one_pack(&dict_catalog[i]);
+        const DictStore *one = dict_get_pack_locked(i);
         if (!one) continue;
         if (one->tag && *one->tag &&
             (!*merged->tag || gtv_version_compare(one->tag, merged->tag) > 0)) {
@@ -298,9 +331,9 @@ static DictStore *dict_load_locked(void) {
             DictEntry *copy = g_new0(DictEntry, 1);
             copy->word = g_strdup(src->word);
             copy->folded = g_strdup(src->folded);
+            copy->ascii_mask = src->ascii_mask;
             g_ptr_array_add(merged->entries, copy);
         }
-        dict_store_free(one);
     }
     dict_finalize_entries(merged);
     return merged;
@@ -312,15 +345,8 @@ static gchar *dict_build_signature_locked(gboolean *out_any_stat) {
     for (guint i = 0; i < G_N_ELEMENTS(dict_catalog); i++) {
         if (!gtv_dict_lang_enabled(active_langs, dict_catalog[i].id))
             continue;
-        gchar *user = dict_pack_user_path(dict_catalog[i].filename);
-        gchar *seed = NULL;
-        const gchar *path = NULL;
-        if (g_file_test(user, G_FILE_TEST_EXISTS)) {
-            path = user;
-        } else {
-            seed = gtv_data_path(dict_catalog[i].filename);
-            path = seed;
-        }
+        gchar *alloc_path = NULL;
+        const gchar *path = dict_pack_resolve_path(&dict_catalog[i], &alloc_path);
         GStatBuf st;
         if (path && g_stat(path, &st) == 0) {
             any_stat = TRUE;
@@ -329,38 +355,48 @@ static gchar *dict_build_signature_locked(gboolean *out_any_stat) {
         } else {
             g_string_append_printf(sig, "|%s:missing", dict_catalog[i].id);
         }
-        g_free(user);
-        g_free(seed);
+        g_free(alloc_path);
     }
     if (out_any_stat) *out_any_stat = any_stat;
     return g_string_free(sig, FALSE);
 }
 
-/* Process-wide cached table; reloads when the backing files or active
- * language packs change. Returned pointer is borrowed. */
+/* Process-wide cached table; keeps merged stores per language combination so
+ * switching between apps with different dictionary rules is O(1). */
 const DictStore *gtv_dict_get(void) {
     g_mutex_lock(&dict_lock);
     gboolean have_stat = FALSE;
     gchar *sig = dict_build_signature_locked(&have_stat);
-    if (!dict_cache || !have_stat || !dict_cache->path || strcmp(dict_cache->path, sig) != 0) {
-        dict_store_free(dict_cache);
-        dict_cache = NULL;
-        if (have_stat) {
-            dict_cache = dict_load_locked();
-            g_free(dict_cache->path);
-            dict_cache->path = g_strdup(sig);
+    if (!have_stat) {
+        active_store = NULL;
+    } else if (!active_store || !active_store->path || strcmp(active_store->path, sig) != 0) {
+        if (!merged_cache)
+            merged_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, dict_store_free);
+        DictStore *found = g_hash_table_lookup(merged_cache, sig);
+        if (!found) {
+            if (g_hash_table_size(merged_cache) >= 8)
+                g_hash_table_remove_all(merged_cache);
+            found = dict_load_locked();
+            g_free(found->path);
+            found->path = g_strdup(sig);
+            g_hash_table_replace(merged_cache, g_strdup(sig), found);
         }
+        active_store = found;
     }
     g_free(sig);
-    const DictStore *out = dict_cache;
+    const DictStore *out = active_store;
     g_mutex_unlock(&dict_lock);
     return out;
 }
 
 void gtv_dict_invalidate(void) {
     g_mutex_lock(&dict_lock);
-    dict_store_free(dict_cache);
-    dict_cache = NULL;
+    active_store = NULL;
+    if (merged_cache) g_hash_table_remove_all(merged_cache);
+    for (guint i = 0; i < G_N_ELEMENTS(pack_cache); i++) {
+        dict_store_free(pack_cache[i]);
+        pack_cache[i] = NULL;
+    }
     g_mutex_unlock(&dict_lock);
 }
 
@@ -377,18 +413,22 @@ const gchar *gtv_dict_tag(void) {
 guint gtv_dict_pack_count(const gchar *id) {
     const GtvDictInfo *info = gtv_dict_catalog_find(id);
     if (!info) return 0;
-    DictStore *ds = dict_load_one_pack(info);
+    guint idx = (guint)(info - dict_catalog);
+    g_mutex_lock(&dict_lock);
+    const DictStore *ds = dict_get_pack_locked(idx);
     guint n = ds && ds->entries ? ds->entries->len : 0;
-    dict_store_free(ds);
+    g_mutex_unlock(&dict_lock);
     return n;
 }
 
 gchar *gtv_dict_pack_tag(const gchar *id) {
     const GtvDictInfo *info = gtv_dict_catalog_find(id);
     if (!info) return g_strdup("");
-    DictStore *ds = dict_load_one_pack(info);
+    guint idx = (guint)(info - dict_catalog);
+    g_mutex_lock(&dict_lock);
+    const DictStore *ds = dict_get_pack_locked(idx);
     gchar *tag = g_strdup((ds && ds->tag) ? ds->tag : "");
-    dict_store_free(ds);
+    g_mutex_unlock(&dict_lock);
     return tag;
 }
 

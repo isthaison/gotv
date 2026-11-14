@@ -53,6 +53,22 @@
 #define IDC_CHECK_DICT_C      236
 #define IDC_CHECK_DICT_CSHARP 237
 #define IDC_CHECK_DICT_EN     238
+#define IDC_BTN_APP_DICTS     239
+
+#define IDD_APP_DICTS_DIALOG  270
+#define IDC_AD_LIST           271
+#define IDC_AD_LBL_APP        272
+#define IDC_AD_APP            273
+#define IDC_AD_LBL_DICTS      274
+#define IDC_AD_VI             275
+#define IDC_AD_TSQL           276
+#define IDC_AD_C              277
+#define IDC_AD_CSHARP         278
+#define IDC_AD_EN             279
+#define IDC_AD_SAVE           280
+#define IDC_AD_DELETE         281
+#define IDC_AD_CLOSE          282
+#define IDC_AD_NOTE           283
 
 #define IDD_DATA_DIALOG     220
 #define IDC_DATA_MACRO      221

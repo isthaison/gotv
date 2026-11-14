@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.15" date="2026-11-14">
+      <description>
+        <p>Hỗ trợ thiết lập bộ từ điển riêng cho từng ứng dụng (Windows, macOS, Linux) và tối ưu bộ nhớ đệm từ điển.</p>
+      </description>
+    </release>
     <release version="0.9.13" date="2026-11-10">
       <description>
         <p>Kich hoat chuyen doi ban phim he thong Windows bang phim tat Ctrl+Shift hoac Alt+Z.</p>

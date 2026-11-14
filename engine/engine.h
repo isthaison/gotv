@@ -44,6 +44,18 @@ typedef struct {
     const gchar *title;
 } GtvDictInfo;
 
+typedef struct {
+    gchar *app_id;
+    gchar *dicts;
+} GtvAppDictRule;
+
+void gtv_app_dict_rule_free(gpointer rule);
+gchar *gtv_app_dict_normalize_id(const gchar *app_id);
+GPtrArray *gtv_app_dicts_load(const gchar *directory);
+gboolean gtv_app_dicts_save(const GPtrArray *rules, const gchar *directory, GError **error);
+const gchar *gtv_config_resolve_dicts(const GtvConfig *config, const gchar *app_id,
+                                      const gchar *directory, gchar *out, gsize out_size);
+
 gboolean gtv_dict_available(const GtvConfig *config);
 guint gtv_dict_count(void);
 const gchar *gtv_dict_tag(void);
@@ -61,6 +73,11 @@ gboolean gtv_dict_update_pack(const gchar *repo, const gchar *id);
 GPtrArray *gtv_suggest_combined(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad);
 void gtv_suggest_combined_async(const GtvConfig *config, const gchar *context, const gchar *preedit, gboolean bad,
                                GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+GPtrArray *gtv_suggest_combined_for_app(const GtvConfig *config, const gchar *app_id,
+                                        const gchar *context, const gchar *preedit, gboolean bad);
+void gtv_suggest_combined_for_app_async(const GtvConfig *config, const gchar *app_id,
+                                        const gchar *context, const gchar *preedit, gboolean bad,
+                                        GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 GPtrArray *gtv_suggest_combined_finish(GAsyncResult *res, GError **error);
 /* Self-update against GitHub releases. Check/download need curl and network;
  * parse/compare/throttle are offline. Out strings belong to the caller. */

@@ -455,6 +455,11 @@ cmd_install_linux() {
     if [[ -f linux/ibus/gotv.metainfo.xml ]]; then
         install -Dm644 linux/ibus/gotv.metainfo.xml "$DESTDIR/usr/share/metainfo/gotv.metainfo.xml"
     fi
+    if [[ -d linux/gnome-extension ]]; then
+        extdir="$DESTDIR/usr/share/gnome-shell/extensions/gotv-focus@isthaison.github.io"
+        install -Dm644 linux/gnome-extension/metadata.json "$extdir/metadata.json"
+        install -Dm644 linux/gnome-extension/extension.js "$extdir/extension.js"
+    fi
     if [[ -d linux/ibus/screenshots ]]; then
         install -d "$DESTDIR/usr/share/gotv/screenshots"
         for f in linux/ibus/screenshots/*.png; do
@@ -605,6 +610,11 @@ restart_ibus_sessions() {
         else
             echo "Chưa xong cho $u (thử đăng xuất/đăng nhập lại, hoặc chạy tay: ibus restart)."
         fi
+        if command -v gnome-extensions >/dev/null 2>&1; then
+            sudo -u "$u" env XDG_RUNTIME_DIR="$rundir" \
+                DBUS_SESSION_BUS_ADDRESS="unix:path=$rundir/bus" \
+                gnome-extensions enable gotv-focus@isthaison.github.io >/dev/null 2>&1 || true
+        fi
     done
     return 0
 }
@@ -630,7 +640,8 @@ cmd_uninstall_linux() {
         "$DESTDIR/usr/share/icons/hicolor/scalable/apps/gotv-vni.svg" \
         "$DESTDIR/usr/share/applications/gotv.desktop" \
         "$DESTDIR/etc/xdg/autostart/gotv.desktop"
-    rm -rf "$DESTDIR/usr/share/gotv"
+    rm -rf "$DESTDIR/usr/share/gotv" \
+        "$DESTDIR/usr/share/gnome-shell/extensions/gotv-focus@isthaison.github.io"
     for size in 16 22 24 32 48 64 128 256; do
         rm -f "$DESTDIR/usr/share/icons/hicolor/${size}x${size}/apps/gotv.png"
         rm -f "$DESTDIR/usr/share/icons/hicolor/${size}x${size}/apps/gotv-telex.png"
@@ -647,7 +658,7 @@ cmd_uninstall_linux() {
 }
 
 cmd_package_linux() {
-    version=${1:-0.9.13-1}
+    version=${1:-0.9.15-1}
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
     make build test

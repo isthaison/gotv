@@ -29,6 +29,188 @@ extern void GoTVCheckForUpdates(BOOL manual);
 #endif
 
 /* -------------------------------------------------------------------------
+ * GtvAppDictsWindow: Per-application dictionary configuration
+ * ------------------------------------------------------------------------- */
+@interface GtvAppDictsWindow : NSObject <NSTableViewDataSource, NSTableViewDelegate> {
+    NSWindow *window;
+    NSTableView *table;
+    NSTextField *appField;
+    NSButton *checks[5];
+    GPtrArray *rules;
+}
++ (instancetype)shared;
+- (void)show;
+- (void)refresh;
+- (IBAction)addOrUpdate:(id)sender;
+- (IBAction)removeSelected:(id)sender;
+@end
+
+@implementation GtvAppDictsWindow
+
++ (instancetype)shared {
+    static GtvAppDictsWindow *shared = nil;
+    if (!shared) shared = [[GtvAppDictsWindow alloc] init];
+    return shared;
+}
+
+- (void)dealloc {
+    if (rules) g_ptr_array_unref(rules);
+    [super dealloc];
+}
+
+- (void)show {
+    if (!window) {
+        NSRect frame = NSMakeRect(0, 0, 480, 390);
+        window = [[NSWindow alloc] initWithContentRect:frame
+                                             styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask)
+                                               backing:NSBackingStoreBuffered
+                                                 defer:NO];
+        [window setTitle:@"GoTV — Từ điển theo từng ứng dụng"];
+        [window setReleasedWhenClosed:NO];
+        NSView *view = [window contentView];
+
+        NSTextField *note = [NSTextField labelWithString:@"Nhập Bundle ID (vd: com.microsoft.VSCode, com.apple.Terminal):"];
+        [note setFrame:NSMakeRect(12, 356, 456, 22)];
+        [view addSubview:note];
+
+        NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(12, 165, 456, 185)] autorelease];
+        [scroll setHasVerticalScroller:YES];
+        [scroll setBorderType:NSBezelBorder];
+
+        table = [[[NSTableView alloc] initWithFrame:[[scroll contentView] bounds]] autorelease];
+        NSTableColumn *colApp = [[[NSTableColumn alloc] initWithIdentifier:@"app"] autorelease];
+        [[colApp headerCell] setStringValue:@"Ứng dụng (Bundle ID)"];
+        [colApp setWidth:240];
+        [table addTableColumn:colApp];
+
+        NSTableColumn *colDict = [[[NSTableColumn alloc] initWithIdentifier:@"dicts"] autorelease];
+        [[colDict headerCell] setStringValue:@"Bộ từ điển"];
+        [colDict setWidth:195];
+        [table addTableColumn:colDict];
+
+        [table setDataSource:self];
+        [table setDelegate:self];
+        [scroll setDocumentView:table];
+        [view addSubview:scroll];
+
+        appField = [[[NSTextField alloc] initWithFrame:NSMakeRect(12, 128, 456, 24)] autorelease];
+        [appField setPlaceholderString:@"com.microsoft.VSCode"];
+        [view addSubview:appField];
+
+        const char *titles[5] = { "Tiếng Việt", "T-SQL", "C / C++", "C# (.NET)", "Tiếng Anh" };
+        for (int i = 0; i < 5; i++) {
+            int col = i % 3;
+            int row = i / 3;
+            checks[i] = [[[NSButton alloc] initWithFrame:NSMakeRect(12 + col * 150, 95 - row * 24, 145, 22)] autorelease];
+            [checks[i] setButtonType:NSSwitchButton];
+            [checks[i] setTitle:[NSString stringWithUTF8String:titles[i]]];
+            [checks[i] setState:(i == 0 ? NSOnState : NSOffState)];
+            [view addSubview:checks[i]];
+        }
+
+        NSButton *btnAdd = [[[NSButton alloc] initWithFrame:NSMakeRect(12, 18, 160, 28)] autorelease];
+        [btnAdd setTitle:@"Thêm / Cập nhật"];
+        [btnAdd setButtonType:NSMomentaryPushInButton];
+        [btnAdd setBezelStyle:NSRoundedBezelStyle];
+        [btnAdd setTarget:self];
+        [btnAdd setAction:@selector(addOrUpdate:)];
+        [view addSubview:btnAdd];
+
+        NSButton *btnDel = [[[NSButton alloc] initWithFrame:NSMakeRect(182, 18, 130, 28)] autorelease];
+        [btnDel setTitle:@"Xóa đã chọn"];
+        [btnDel setButtonType:NSMomentaryPushInButton];
+        [btnDel setBezelStyle:NSRoundedBezelStyle];
+        [btnDel setTarget:self];
+        [btnDel setAction:@selector(removeSelected:)];
+        [view addSubview:btnDel];
+    }
+    [self refresh];
+    [window center];
+    [window makeKeyAndOrderFront:nil];
+}
+
+- (void)refresh {
+    if (rules) g_ptr_array_unref(rules);
+    rules = gtv_app_dicts_load(NULL);
+    [table reloadData];
+}
+
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)tv {
+    (void)tv;
+    return rules ? (NSInteger)rules->len : 0;
+}
+
+- (id)tableView:(NSTableView *)tv objectValueForTableColumn:(NSTableColumn *)col row:(NSInteger)row {
+    (void)tv;
+    if (!rules || row < 0 || (guint)row >= rules->len) return @"";
+    GtvAppDictRule *r = (GtvAppDictRule *)rules->pdata[row];
+    if ([[col identifier] isEqualToString:@"app"]) {
+        return r->app_id ? [NSString stringWithUTF8String:r->app_id] : @"";
+    }
+    return r->dicts ? [NSString stringWithUTF8String:r->dicts] : @"";
+}
+
+- (void)tableViewSelectionDidChange:(NSNotification *)note {
+    (void)note;
+    NSInteger row = [table selectedRow];
+    if (!rules || row < 0 || (guint)row >= rules->len) return;
+    GtvAppDictRule *r = (GtvAppDictRule *)rules->pdata[row];
+    if (r->app_id) [appField setStringValue:[NSString stringWithUTF8String:r->app_id]];
+    const char *ids[5] = { "vi", "tsql", "c", "csharp", "en" };
+    for (int i = 0; i < 5; i++) {
+        [checks[i] setState:(gtv_dict_lang_enabled(r->dicts, ids[i]) ? NSOnState : NSOffState)];
+    }
+}
+
+- (IBAction)addOrUpdate:(id)sender {
+    (void)sender;
+    const gchar *raw = [[appField stringValue] UTF8String];
+    gchar *norm = gtv_app_dict_normalize_id(raw);
+    if (!norm) return;
+    const char *ids[5] = { "vi", "tsql", "c", "csharp", "en" };
+    GString *sel = g_string_new("");
+    for (int i = 0; i < 5; i++) {
+        if ([checks[i] state] == NSOnState) {
+            if (sel->len > 0) g_string_append_c(sel, ',');
+            g_string_append(sel, ids[i]);
+        }
+    }
+    if (sel->len == 0) g_string_assign(sel, "vi");
+    if (!rules) rules = gtv_app_dicts_load(NULL);
+    gboolean updated = FALSE;
+    for (guint i = 0; i < rules->len; i++) {
+        GtvAppDictRule *r = (GtvAppDictRule *)rules->pdata[i];
+        if (g_strcmp0(r->app_id, norm) == 0) {
+            g_free(r->dicts);
+            r->dicts = g_string_free(sel, FALSE);
+            updated = TRUE;
+            break;
+        }
+    }
+    if (!updated) {
+        GtvAppDictRule *r = g_new0(GtvAppDictRule, 1);
+        r->app_id = norm;
+        r->dicts = g_string_free(sel, FALSE);
+        g_ptr_array_add(rules, r);
+    } else {
+        g_free(norm);
+    }
+    gtv_app_dicts_save(rules, NULL, NULL);
+    [self refresh];
+}
+
+- (IBAction)removeSelected:(id)sender {
+    (void)sender;
+    NSInteger row = [table selectedRow];
+    if (!rules || row < 0 || (guint)row >= rules->len) return;
+    g_ptr_array_remove_index(rules, (guint)row);
+    gtv_app_dicts_save(rules, NULL, NULL);
+    [self refresh];
+}
+
+@end
+
+/* -------------------------------------------------------------------------
  * GtvDataWindow: Macro and Emoji table manager
  * ------------------------------------------------------------------------- */
 @interface GtvDataWindow : NSObject <NSTableViewDataSource, NSTableViewDelegate> {
@@ -254,6 +436,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
 - (void)loadFromConfig;
 - (IBAction)settingChanged:(id)sender;
 - (IBAction)openDataWindow:(id)sender;
+- (IBAction)openAppDictsWindow:(id)sender;
 - (IBAction)openConfigFolder:(id)sender;
 - (IBAction)checkUpdates:(id)sender;
 @end
@@ -362,12 +545,20 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [csDictCheck setAction:@selector(settingChanged:)];
         [view addSubview:csDictCheck];
 
-        tsqlDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(180, y, 130, 22)] autorelease];
+        tsqlDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(180, y, 120, 22)] autorelease];
         [tsqlDictCheck setButtonType:NSSwitchButton];
         [tsqlDictCheck setTitle:@"T-SQL (tsql)"];
         [tsqlDictCheck setTarget:self];
         [tsqlDictCheck setAction:@selector(settingChanged:)];
         [view addSubview:tsqlDictCheck];
+
+        NSButton *btnAppDicts = [[[NSButton alloc] initWithFrame:NSMakeRect(305, y - 2, 155, 26)] autorelease];
+        [btnAppDicts setTitle:@"Theo từng ứng dụng..."];
+        [btnAppDicts setButtonType:NSMomentaryPushInButton];
+        [btnAppDicts setBezelStyle:NSRoundedBezelStyle];
+        [btnAppDicts setTarget:self];
+        [btnAppDicts setAction:@selector(openAppDictsWindow:)];
+        [view addSubview:btnAppDicts];
 
         y -= 45;
 
@@ -475,6 +666,11 @@ extern void GoTVCheckForUpdates(BOOL manual);
 - (IBAction)openDataWindow:(id)sender {
     (void)sender;
     [[GtvDataWindow shared] show];
+}
+
+- (IBAction)openAppDictsWindow:(id)sender {
+    (void)sender;
+    [[GtvAppDictsWindow shared] show];
 }
 
 - (IBAction)openConfigFolder:(id)sender {

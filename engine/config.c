@@ -254,3 +254,192 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
 void gtv_config_clear(GtvConfig *config) {
     *config = (GtvConfig){0};
 }
+
+void gtv_app_dict_rule_free(gpointer p) {
+    GtvAppDictRule *r = p;
+    if (!r) return;
+    g_free(r->app_id);
+    g_free(r->dicts);
+    g_free(r);
+}
+
+gchar *gtv_app_dict_normalize_id(const gchar *app_id) {
+    if (!app_id) return NULL;
+    gchar *tmp = g_strdup(app_id);
+    g_strstrip(tmp);
+    if (!*tmp) {
+        g_free(tmp);
+        return NULL;
+    }
+    const gchar *slash = strrchr(tmp, '/');
+    const gchar *bslash = strrchr(tmp, '\\');
+    const gchar *base = tmp;
+    if (slash && bslash)
+        base = (slash > bslash ? slash : bslash) + 1;
+    else if (slash)
+        base = slash + 1;
+    else if (bslash)
+        base = bslash + 1;
+    if (!*base) {
+        g_free(tmp);
+        return NULL;
+    }
+    gchar *lower = g_ascii_strdown(base, -1);
+    g_free(tmp);
+    return lower;
+}
+
+static void overlay_app_dicts_file(GHashTable *map, const gchar *path) {
+    if (!map || !path) return;
+    GKeyFile *kf = g_key_file_new();
+    if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL) &&
+        g_key_file_has_group(kf, "app_dicts")) {
+        gsize nkeys = 0;
+        gchar **keys = g_key_file_get_keys(kf, "app_dicts", &nkeys, NULL);
+        for (gsize i = 0; keys && keys[i]; i++) {
+            gchar *norm_id = gtv_app_dict_normalize_id(keys[i]);
+            gchar *val = g_key_file_get_string(kf, "app_dicts", keys[i], NULL);
+            if (norm_id && val) {
+                g_strstrip(val);
+                if (*val) {
+                    g_hash_table_replace(map, norm_id, val);
+                    norm_id = NULL;
+                    val = NULL;
+                }
+            }
+            g_free(norm_id);
+            g_free(val);
+        }
+        g_strfreev(keys);
+    }
+    g_key_file_unref(kf);
+}
+
+static gint app_rule_cmp(gconstpointer a, gconstpointer b) {
+    const GtvAppDictRule *ra = *(const GtvAppDictRule * const *)a;
+    const GtvAppDictRule *rb = *(const GtvAppDictRule * const *)b;
+    return g_strcmp0(ra->app_id, rb->app_id);
+}
+
+GPtrArray *gtv_app_dicts_load(const gchar *directory) {
+    GPtrArray *rules = g_ptr_array_new_with_free_func(gtv_app_dict_rule_free);
+    GHashTable *map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    gchar *seed = gtv_data_path("config");
+    overlay_app_dicts_file(map, seed);
+    g_free(seed);
+
+    gchar *dir = directory ? g_strdup(directory) : gtv_user_path(g_get_user_config_dir(), NULL);
+    gchar *user_cfg = g_build_filename(dir, "config", NULL);
+    overlay_app_dicts_file(map, user_cfg);
+    g_free(user_cfg);
+    g_free(dir);
+
+    GHashTableIter it;
+    gpointer k, v;
+    g_hash_table_iter_init(&it, map);
+    while (g_hash_table_iter_next(&it, &k, &v)) {
+        GtvAppDictRule *r = g_new0(GtvAppDictRule, 1);
+        r->app_id = g_strdup((const gchar *)k);
+        r->dicts = g_strdup((const gchar *)v);
+        g_ptr_array_add(rules, r);
+    }
+    g_hash_table_unref(map);
+    g_ptr_array_sort(rules, app_rule_cmp);
+    return rules;
+}
+
+gboolean gtv_app_dicts_save(const GPtrArray *rules, const gchar *directory, GError **error) {
+    gchar *dir = directory ? g_strdup(directory) : gtv_user_path(g_get_user_config_dir(), NULL);
+    if (g_mkdir_with_parents(dir, 0755) != 0) {
+        g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
+                    "Cannot create %s: %s", dir, g_strerror(errno));
+        g_free(dir);
+        return FALSE;
+    }
+    GKeyFile *file = g_key_file_new();
+    gchar *path = g_build_filename(dir, "config", NULL);
+    g_key_file_load_from_file(file, path, G_KEY_FILE_KEEP_COMMENTS, NULL);
+    if (g_key_file_has_group(file, "app_dicts")) {
+        g_key_file_remove_group(file, "app_dicts", NULL);
+    }
+    if (rules) {
+        for (guint i = 0; i < rules->len; i++) {
+            const GtvAppDictRule *r = rules->pdata[i];
+            if (!r || !r->app_id || !r->dicts) continue;
+            gchar *norm_id = gtv_app_dict_normalize_id(r->app_id);
+            gchar *dicts = g_strdup(r->dicts);
+            g_strstrip(dicts);
+            if (norm_id && *dicts) {
+                g_key_file_set_string(file, "app_dicts", norm_id, dicts);
+            }
+            g_free(norm_id);
+            g_free(dicts);
+        }
+    }
+    gboolean ok = g_key_file_save_to_file(file, path, error);
+    g_free(path);
+    g_key_file_unref(file);
+    g_free(dir);
+    return ok;
+}
+
+G_LOCK_DEFINE_STATIC(app_dicts_cache_lock);
+static GHashTable *app_dicts_cache = NULL;
+static gchar *app_dicts_sig = NULL;
+
+static gchar *app_dicts_signature(const gchar *user_cfg_path) {
+    GStatBuf st;
+    if (user_cfg_path && g_stat(user_cfg_path, &st) == 0) {
+        return g_strdup_printf("%s:%" G_GINT64_FORMAT ":%" G_GOFFSET_FORMAT,
+                               user_cfg_path, (gint64)st.st_mtime, (goffset)st.st_size);
+    }
+    return g_strdup_printf("%s:missing", user_cfg_path ? user_cfg_path : "");
+}
+
+const gchar *gtv_config_resolve_dicts(const GtvConfig *config, const gchar *app_id,
+                                      const gchar *directory, gchar *out, gsize out_size) {
+    if (!out || out_size == 0) return "";
+    const gchar *fallback = (config && config->dicts[0]) ? config->dicts : "vi";
+    g_strlcpy(out, fallback, out_size);
+
+    gchar *norm_id = gtv_app_dict_normalize_id(app_id);
+    if (!norm_id) return out;
+
+    gchar *dir = directory ? g_strdup(directory) : gtv_user_path(g_get_user_config_dir(), NULL);
+    gchar *user_cfg = g_build_filename(dir, "config", NULL);
+    gchar *sig = app_dicts_signature(user_cfg);
+
+    G_LOCK(app_dicts_cache_lock);
+    if (!app_dicts_cache || g_strcmp0(app_dicts_sig, sig) != 0) {
+        if (app_dicts_cache) g_hash_table_unref(app_dicts_cache);
+        g_free(app_dicts_sig);
+        app_dicts_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+        app_dicts_sig = g_strdup(sig);
+        gchar *seed = gtv_data_path("config");
+        overlay_app_dicts_file(app_dicts_cache, seed);
+        g_free(seed);
+        overlay_app_dicts_file(app_dicts_cache, user_cfg);
+    }
+    const gchar *hit = g_hash_table_lookup(app_dicts_cache, norm_id);
+    if (!hit) {
+        if (g_str_has_suffix(norm_id, ".exe")) {
+            gchar *no_exe = g_strndup(norm_id, strlen(norm_id) - 4);
+            hit = g_hash_table_lookup(app_dicts_cache, no_exe);
+            g_free(no_exe);
+        } else {
+            gchar *with_exe = g_strconcat(norm_id, ".exe", NULL);
+            hit = g_hash_table_lookup(app_dicts_cache, with_exe);
+            g_free(with_exe);
+        }
+    }
+    if (hit && *hit) {
+        g_strlcpy(out, hit, out_size);
+    }
+    G_UNLOCK(app_dicts_cache_lock);
+
+    g_free(sig);
+    g_free(user_cfg);
+    g_free(dir);
+    g_free(norm_id);
+    return out;
+}

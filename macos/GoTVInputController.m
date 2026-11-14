@@ -250,7 +250,16 @@ extern void GoTVCheckForUpdates(BOOL manual);
             [self ensureLearned];
             GPtrArray *out = g_ptr_array_new_with_free_func(g_free);
 
-            GPtrArray *comp_sugs = gtv_suggest_combined(&cfg, "", buf, FALSE);
+            NSString *bundleId = nil;
+            id targetClient = sender ? sender : [self client];
+            if (targetClient && [targetClient respondsToSelector:@selector(bundleIdentifier)]) {
+                bundleId = [targetClient bundleIdentifier];
+            }
+            if (!bundleId || [bundleId length] == 0) {
+                bundleId = [[[NSWorkspace sharedWorkspace] frontmostApplication] bundleIdentifier];
+            }
+            const gchar *appId = (bundleId && [bundleId length] > 0) ? [bundleId UTF8String] : NULL;
+            GPtrArray *comp_sugs = gtv_suggest_combined_for_app(&cfg, appId, "", buf, FALSE);
             if (comp_sugs && comp_sugs->len > 0) {
                 for (guint i = 0; i < comp_sugs->len && out->len < 5; i++) {
                     const gchar *cand = (const gchar *)comp_sugs->pdata[i];
@@ -562,7 +571,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSMenu *m = [[[NSMenu alloc] initWithTitle:@"GoTV"] autorelease];
 
     NSString *ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    if (!ver) ver = @"0.9.14";
+    if (!ver) ver = @"0.9.15";
     NSString *titleStr = [NSString stringWithFormat:@"GoTV v%@", ver];
     NSMenuItem *titleItem = [m addItemWithTitle:titleStr action:nil keyEquivalent:@""];
     [titleItem setEnabled:NO];
