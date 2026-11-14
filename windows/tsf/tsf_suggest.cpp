@@ -1269,7 +1269,7 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
             WCHAR wpath[MAX_PATH];
             DWORD wlen = GetModuleFileNameW(NULL, wpath, MAX_PATH);
             if (wlen > 0 && wlen < MAX_PATH) {
-                gchar *u8 = g_utf16_to_utf8(wpath, -1, NULL, NULL, NULL);
+                gchar *u8 = g_utf16_to_utf8((const gunichar2 *)wpath, -1, NULL, NULL, NULL);
                 gchar *norm = gtv_app_dict_normalize_id(u8);
                 if (norm) g_strlcpy(self_app, norm, sizeof(self_app));
                 g_free(norm);
