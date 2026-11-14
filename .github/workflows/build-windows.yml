@@ -36,8 +36,13 @@ jobs:
             mingw-w64-x86_64-glib2
             mingw-w64-x86_64-pkg-config
             mingw-w64-i686-gcc
-            mingw-w64-i686-glib2
             mingw-w64-i686-pkg-config
+
+      - name: Install 32-bit glib2
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm --needed mingw-w64-i686-glib2 || \
+            pacman -U --noconfirm https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-glib2-2.90.1-1-any.pkg.tar.zst
 
       - name: Run Test Suite
         shell: msys2 {0}
@@ -51,7 +56,7 @@ jobs:
             VER="${GITHUB_REF#refs/tags/v}"
           else
             VER="$(sed -n 's/^#define GTV_VERSION "\(.*\)"/\1/p' windows/version.h)"
-            [ -n "$VER" ] || VER="0.9.16"
+            [ -n "$VER" ] || VER="0.9.17"
           fi
           VERNUM="$(echo "$VER" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/').0"
           case "$VERNUM" in

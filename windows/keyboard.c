@@ -572,6 +572,92 @@ gboolean gtv_kbd_list_load(GtvKbdList *list, GError **error) {
     return TRUE;
 }
 
+static gboolean list_has_only_vi_tip(const GtvKbdList *list) {
+    if (!list) return FALSE;
+    gboolean has_vi = FALSE;
+    for (guint i = 0; i < list->items->len; i++) {
+        const GtvKbd *k = &g_array_index(list->items, GtvKbd, i);
+        if (!k->tip || !*k->tip) continue;
+        gchar *lang = NULL, *rest = NULL;
+        if (!tip_split(k->tip, &lang, &rest)) continue;
+        LANGID lid = (LANGID)strtoul(lang, NULL, 16);
+        gboolean is_tip = rest_is_guid_pair(rest);
+        g_free(lang);
+        g_free(rest);
+        if (lid == GTV_LANG_VI) {
+            if (!is_tip) return FALSE;
+            has_vi = TRUE;
+        }
+    }
+    return has_vi;
+}
+
+const char *gtv_kbd_ps_pre_vi_reset(void) {
+    /* First remove vi from WinUserLanguageList so Windows itself clears its
+     * vi User Profile / Substitutes mapping; updating vi in-place while
+     * 0000042a is still in Preload causes Windows to allocate d001042a and
+     * load classic HKL 0x042a042a alongside GoTV. Then purge any remaining
+     * 042a registry remnants and unload live 0x042a HKLs on the input desktop.
+     * Note: avoid literal double quotes inside this string because ps_run and
+     * setup_worker pass the script inside -Command "...". */
+    return
+        "$cur=Get-WinUserLanguageList;"
+        "$hadVi=$false;"
+        "for($ci=$cur.Count-1;$ci -ge 0;$ci--){"
+        "  if($cur[$ci].LanguageTag -match '^vi'){$cur.RemoveAt($ci);$hadVi=$true}}"
+        "if($cur.Count -eq 0){"
+        "  $tmp=New-WinUserLanguageList 'en-US';"
+        "  $tmp[0].InputMethodTips.Clear();"
+        "  [void]$tmp[0].InputMethodTips.Add('0409:00000409');"
+        "  Set-WinUserLanguageList $tmp -Force;"
+        "}elseif($hadVi){"
+        "  Set-WinUserLanguageList $cur -Force;"
+        "}"
+        "Start-Sleep -Milliseconds 150;"
+        "foreach($k in @('HKCU:\\Keyboard Layout\\Preload','HKCU:\\Keyboard Layout\\Substitutes','HKCU:\\Software\\Microsoft\\CTF\\HiddenDummyLayouts')){"
+        "  if(Test-Path $k){"
+        "    $p=Get-ItemProperty $k;"
+        "    foreach($n in $p.PSObject.Properties.Name){"
+        "      if($n -match '042a$' -or ([string]$p.$n) -match '042a$'){Remove-ItemProperty -Path $k -Name $n -Force -ErrorAction SilentlyContinue}}}}"
+        "foreach($rk in @('HKCU:\\Software\\Microsoft\\CTF\\SortOrder\\AssemblyItem\\0x0000042a','HKCU:\\Software\\Microsoft\\CTF\\Assemblies\\0x0000042a')){"
+        "  if(Test-Path $rk){Remove-Item -Path $rk -Recurse -Force -ErrorAction SilentlyContinue}}"
+        "$dq=[char]34;"
+        "Add-Type -Name Kbd -Namespace Gtv -MemberDefinition ("
+        "  '[DllImport('+$dq+'user32.dll'+$dq+')]public static extern IntPtr OpenInputDesktop(uint f,bool i,uint a);'"
+        "  +'[DllImport('+$dq+'user32.dll'+$dq+')]public static extern bool SetThreadDesktop(IntPtr h);'"
+        "  +'[DllImport('+$dq+'user32.dll'+$dq+')]public static extern bool CloseDesktop(IntPtr h);'"
+        "  +'[DllImport('+$dq+'user32.dll'+$dq+')]public static extern IntPtr ActivateKeyboardLayout(IntPtr hkl,uint f);'"
+        "  +'[DllImport('+$dq+'user32.dll'+$dq+')]public static extern bool UnloadKeyboardLayout(IntPtr hkl);'"
+        "  +'[DllImport('+$dq+'user32.dll'+$dq+')]public static extern int GetKeyboardLayoutList(int n,[Out] IntPtr[] l);'"
+        ") -ErrorAction SilentlyContinue;"
+        "if(('Gtv.Kbd' -as [type]) -ne $null){"
+        "  $hd=[Gtv.Kbd]::OpenInputDesktop(0,$false,0x01FF);"
+        "  if($hd -ne [IntPtr]::Zero){[void][Gtv.Kbd]::SetThreadDesktop($hd)}"
+        "  [void][Gtv.Kbd]::ActivateKeyboardLayout([IntPtr]0x04090409,0);"
+        "  $hl=New-Object IntPtr[] 32;"
+        "  $hn=[Gtv.Kbd]::GetKeyboardLayoutList(32,$hl);"
+        "  for($hi=0;$hi -lt $hn;$hi++){"
+        "    if(($hl[$hi].ToInt64() -band 0xFFFF) -eq 0x042a){[void][Gtv.Kbd]::UnloadKeyboardLayout($hl[$hi])}}"
+        "  [void][Gtv.Kbd]::UnloadKeyboardLayout([IntPtr]0x0409042a);"
+        "  [void][Gtv.Kbd]::UnloadKeyboardLayout([IntPtr]0x042a042a);"
+        "  if($hd -ne [IntPtr]::Zero){[void][Gtv.Kbd]::CloseDesktop($hd)}}";
+}
+
+const char *gtv_kbd_ps_post_vi_cleanup(void) {
+    return
+        "Start-Sleep -Milliseconds 150;"
+        "if(('Gtv.Kbd' -as [type]) -ne $null){"
+        "  $hd=[Gtv.Kbd]::OpenInputDesktop(0,$false,0x01FF);"
+        "  if($hd -ne [IntPtr]::Zero){[void][Gtv.Kbd]::SetThreadDesktop($hd)}"
+        "  $hl=New-Object IntPtr[] 32;"
+        "  $hn=[Gtv.Kbd]::GetKeyboardLayoutList(32,$hl);"
+        "  for($hi=0;$hi -lt $hn;$hi++){"
+        "    $hv=$hl[$hi].ToInt64();"
+        "    if((($hv -band 0xFFFF) -eq 0x042a) -and (($hv -band 0xFFFF0000L) -eq 0x042a0000L)){[void][Gtv.Kbd]::UnloadKeyboardLayout($hl[$hi])}}"
+        "  [void][Gtv.Kbd]::UnloadKeyboardLayout([IntPtr]0x042a042a);"
+        "  if($hd -ne [IntPtr]::Zero){[void][Gtv.Kbd]::CloseDesktop($hd)}}";
+}
+
 /* The write script rebuilds the list from scratch. InputMethodTips cannot be
  * assigned on a Get-WinUserLanguageList result (it is read-only), so each
  * language is created with New-WinUserLanguageList and its tips are filled
@@ -580,7 +666,7 @@ gboolean gtv_kbd_list_load(GtvKbdList *list, GError **error) {
  * Entries travel inside the script as "langid|tag|tip" and are grouped by
  * LANGID, not by tag text: Windows is happy with both "vi" and "vi-VN", so
  * grouping by tag could rebuild one language as two separate entries. */
-static gchar *ps_build_write(const GtvKbdList *list) {
+static gchar *ps_build_write(const GtvKbdList *list, gboolean vi_tip_only) {
     GString *s = g_string_new(
         "$ErrorActionPreference='Stop';"
         "[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
@@ -628,8 +714,17 @@ static gchar *ps_build_write(const GtvKbdList *list) {
         "    [void]$acc.Add($lang);[void]$ids.Add($lid)}"
         "  if($lang.InputMethodTips -notcontains $tip){$lang.InputMethodTips.Add($tip)}}"
         /* Windows needs at least one language with a keyboard. */
-        "if($acc.Count -eq 0){Write-Output 'EMPTY';exit 2}"
-        "Set-WinUserLanguageList $acc -Force;"
+        "if($acc.Count -eq 0){Write-Output 'EMPTY';exit 2}");
+    if (vi_tip_only) {
+        g_string_append(s, gtv_kbd_ps_pre_vi_reset());
+        g_string_append_c(s, ';');
+    }
+    g_string_append(s, "Set-WinUserLanguageList $acc -Force;");
+    if (vi_tip_only) {
+        g_string_append(s, gtv_kbd_ps_post_vi_cleanup());
+        g_string_append_c(s, ';');
+    }
+    g_string_append(s,
         /* Read back and echo what Windows actually kept, so the caller can
          * report a rejected keyboard instead of silently losing it. */
         "$res=New-Object System.Collections.ArrayList;"
@@ -641,11 +736,14 @@ static gchar *ps_build_write(const GtvKbdList *list) {
 }
 
 gboolean gtv_kbd_list_apply(const GtvKbdList *list, GError **error) {
-    gchar *script = ps_build_write(list);
+    gboolean vi_tip_only = list_has_only_vi_tip(list);
+    if (vi_tip_only) gtv_kbd_prepare_vi_tip_only();
+    gchar *script = ps_build_write(list, vi_tip_only);
     GError *err = NULL;
     gint code = 1;
     gchar *out = ps_run(script, &code, &err);
     g_free(script);
+    if (vi_tip_only) gtv_kbd_cleanup_vi_tip_only();
     kbd_log("apply: exit=%d err=%s", code, err ? err->message : "-");
     kbd_log("apply: readback=%s", out ? out : "(none)");
     if (!out) {
@@ -816,13 +914,90 @@ void gtv_kbd_mark_custom(void) {
 #ifndef TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE
 #define TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE 0x00000004
 #endif
+#ifndef TF_IPP_FLAG_ENABLED
+#define TF_IPP_FLAG_ENABLED 0x00000002
+#endif
 
 BOOL gtv_kbd_is_vietnamese_active(void) {
+    HRESULT hrCo = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    BOOL is_vi = FALSE;
+    BOOL got_profile = FALSE;
+
+    ITfInputProcessorProfileMgr *mgr = NULL;
+    if (SUCCEEDED(CoCreateInstance(&CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
+                                   &IID_ITfInputProcessorProfileMgr, (void **)&mgr)) && mgr) {
+        TF_INPUTPROCESSORPROFILE active;
+        memset(&active, 0, sizeof(active));
+        if (SUCCEEDED(mgr->lpVtbl->GetActiveProfile(mgr, &GUID_TFCAT_TIP_KEYBOARD, &active))) {
+            CLSID gtv_clsid = GUID_NULL;
+            CLSIDFromString(L"{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}", &gtv_clsid);
+            is_vi = (active.langid == GTV_LANG_VI && IsEqualGUID(&active.clsid, &gtv_clsid));
+            got_profile = TRUE;
+        }
+        mgr->lpVtbl->Release(mgr);
+    }
+    if (SUCCEEDED(hrCo)) {
+        CoUninitialize();
+    }
+    if (got_profile) {
+        return is_vi;
+    }
+
     HWND fg = GetForegroundWindow();
     DWORD tid = fg ? GetWindowThreadProcessId(fg, NULL) : 0;
     HKL hkl = GetKeyboardLayout(tid);
     if (!hkl) hkl = GetKeyboardLayout(0);
     return (LOWORD(hkl) == GTV_LANG_VI);
+}
+
+#define KBD_HKL_US         ((HKL)(ULONG_PTR)0x04090409)
+#define KBD_HKL_VI_SUB     ((HKL)(ULONG_PTR)0x0409042a)
+#define KBD_HKL_VI_CLASSIC ((HKL)(ULONG_PTR)0x042a042a)
+
+static void unload_vi_hkls(gboolean unload_substitute) {
+    HDESK hDesk = OpenInputDesktop(0, FALSE, DESKTOP_READOBJECTS | DESKTOP_WRITEOBJECTS | DESKTOP_SWITCHDESKTOP);
+    if (hDesk) SetThreadDesktop(hDesk);
+
+    HKL hkls[32];
+    int n = GetKeyboardLayoutList((int)G_N_ELEMENTS(hkls), hkls);
+    for (int i = 0; i < n; i++) {
+        LANGID lid = LOWORD((ULONG_PTR)hkls[i]);
+        WORD dev = HIWORD((ULONG_PTR)hkls[i]);
+        if (lid == GTV_LANG_VI && (unload_substitute || dev == GTV_LANG_VI)) {
+            UnloadKeyboardLayout(hkls[i]);
+        }
+    }
+    if (unload_substitute) UnloadKeyboardLayout(KBD_HKL_VI_SUB);
+    UnloadKeyboardLayout(KBD_HKL_VI_CLASSIC);
+
+    if (hDesk) CloseDesktop(hDesk);
+}
+
+void gtv_kbd_prepare_vi_tip_only(void) {
+    HRESULT hrCo = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    ITfInputProcessorProfileMgr *mgr = NULL;
+    if (SUCCEEDED(CoCreateInstance(&CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
+                                   &IID_ITfInputProcessorProfileMgr, (void **)&mgr)) && mgr) {
+        mgr->lpVtbl->ActivateProfile(mgr, TF_PROFILETYPE_KEYBOARDLAYOUT, 0x0409,
+                                     &GUID_NULL, &GUID_NULL, KBD_HKL_US,
+                                     TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+        mgr->lpVtbl->Release(mgr);
+    }
+    if (SUCCEEDED(hrCo)) {
+        CoUninitialize();
+    }
+
+    ActivateKeyboardLayout(KBD_HKL_US, 0);
+    HWND fg = GetForegroundWindow();
+    if (fg) {
+        SendMessageTimeoutW(fg, WM_INPUTLANGCHANGEREQUEST, 0, (LPARAM)KBD_HKL_US,
+                            SMTO_ABORTIFHUNG, 500, NULL);
+    }
+    unload_vi_hkls(TRUE);
+}
+
+void gtv_kbd_cleanup_vi_tip_only(void) {
+    unload_vi_hkls(FALSE);
 }
 
 void gtv_kbd_toggle_active(void) {
@@ -834,33 +1009,67 @@ void gtv_kbd_toggle_active(void) {
     if (!hkl) hkl = GetKeyboardLayout(0);
     LANGID current_lang = LOWORD(hkl);
 
+    CLSID gtv_clsid = GUID_NULL;
+    CLSIDFromString(L"{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}", &gtv_clsid);
+
     ITfInputProcessorProfileMgr *mgr = NULL;
     HRESULT hr = CoCreateInstance(&CLSID_TF_InputProcessorProfiles, NULL, CLSCTX_INPROC_SERVER,
                                  &IID_ITfInputProcessorProfileMgr, (void **)&mgr);
     if (SUCCEEDED(hr) && mgr) {
+        TF_INPUTPROCESSORPROFILE active;
+        memset(&active, 0, sizeof(active));
+        if (SUCCEEDED(mgr->lpVtbl->GetActiveProfile(mgr, &GUID_TFCAT_TIP_KEYBOARD, &active))) {
+            if (active.langid == GTV_LANG_VI && IsEqualGUID(&active.clsid, &gtv_clsid)) {
+                current_lang = GTV_LANG_VI;
+            } else {
+                current_lang = 0;
+            }
+        }
         IEnumTfInputProcessorProfiles *pEnum = NULL;
         if (SUCCEEDED(mgr->lpVtbl->EnumProfiles(mgr, 0, &pEnum)) && pEnum) {
-            TF_INPUTPROCESSORPROFILE list[16];
+            TF_INPUTPROCESSORPROFILE list[32];
             ULONG count = 0;
-            while (count < 16 && pEnum->lpVtbl->Next(pEnum, 1, &list[count], NULL) == S_OK) {
+            while (count < G_N_ELEMENTS(list) && pEnum->lpVtbl->Next(pEnum, 1, &list[count], NULL) == S_OK) {
                 count++;
             }
             pEnum->lpVtbl->Release(pEnum);
 
             if (count >= 2) {
                 ULONG targetIdx = 0;
+                gboolean found = FALSE;
                 if (current_lang == GTV_LANG_VI) {
                     for (ULONG i = 0; i < count; i++) {
-                        if (list[i].langid != GTV_LANG_VI) {
+                        if (list[i].langid != GTV_LANG_VI && list[i].langid != 0 &&
+                            (list[i].dwFlags & TF_IPP_FLAG_ENABLED)) {
                             targetIdx = i;
+                            found = TRUE;
                             break;
                         }
                     }
+                    if (!found) {
+                        for (ULONG i = 0; i < count; i++) {
+                            if (list[i].langid != GTV_LANG_VI && list[i].langid != 0) {
+                                targetIdx = i;
+                                break;
+                            }
+                        }
+                    }
                 } else {
+                    /* Prefer the GoTV TIP profile over Windows' substitute US keyboard HKL (type=2). */
                     for (ULONG i = 0; i < count; i++) {
-                        if (list[i].langid == GTV_LANG_VI) {
+                        if (list[i].langid == GTV_LANG_VI &&
+                            IsEqualGUID(&list[i].clsid, &gtv_clsid)) {
                             targetIdx = i;
+                            found = TRUE;
                             break;
+                        }
+                    }
+                    if (!found) {
+                        for (ULONG i = 0; i < count; i++) {
+                            if (list[i].langid == GTV_LANG_VI) {
+                                targetIdx = i;
+                                break;
+                            }
                         }
                     }
                 }
@@ -870,7 +1079,7 @@ void gtv_kbd_toggle_active(void) {
                                             &next->clsid, &next->guidProfile, next->hkl,
                                             TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
 
-                if (fg) {
+                if (fg && next->hkl) {
                     PostMessage(fg, WM_INPUTLANGCHANGEREQUEST, 0, (LPARAM)next->hkl);
                 }
             }

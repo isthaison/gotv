@@ -23,7 +23,7 @@
 #define GTV_TIP_VI "042a:{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}{D4C5B6A7-1E2F-4A3B-8C9D-0E1F2A3B4C5D}"
 #define GTV_TIP_EN "0409:{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}{D4C5B6A7-1E2F-4A3B-8C9D-0E1F2A3B4C5D}"
 #define GTV_TIP_US "0409:00000409"
-#define GTV_INPUT_SETUP_REVISION "8"
+#define GTV_INPUT_SETUP_REVISION "10"
 
 static void setup_log(const gchar *fmt, ...) {
     gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
@@ -77,35 +77,43 @@ void gtv_input_setup_mark_done(void) {
  * is re-read). Such an entry is what a failed install leaves behind, and it
  * is why vi-VN showed up with no keyboard at all. Any vi entry that is not
  * already exactly [GoTV] is therefore dropped and rebuilt from scratch. */
-static const char *setup_script(void) {
-    return "$ErrorActionPreference='SilentlyContinue';"
-           "$l=Get-WinUserLanguageList;"
-           "$c=$false;"
-           /* English: drop any GoTV TIP, keep the plain US keyboard */
-           "foreach($x in $l){"
-           "  if($x.LanguageTag -match '^en'){"
-           "    for($j=$x.InputMethodTips.Count-1;$j -ge 0;$j--){"
-           "      if($x.InputMethodTips[$j] -match 'E3B0C442'){[void]$x.InputMethodTips.RemoveAt($j);$c=$true}}"
-           "    if($x.InputMethodTips.Count -eq 0){$x.InputMethodTips.Add('" GTV_TIP_US "');$c=$true}}}"
-           /* Drop every vi entry: rebuilt below with GoTV as the only TIP */
-           "for($i=$l.Count-1;$i-ge 0;$i--){"
-           "  if($l[$i].LanguageTag -match '^vi'){$l.RemoveAt($i);$c=$true}}"
-           "$vi=New-WinUserLanguageList 'vi-VN';"
-           "$vi[0].InputMethodTips.Clear();"
-           "$vi[0].InputMethodTips.Add('" GTV_TIP_VI "');"
-           "$l.Add($vi[0]);"
-           "if($c){Set-WinUserLanguageList $l -Force};"
-           /* Verify: English (if present) has no GoTV; vi has GoTV sole */
-           "$l2=Get-WinUserLanguageList;"
-           "$ok=$true;"
-           "$vi2=@($l2 | Where-Object{$_.LanguageTag -match '^vi'});"
-           "if($vi2.Count -ne 1){$ok=$false}"
-           "elseif($vi2[0].InputMethodTips.Count -ne 1){$ok=$false}"
-           "elseif($vi2[0].InputMethodTips[0] -ne '" GTV_TIP_VI "'){$ok=$false}"
-           "foreach($x in $l2){"
-           "  if($x.LanguageTag -match '^en'){"
-           "    foreach($t in $x.InputMethodTips){if($t -match 'E3B0C442'){$ok=$false}}}}"
-           "if($ok){exit 0}else{exit 1}";
+static gchar *setup_build_script(void) {
+    return g_strdup_printf(
+        "$ErrorActionPreference='SilentlyContinue';"
+        "$l=Get-WinUserLanguageList;"
+        "$c=$false;"
+        /* English: drop any GoTV TIP, keep the plain US keyboard */
+        "foreach($x in $l){"
+        "  if($x.LanguageTag -match '^en'){"
+        "    for($j=$x.InputMethodTips.Count-1;$j -ge 0;$j--){"
+        "      if($x.InputMethodTips[$j] -match 'E3B0C442'){[void]$x.InputMethodTips.RemoveAt($j);$c=$true}}"
+        "    if($x.InputMethodTips.Count -eq 0){$x.InputMethodTips.Add('" GTV_TIP_US "');$c=$true}}}"
+        /* Drop every vi entry: rebuilt below with GoTV as the only TIP */
+        "for($i=$l.Count-1;$i-ge 0;$i--){"
+        "  if($l[$i].LanguageTag -match '^vi'){$l.RemoveAt($i);$c=$true}}"
+        /* Two-step reset so Windows drops stale 042a Preload/Substitutes/HKLs
+         * instead of allocating d001042a / 0x042a042a alongside GoTV. */
+        "%s;"
+        "$vi=New-WinUserLanguageList 'vi-VN';"
+        "$vi[0].InputMethodTips.Clear();"
+        "$vi[0].InputMethodTips.Add('" GTV_TIP_VI "');"
+        "$l.Add($vi[0]);"
+        "$c=$true;"
+        "if($c){Set-WinUserLanguageList $l -Force};"
+        "%s;"
+        /* Verify: English (if present) has no GoTV; vi has GoTV sole */
+        "$l2=Get-WinUserLanguageList;"
+        "$ok=$true;"
+        "$vi2=@($l2 | Where-Object{$_.LanguageTag -match '^vi'});"
+        "if($vi2.Count -ne 1){$ok=$false}"
+        "elseif($vi2[0].InputMethodTips.Count -ne 1){$ok=$false}"
+        "elseif($vi2[0].InputMethodTips[0] -ne '" GTV_TIP_VI "'){$ok=$false}"
+        "foreach($x in $l2){"
+        "  if($x.LanguageTag -match '^en'){"
+        "    foreach($t in $x.InputMethodTips){if($t -match 'E3B0C442'){$ok=$false}}}}"
+        "if($ok){exit 0}else{exit 1}",
+        gtv_kbd_ps_pre_vi_reset(),
+        gtv_kbd_ps_post_vi_cleanup());
 }
 
 static gpointer setup_worker(gpointer data) {
@@ -121,7 +129,7 @@ static gpointer setup_worker(gpointer data) {
     if (GetFileAttributesW(ps_path) == INVALID_FILE_ATTRIBUTES)
         wcscpy(ps_path, L"powershell.exe");
 
-    gchar *script = g_strdup(setup_script());
+    gchar *script = setup_build_script();
     gunichar2 *wscript = g_utf8_to_utf16(script, -1, NULL, NULL, NULL);
     g_free(script);
     if (!wscript) {
@@ -147,6 +155,8 @@ static gpointer setup_worker(gpointer data) {
     si.wShowWindow = SW_HIDE;
     ZeroMemory(&pi, sizeof(pi));
 
+    gtv_kbd_prepare_vi_tip_only();
+
     BOOL started = CreateProcessW(NULL, cmd, NULL, NULL, FALSE, CREATE_NO_WINDOW,
                                   NULL, NULL, &si, &pi);
     g_free(cmd);
@@ -166,6 +176,7 @@ static gpointer setup_worker(gpointer data) {
     CloseHandle(pi.hProcess);
     setup_log("powershell done exit=%lu", (unsigned long)exit_code);
     if (exit_code == 0) {
+        gtv_kbd_cleanup_vi_tip_only();
         stamp_write();
         setup_log("input setup verified, stamp written");
     } else {

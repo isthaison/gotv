@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.17" date="2026-11-14">
+      <description>
+        <p>Sửa lỗi kích hoạt TSF trên Windows, bổ sung đăng ký COM HKLM cho ứng dụng quyền Admin và dọn bàn phím phụ bị trùng.</p>
+      </description>
+    </release>
     <release version="0.9.16" date="2026-11-14">
       <description>
         <p>Chuyển phần chọn ứng dụng trong từ điển theo ứng dụng sang dạng select (dropdown) trên Linux, Windows và macOS</p>

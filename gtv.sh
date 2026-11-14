@@ -19,6 +19,7 @@
 # to the installer (it once killed Explorer -> black screen); in-use DLLs
 # swap via restartreplace, finished by logoff/reboot.
 set -euo pipefail
+[[ -d /usr/bin ]] && export PATH="/mingw64/bin:/usr/bin:$PATH"
 cd -- "$(dirname -- "$0")"
 
 PROG='./gtv.sh'
@@ -658,7 +659,7 @@ cmd_uninstall_linux() {
 }
 
 cmd_package_linux() {
-    version=${1:-0.9.16-1}
+    version=${1:-0.9.17-1}
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
     make build test

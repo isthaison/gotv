@@ -4,10 +4,10 @@
 ; Output: gotv-<x.y.z>-x64-setup.exe (per-user, no admin needed).
 
 #ifndef AppVersion
-  #define AppVersion "0.9.16"
+  #define AppVersion "0.9.17"
 #endif
 #ifndef AppVerNum
-  #define AppVerNum "0.9.16.0"
+  #define AppVerNum "0.9.17.0"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\release-pkg"
@@ -169,6 +169,10 @@ end;
 
 function NeedsTsfProfile(): Boolean;
 begin
-  Result := not RegKeyExists(HKEY_LOCAL_MACHINE,
-    'SOFTWARE\Microsoft\CTF\TIP\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\LanguageProfile\0x0000042a');
+  Result := (not RegKeyExists(HKEY_LOCAL_MACHINE,
+      'SOFTWARE\Microsoft\CTF\TIP\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\LanguageProfile\0x0000042a'))
+    or (not RegValueExists(HKEY_LOCAL_MACHINE,
+      'SOFTWARE\Microsoft\CTF\TIP\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\LanguageProfile\0x0000042a\{D4C5B6A7-1E2F-4A3B-8C9D-0E1F2A3B4C5D}', 'Enable'))
+    or (not RegValueExists(HKEY_LOCAL_MACHINE,
+      'SOFTWARE\Classes\CLSID\{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}\InprocServer32', ''));
 end;

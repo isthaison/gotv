@@ -12,21 +12,21 @@ extern "C" HINSTANCE gtv_stub_instance(void);
  * take precedence over HKLM for COM lookup. */
 static const WCHAR *const kClassesRoot = L"Software\\Classes\\CLSID\\";
 
-static BOOL RegisterServerKeys(LPCWSTR szClsid, LPCWSTR szModule)
+static BOOL RegisterServerKeysInHive(HKEY hRoot, LPCWSTR szClsid, LPCWSTR szModule)
 {
     WCHAR szKey[256];
     HKEY hKey;
     BOOL ok = TRUE;
 
     wsprintfW(szKey, L"%ls%ls", kClassesRoot, szClsid);
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, szKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
+    if (RegCreateKeyExW(hRoot, szKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
         return FALSE;
     if (RegSetValueExW(hKey, NULL, 0, REG_SZ, (const BYTE*)GTV_TSF_MODEL_NAME, (DWORD)((wcslen(GTV_TSF_MODEL_NAME) + 1) * sizeof(WCHAR))) != ERROR_SUCCESS)
         ok = FALSE;
     RegCloseKey(hKey);
 
     wsprintfW(szKey, L"%ls%ls\\InprocServer32", kClassesRoot, szClsid);
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, szKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
+    if (RegCreateKeyExW(hRoot, szKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) != ERROR_SUCCESS)
         return FALSE;
     if (RegSetValueExW(hKey, NULL, 0, REG_SZ, (const BYTE*)szModule, (DWORD)((wcslen(szModule) + 1) * sizeof(WCHAR))) != ERROR_SUCCESS)
         ok = FALSE;
@@ -39,13 +39,25 @@ static BOOL RegisterServerKeys(LPCWSTR szClsid, LPCWSTR szModule)
     return ok;
 }
 
+static BOOL RegisterServerKeys(LPCWSTR szClsid, LPCWSTR szModule)
+{
+    /* Always register in HKCU (works unelevated for Medium Integrity apps),
+     * and best-effort register in HKLM (succeeds when elevated, required so
+     * High Integrity / Administrator apps can CoCreateInstance the TIP). */
+    BOOL ok = RegisterServerKeysInHive(HKEY_CURRENT_USER, szClsid, szModule);
+    RegisterServerKeysInHive(HKEY_LOCAL_MACHINE, szClsid, szModule);
+    return ok;
+}
+
 static void UnregisterServerKeys(LPCWSTR szClsid)
 {
     WCHAR szKey[256];
     wsprintfW(szKey, L"%ls%ls\\InprocServer32", kClassesRoot, szClsid);
     RegDeleteKeyW(HKEY_CURRENT_USER, szKey);
+    RegDeleteKeyW(HKEY_LOCAL_MACHINE, szKey);
     wsprintfW(szKey, L"%ls%ls", kClassesRoot, szClsid);
     RegDeleteKeyW(HKEY_CURRENT_USER, szKey);
+    RegDeleteKeyW(HKEY_LOCAL_MACHINE, szKey);
 }
 
 STDAPI DllRegisterServer(void)

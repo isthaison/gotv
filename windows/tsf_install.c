@@ -137,12 +137,26 @@ static gboolean reg_key_exists(const wchar_t *subkey) {
  * 042A:{CLSID}{profile} tip string against. */
 static gboolean machine_profile_registered(void) {
     wchar_t key_vi[MAX_PATH];
+    HKEY hkey = NULL;
+    DWORD enable_val = 0, sz = sizeof(enable_val), type = 0;
     swprintf(key_vi, MAX_PATH, L"%ls\\%ls\\%ls",
              GTV_TSF_PROFILE_BASE_MACHINE, GTV_TSF_LANG_VI, GTV_TSF_PROFILE_GUID_STR);
-    if (reg_key_exists_root(HKEY_LOCAL_MACHINE, key_vi))
-        return TRUE;
-    log_msg("No machine-level TSF profile for 0x042a (HKLM ...\\{profile})");
-    return FALSE;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_vi, 0, KEY_READ | KEY_WOW64_64KEY, &hkey) != ERROR_SUCCESS) {
+        log_msg("No machine-level TSF profile for 0x042a (HKLM ...\\{profile})");
+        return FALSE;
+    }
+    gboolean has_enable = (RegQueryValueExW(hkey, L"Enable", NULL, &type, (LPBYTE)&enable_val, &sz) == ERROR_SUCCESS &&
+                           type == REG_DWORD && enable_val != 0);
+    RegCloseKey(hkey);
+    if (!has_enable) {
+        log_msg("Machine-level TSF profile for 0x042a missing Enable=1");
+        return FALSE;
+    }
+    if (!reg_key_exists_root(HKEY_LOCAL_MACHINE, GTV_TSF_INPROC_KEY)) {
+        log_msg("Machine-level HKLM CLSID InprocServer32 missing");
+        return FALSE;
+    }
+    return TRUE;
 }
 
 static gboolean tsf_profiles_registered(void) {
@@ -331,6 +345,8 @@ static void enable_profiles_via_api(void) {
                                                        &guidProfile, TRUE);
         log_msg("EnableLanguageProfile lang=0x%04x hr=0x%08lx", (unsigned)langs[i],
                 (unsigned long)hr);
+        pProfiles->lpVtbl->EnableLanguageProfileByDefault(pProfiles, &clsid, langs[i],
+                                                          &guidProfile, TRUE);
     }
     /* Ensure GoTV is disabled and removed under 0x0409 (English) */
     pProfiles->lpVtbl->EnableLanguageProfile(pProfiles, &clsid, 0x0409, &guidProfile, FALSE);
@@ -575,11 +591,31 @@ void gtv_tsf_install_ensure_registered(void) {
     ensure_32bit_registered(app_dir);
 
     /* The HKLM profile leaf needs admin to write. Without it Windows drops
-     * GoTV from the vi language, so point the user at the one command that
-     * fixes it instead of leaving an empty language in the switcher. */
-    if (!machine_profile_registered())
-        log_msg("WARNING: machine profile missing - run: gotv.exe --register-tsf "
-                "(admin) or reinstall; vi-VN will show no keyboard until then");
+     * GoTV from the vi language. Try direct registration first (succeeds when
+     * already elevated), then request elevation via --register-tsf if still missing. */
+    if (!machine_profile_registered()) {
+        gtv_tsf_register_elevated();
+    }
+    if (!machine_profile_registered()) {
+        wchar_t exe_path[MAX_PATH];
+        if (GetModuleFileNameW(NULL, exe_path, MAX_PATH)) {
+            SHELLEXECUTEINFOW sei;
+            ZeroMemory(&sei, sizeof(sei));
+            sei.cbSize = sizeof(sei);
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.lpVerb = L"runas";
+            sei.lpFile = exe_path;
+            sei.lpParameters = L"--register-tsf";
+            sei.nShow = SW_HIDE;
+            if (ShellExecuteExW(&sei) && sei.hProcess) {
+                WaitForSingleObject(sei.hProcess, 15000);
+                CloseHandle(sei.hProcess);
+            }
+        }
+        if (!machine_profile_registered())
+            log_msg("WARNING: machine profile missing - run: gotv.exe --register-tsf "
+                    "(admin) or reinstall; vi-VN will show no keyboard until then");
+    }
 }
 
 /* TRUE when EnumLanguageProfiles(0x042A) returns our profile, i.e. the
@@ -661,6 +697,36 @@ gboolean gtv_tsf_register_elevated(void) {
         if (FAILED(hr)) ok_all = FALSE;
         hr = p->lpVtbl->EnableLanguageProfile(p, &clsid, langs[i], &guidProfile, TRUE);
         log_msg("EnableLanguageProfile 0x%04x hr=0x%08lx", (unsigned)langs[i], (unsigned long)hr);
+        hr = p->lpVtbl->EnableLanguageProfileByDefault(p, &clsid, langs[i], &guidProfile, TRUE);
+        log_msg("EnableLanguageProfileByDefault 0x%04x hr=0x%08lx", (unsigned)langs[i], (unsigned long)hr);
+    }
+
+    /* Also register InprocServer32 under HKLM\SOFTWARE\Classes\CLSID (64-bit & 32-bit)
+     * so High Integrity (Administrator) processes can CoCreateInstance the TIP. */
+    {
+        HKEY hk = NULL;
+        wchar_t key_path[MAX_PATH];
+        const wchar_t *model = L"Apartment";
+        swprintf(key_path, MAX_PATH, L"SOFTWARE\\Classes\\CLSID\\%ls\\InprocServer32", GTV_TSF_CLSID_STR);
+        if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, key_path, 0, NULL, 0,
+                            KEY_WRITE | KEY_WOW64_64KEY, NULL, &hk, NULL) == ERROR_SUCCESS) {
+            RegSetValueExW(hk, NULL, 0, REG_SZ, (const BYTE *)dll_path,
+                           (DWORD)((wcslen(dll_path) + 1) * sizeof(wchar_t)));
+            RegSetValueExW(hk, L"ThreadingModel", 0, REG_SZ, (const BYTE *)model,
+                           (DWORD)((wcslen(model) + 1) * sizeof(wchar_t)));
+            RegCloseKey(hk);
+        }
+        wchar_t dll32[MAX_PATH];
+        swprintf(dll32, MAX_PATH, L"%ls\\%ls", app_dir, GTV_TSF_STUB32_NAME);
+        if (GetFileAttributesW(dll32) != INVALID_FILE_ATTRIBUTES &&
+            RegCreateKeyExW(HKEY_LOCAL_MACHINE, key_path, 0, NULL, 0,
+                            KEY_WRITE | KEY_WOW64_32KEY, NULL, &hk, NULL) == ERROR_SUCCESS) {
+            RegSetValueExW(hk, NULL, 0, REG_SZ, (const BYTE *)dll32,
+                           (DWORD)((wcslen(dll32) + 1) * sizeof(wchar_t)));
+            RegSetValueExW(hk, L"ThreadingModel", 0, REG_SZ, (const BYTE *)model,
+                           (DWORD)((wcslen(model) + 1) * sizeof(wchar_t)));
+            RegCloseKey(hk);
+        }
     }
     hr = p->lpVtbl->RemoveLanguageProfile(p, &clsid, 0x0409, &guidProfile);
     log_msg("RemoveLanguageProfile 0x0409 hr=0x%08lx", (unsigned long)hr);

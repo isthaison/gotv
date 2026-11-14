@@ -430,6 +430,11 @@ static void on_close(HWND hwnd) {
             EndDialog(hwnd, IDCANCEL);
             return;
         }
+        /* Release any active 0x042a HKL on the UI thread before the worker
+         * resets and unloads stale Vietnamese layouts around Set-WinUserLanguageList. */
+        if (LOWORD((ULONG_PTR)GetKeyboardLayout(0)) == 0x042a) {
+            ActivateKeyboardLayout((HKL)(ULONG_PTR)0x04090409, 0);
+        }
         /* Save a snapshot so the worker never touches the dialog's list, and
          * keep the dialog open (buttons disabled) until WM_KBD_DONE. */
         KbdJob *job = g_new0(KbdJob, 1);

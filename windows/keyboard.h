@@ -81,4 +81,14 @@ BOOL gtv_kbd_is_vietnamese_active(void);
 /* Toggle active keyboard layout / input language between GoTV and English. */
 void gtv_kbd_toggle_active(void);
 
+/* Prepare and clean up live HKLs around Set-WinUserLanguageList when
+ * Vietnamese uses only a TSF TIP (no classic 0x042a keyboard layout). */
+void gtv_kbd_prepare_vi_tip_only(void);
+void gtv_kbd_cleanup_vi_tip_only(void);
+
+/* Shared PowerShell fragments for resetting stale 0x042a registry/HKL state
+ * before and after Set-WinUserLanguageList. */
+const char *gtv_kbd_ps_pre_vi_reset(void);
+const char *gtv_kbd_ps_post_vi_cleanup(void);
+
 #endif /* GTV_KEYBOARD_H */
