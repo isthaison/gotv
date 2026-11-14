@@ -475,12 +475,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [self refresh];
     }
 }
-    if ([self saveTables]) {
-        [keyField setStringValue:@""];
-        [valField setStringValue:@""];
-        [self refresh];
-    }
-}
 
 - (IBAction)removeSelected:(id)sender {
     (void)sender;
