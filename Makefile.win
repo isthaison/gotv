@@ -36,7 +36,7 @@ ifeq ($(STORE_BUILD),1)
 CFLAGS += -DGTV_STORE_BUILD
 endif
 # -loleaut32: windows/keyboard.c calls SysFreeString (BSTR) for the TSF profiles.
-LDFLAGS ?= $(GLIB_LIBS) -lm -mwindows -luser32 -lshell32 -ladvapi32 -lole32 -loleaut32 -luuid -lcomctl32
+LDFLAGS ?= $(GLIB_LIBS) -lm -mwindows -luser32 -lgdi32 -lshell32 -ladvapi32 -lole32 -loleaut32 -luuid -lcomctl32 -lgdiplus -ldwmapi
 
 TSF_CXXFLAGS ?= -O2 -g -std=c++14 -Wall -Wextra -Wno-unused-parameter -Iengine -Iwindows/tsf $(GLIB_CFLAGS)
 # Stable stub (registered once, almost never replaced): pure Win32, not even a
