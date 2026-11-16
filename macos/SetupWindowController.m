@@ -531,13 +531,37 @@ extern void GoTVCheckForUpdates(BOOL manual);
  * ------------------------------------------------------------------------- */
 @interface GtvPreferencesWindow : NSObject {
     NSWindow *window;
+    NSTabView *tabView;
+    NSButton *navBtns[5];
+    NSBox *navActivePill;
+    NSBox *navAccentBar;
+    NSTextField *pageTitle;
+
+    /* General tab controls */
+    NSTextField *gModeTitle;
+    NSSwitch *telexSwitch;
+    NSSwitch *vniSwitch;
+    NSTextField *gDictTitle;
+    NSTextField *gDictSub;
+    NSSwitch *suggestGenSwitch;
+    NSButton *gBtnDictUpdate;
+    NSTextField *gMacroTitle;
+    NSTextField *gMacroSub;
+    NSButton *gBtnMacro;
+    NSTextField *gEmojiTitle;
+    NSTextField *gEmojiSub;
+    NSButton *gBtnEmoji;
     NSTextField *lLang;
     NSPopUpButton *langPop;
+
+    /* Typing Modes tab */
     NSTextField *lMode;
     NSPopUpButton *modePop;
     NSTextField *lTone;
     NSButton *modernCheck;
     NSButton *spellCheck;
+
+    /* Dictionaries tab */
     NSButton *suggestCheck;
     NSTextField *lDict;
     NSButton *viDictCheck;
@@ -545,16 +569,24 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSButton *cDictCheck;
     NSButton *csDictCheck;
     NSButton *tsqlDictCheck;
+    NSButton *btnAppDicts;
+
+    /* Shortcuts & About tabs */
     NSTextField *lUtil;
     NSButton *btnData;
     NSButton *btnFolder;
     NSButton *btnUpdate;
     NSTextField *verLabel;
+    NSInteger activeTab;
 }
 + (instancetype)shared;
 - (void)show;
 - (void)loadFromConfig;
 - (void)applyLanguage;
+- (IBAction)navClicked:(id)sender;
+- (IBAction)telexSwitchChanged:(id)sender;
+- (IBAction)vniSwitchChanged:(id)sender;
+- (IBAction)suggestGenChanged:(id)sender;
 - (IBAction)settingChanged:(id)sender;
 - (IBAction)openDataWindow:(id)sender;
 - (IBAction)openAppDictsWindow:(id)sender;
@@ -570,186 +602,368 @@ extern void GoTVCheckForUpdates(BOOL manual);
     return shared;
 }
 
+- (NSColor *)cBg { return [NSColor colorWithCalibratedRed:0.098 green:0.098 blue:0.118 alpha:1.0]; }
+- (NSColor *)cSidebar { return [NSColor colorWithCalibratedRed:0.086 green:0.086 blue:0.106 alpha:1.0]; }
+- (NSColor *)cCard { return [NSColor colorWithCalibratedRed:0.137 green:0.137 blue:0.169 alpha:1.0]; }
+- (NSColor *)cCardBorder { return [NSColor colorWithCalibratedRed:0.196 green:0.196 blue:0.243 alpha:1.0]; }
+- (NSColor *)cAccent { return [NSColor colorWithCalibratedRed:0.431 green:0.416 blue:0.910 alpha:1.0]; }
+- (NSColor *)cNavSel { return [NSColor colorWithCalibratedRed:0.169 green:0.169 blue:0.212 alpha:1.0]; }
+
+- (NSBox *)makeCardWithFrame:(NSRect)frame {
+    NSBox *card = [[[NSBox alloc] initWithFrame:frame] autorelease];
+    [card setBoxType:NSBoxCustom];
+    [card setBorderType:NSLineBorder];
+    [card setTitlePosition:NSNoTitle];
+    [card setCornerRadius:10.0];
+    [card setBorderWidth:1.0];
+    [card setFillColor:[self cCard]];
+    [card setBorderColor:[self cCardBorder]];
+    return card;
+}
+
+- (NSTextField *)makeLabel:(NSRect)frame size:(CGFloat)sz bold:(BOOL)bold secondary:(BOOL)sec {
+    NSTextField *lbl = [NSTextField labelWithString:@""];
+    [lbl setFrame:frame];
+    [lbl setFont:(bold ? [NSFont boldSystemFontOfSize:sz] : [NSFont systemFontOfSize:sz])];
+    [lbl setTextColor:(sec ? [NSColor secondaryLabelColor] : [NSColor labelColor])];
+    return lbl;
+}
+
+- (void)selectTab:(NSInteger)idx {
+    if (idx < 0 || idx >= 5) idx = 0;
+    activeTab = idx;
+    [tabView selectTabViewItemAtIndex:idx];
+    NSRect br = [navBtns[idx] frame];
+    [navActivePill setFrame:br];
+    [navAccentBar setFrame:NSMakeRect(br.origin.x + 2, br.origin.y + 8, 3, br.size.height - 16)];
+    [self applyLanguage];
+}
+
+- (IBAction)navClicked:(id)sender {
+    [self selectTab:[(NSButton *)sender tag]];
+}
+
 - (void)applyLanguage {
     if (!window) return;
-    [window setTitle:[NSString stringWithUTF8String:gtv_i18n("GoTV — Cài đặt cấu hình", "GoTV — Preferences")]];
-    [lLang setStringValue:[NSString stringWithUTF8String:gtv_i18n("Ngôn ngữ giao diện:", "Interface language:")]];
+    [window setTitle:[NSString stringWithUTF8String:gtv_i18n("GoTV — Cài đặt", "GoTV — Settings")]];
+    const char *navVi[5] = { "Tổng quan", "Kiểu gõ", "Từ điển", "Phím tắt", "Thông tin" };
+    const char *navEn[5] = { "General", "Typing Modes", "Dictionaries", "Shortcuts", "About" };
+    const char *hdrVi[5] = { "Cài đặt GoTV", "Kiểu gõ & Chính tả", "Từ điển & Gợi ý", "Phím tắt & Dữ liệu", "Thông tin GoTV" };
+    const char *hdrEn[5] = { "GoTV Settings", "Typing Modes", "Dictionaries", "Shortcuts & Data", "About GoTV" };
+    for (int i = 0; i < 5; i++) {
+        [navBtns[i] setTitle:[NSString stringWithUTF8String:gtv_i18n(navVi[i], navEn[i])]];
+    }
+    [pageTitle setStringValue:[NSString stringWithUTF8String:gtv_i18n(hdrVi[activeTab], hdrEn[activeTab])]];
+
+    [gModeTitle setStringValue:[NSString stringWithUTF8String:gtv_i18n("Kiểu gõ", "Input method")]];
+    [gDictTitle setStringValue:[NSString stringWithUTF8String:gtv_i18n("Từ điển offline", "Offline dictionary")]];
+    [gDictSub setStringValue:[NSString stringWithUTF8String:gtv_i18n("Gợi ý từ thông minh 100% offline", "100% offline smart word suggestions")]];
+    [gBtnDictUpdate setTitle:[NSString stringWithUTF8String:gtv_i18n("Tải xuống/Cập nhật", "Download/Update")]];
+    [gMacroTitle setStringValue:[NSString stringWithUTF8String:gtv_i18n("Phím tắt macro", "Macro shortcuts")]];
+    [gMacroSub setStringValue:[NSString stringWithUTF8String:gtv_i18n("Bấm Tab để bung từ gõ tắt", "Press Tab to expand shortcuts")]];
+    [gBtnMacro setTitle:[NSString stringWithUTF8String:gtv_i18n("Cấu hình", "Configure")]];
+    [gEmojiTitle setStringValue:[NSString stringWithUTF8String:gtv_i18n("Bảng emoji & Ký tự", "Emoji & Symbols")]];
+    [gEmojiSub setStringValue:[NSString stringWithUTF8String:gtv_i18n("Quản lý bảng emoji và ký tự đặc biệt", "Manage emoji and symbol shortcuts")]];
+    [gBtnEmoji setTitle:[NSString stringWithUTF8String:gtv_i18n("Mở bảng...", "Open...")]];
+
+    [lLang setStringValue:[NSString stringWithUTF8String:gtv_i18n("Ngôn ngữ giao diện", "Interface language")]];
     [lMode setStringValue:[NSString stringWithUTF8String:gtv_i18n("Kiểu gõ chính:", "Primary input method:")]];
     [lTone setStringValue:[NSString stringWithUTF8String:gtv_i18n("Quy tắc dấu & Chính tả (Apple IMK):", "Tone rules & Spell check (Apple IMK):")]];
-    [modernCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Bỏ dấu kiểu mới tự do (hòa, thúy thay vì hoà, thuý)", "Modern tone placement (hòa, thúy instead of hoà, thuý)")]];
+    [modernCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Bỏ dấu kiểu mới (hòa, thúy thay vì hoà, thuý)", "Modern tone placement (hòa, thúy instead of hoà, thuý)")]];
     [spellCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Kiểm tra chính tả tiếng Việt khi gõ", "Check Vietnamese spelling while typing")]];
-    [suggestCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Hiển thị gợi ý từ điển & sửa lỗi chính tả (Candidate list)", "Show candidate suggestions & spell fix (Candidate list)")]];
+    [suggestCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Hiển thị gợi ý từ điển & sửa lỗi chính tả", "Show candidate suggestions & spell fix")]];
     [lDict setStringValue:[NSString stringWithUTF8String:gtv_i18n("Gói từ điển gợi ý từ & sửa lỗi:", "Dictionary packages:")]];
     [viDictCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Tiếng Việt (vi)", "Vietnamese (vi)")]];
     [enDictCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Tiếng Anh (en)", "English (en)")]];
     [cDictCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Lập trình C (c)", "C Programming (c)")]];
     [csDictCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("C# (csharp)", "C# (csharp)")]];
     [tsqlDictCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("T-SQL (tsql)", "T-SQL (tsql)")]];
-    [lUtil setStringValue:[NSString stringWithUTF8String:gtv_i18n("Dữ liệu & Cập nhật:", "Data & Updates:")]];
-    [btnData setTitle:[NSString stringWithUTF8String:gtv_i18n("Bảng gõ tắt & Emoji...", "Shortcuts & Emoji table...")]];
+    [btnAppDicts setTitle:[NSString stringWithUTF8String:gtv_i18n("Theo từng ứng dụng...", "Per-app...")]];
+    [lUtil setStringValue:[NSString stringWithUTF8String:gtv_i18n("Bảng gõ tắt (Macro) & Emoji", "Macro & Emoji Tables")]];
+    [btnData setTitle:[NSString stringWithUTF8String:gtv_i18n("Cấu hình...", "Configure...")]];
     [btnFolder setTitle:[NSString stringWithUTF8String:gtv_i18n("Mở thư mục cấu hình", "Open config folder")]];
-    [btnUpdate setTitle:[NSString stringWithUTF8String:gtv_i18n("Kiểm tra cập nhật ngay...", "Check for updates now...")]];
-    [verLabel setStringValue:[NSString stringWithUTF8String:gtv_i18n("GoTV · Mã nguồn mở MIT", "GoTV · Open-source MIT")]];
+    [btnUpdate setTitle:[NSString stringWithUTF8String:gtv_i18n("Kiểm tra cập nhật...", "Check for updates...")]];
+    [verLabel setStringValue:[NSString stringWithUTF8String:gtv_i18n("GoTV · Thuần Cocoa/C · Mã nguồn mở MIT", "GoTV · Native Cocoa/C · MIT Open Source")]];
 }
 
 - (void)show {
     if (!window) {
-        NSRect frame = NSMakeRect(0, 0, 480, 520);
+        NSRect frame = NSMakeRect(0, 0, 740, 480);
         window = [[NSWindow alloc] initWithContentRect:frame
                                              styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask)
                                                backing:NSBackingStoreBuffered
                                                  defer:NO];
         [window setReleasedWhenClosed:NO];
-        NSView *view = [window contentView];
+        [window setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
+        [window setBackgroundColor:[self cBg]];
+        [window setTitlebarAppearsTransparent:YES];
 
-        int y = 475;
+        NSView *root = [window contentView];
 
-        // Group 0: Ngôn ngữ giao diện
-        lLang = [NSTextField labelWithString:@""];
-        [lLang setFrame:NSMakeRect(20, y, 140, 22)];
-        [lLang setFont:[NSFont boldSystemFontOfSize:13]];
-        [view addSubview:lLang];
+        /* Left Sidebar */
+        NSBox *sbBg = [[[NSBox alloc] initWithFrame:NSMakeRect(0, 0, 194, 480)] autorelease];
+        [sbBg setBoxType:NSBoxCustom];
+        [sbBg setBorderType:NSLineBorder];
+        [sbBg setTitlePosition:NSNoTitle];
+        [sbBg setFillColor:[self cSidebar]];
+        [sbBg setBorderColor:[self cCardBorder]];
+        [sbBg setBorderWidth:1.0];
+        [root addSubview:sbBg];
 
-        langPop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(165, y - 2, 160, 26) pullsDown:NO];
+        NSTextField *brand = [self makeLabel:NSMakeRect(18, 434, 158, 26) size:16 bold:YES secondary:NO];
+        [brand setStringValue:@"GoTV"];
+        [root addSubview:brand];
+
+        navActivePill = [[[NSBox alloc] initWithFrame:NSMakeRect(10, 382, 174, 34)] autorelease];
+        [navActivePill setBoxType:NSBoxCustom];
+        [navActivePill setBorderType:NSNoBorder];
+        [navActivePill setTitlePosition:NSNoTitle];
+        [navActivePill setCornerRadius:6.0];
+        [navActivePill setFillColor:[self cNavSel]];
+        [root addSubview:navActivePill];
+
+        navAccentBar = [[[NSBox alloc] initWithFrame:NSMakeRect(12, 390, 3, 18)] autorelease];
+        [navAccentBar setBoxType:NSBoxCustom];
+        [navAccentBar setBorderType:NSNoBorder];
+        [navAccentBar setTitlePosition:NSNoTitle];
+        [navAccentBar setCornerRadius:1.5];
+        [navAccentBar setFillColor:[self cAccent]];
+        [root addSubview:navAccentBar];
+
+        for (int i = 0; i < 5; i++) {
+            NSButton *nb = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 382 - i * 40, 174, 34)] autorelease];
+            [nb setBordered:NO];
+            [nb setButtonType:NSMomentaryChangeButton];
+            [nb setAlignment:NSTextAlignmentLeft];
+            [nb setFont:[NSFont systemFontOfSize:13 weight:NSFontWeightMedium]];
+            [nb setTag:i];
+            [nb setTarget:self];
+            [nb setAction:@selector(navClicked:)];
+            navBtns[i] = nb;
+            [root addSubview:nb];
+        }
+
+        /* Right Content Area */
+        pageTitle = [self makeLabel:NSMakeRect(222, 428, 480, 32) size:21 bold:YES secondary:NO];
+        [root addSubview:pageTitle];
+
+        tabView = [[[NSTabView alloc] initWithFrame:NSMakeRect(214, 16, 510, 404)] autorelease];
+        [tabView setTabViewType:NSNoTabsNoBorder];
+        [tabView setDrawsBackground:NO];
+        [root addSubview:tabView];
+
+        /* Tab 0: General */
+        NSTabViewItem *ti0 = [[[NSTabViewItem alloc] initWithIdentifier:@"0"] autorelease];
+        NSView *v0 = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 510, 404)] autorelease];
+        [ti0 setView:v0];
+        NSBox *cMode = [self makeCardWithFrame:NSMakeRect(8, 332, 490, 56)];
+        [v0 addSubview:cMode];
+        gModeTitle = [self makeLabel:NSMakeRect(24, 349, 160, 22) size:13 bold:YES secondary:NO];
+        [v0 addSubview:gModeTitle];
+        NSTextField *tlxL = [self makeLabel:NSMakeRect(240, 349, 44, 22) size:13 bold:NO secondary:NO];
+        [tlxL setStringValue:@"Telex"];
+        [v0 addSubview:tlxL];
+        telexSwitch = [[[NSSwitch alloc] initWithFrame:NSMakeRect(286, 347, 38, 24)] autorelease];
+        [telexSwitch setTarget:self];
+        [telexSwitch setAction:@selector(telexSwitchChanged:)];
+        [v0 addSubview:telexSwitch];
+        NSTextField *vniL = [self makeLabel:NSMakeRect(348, 349, 34, 22) size:13 bold:NO secondary:NO];
+        [vniL setStringValue:@"VNI"];
+        [v0 addSubview:vniL];
+        vniSwitch = [[[NSSwitch alloc] initWithFrame:NSMakeRect(384, 347, 38, 24)] autorelease];
+        [vniSwitch setTarget:self];
+        [vniSwitch setAction:@selector(vniSwitchChanged:)];
+        [v0 addSubview:vniSwitch];
+
+        NSBox *cDict = [self makeCardWithFrame:NSMakeRect(8, 258, 490, 64)];
+        [v0 addSubview:cDict];
+        gDictTitle = [self makeLabel:NSMakeRect(24, 294, 240, 20) size:13 bold:YES secondary:NO];
+        [v0 addSubview:gDictTitle];
+        gDictSub = [self makeLabel:NSMakeRect(24, 272, 240, 18) size:11 bold:NO secondary:YES];
+        [v0 addSubview:gDictSub];
+        suggestGenSwitch = [[[NSSwitch alloc] initWithFrame:NSMakeRect(286, 278, 38, 24)] autorelease];
+        [suggestGenSwitch setTarget:self];
+        [suggestGenSwitch setAction:@selector(suggestGenChanged:)];
+        [v0 addSubview:suggestGenSwitch];
+        gBtnDictUpdate = [[[NSButton alloc] initWithFrame:NSMakeRect(336, 274, 148, 30)] autorelease];
+        [gBtnDictUpdate setBezelStyle:NSRoundedBezelStyle];
+        [gBtnDictUpdate setTarget:self];
+        [gBtnDictUpdate setAction:@selector(checkUpdates:)];
+        [v0 addSubview:gBtnDictUpdate];
+
+        NSBox *cMac = [self makeCardWithFrame:NSMakeRect(8, 190, 490, 58)];
+        [v0 addSubview:cMac];
+        gMacroTitle = [self makeLabel:NSMakeRect(24, 222, 320, 20) size:13 bold:YES secondary:NO];
+        [v0 addSubview:gMacroTitle];
+        gMacroSub = [self makeLabel:NSMakeRect(24, 202, 320, 18) size:11 bold:NO secondary:YES];
+        [v0 addSubview:gMacroSub];
+        gBtnMacro = [[[NSButton alloc] initWithFrame:NSMakeRect(376, 204, 108, 30)] autorelease];
+        [gBtnMacro setBezelStyle:NSRoundedBezelStyle];
+        [gBtnMacro setTarget:self];
+        [gBtnMacro setAction:@selector(openDataWindow:)];
+        [v0 addSubview:gBtnMacro];
+
+        NSBox *cEmo = [self makeCardWithFrame:NSMakeRect(8, 122, 490, 58)];
+        [v0 addSubview:cEmo];
+        gEmojiTitle = [self makeLabel:NSMakeRect(24, 154, 320, 20) size:13 bold:YES secondary:NO];
+        [v0 addSubview:gEmojiTitle];
+        gEmojiSub = [self makeLabel:NSMakeRect(24, 134, 320, 18) size:11 bold:NO secondary:YES];
+        [v0 addSubview:gEmojiSub];
+        gBtnEmoji = [[[NSButton alloc] initWithFrame:NSMakeRect(376, 136, 108, 30)] autorelease];
+        [gBtnEmoji setBezelStyle:NSRoundedBezelStyle];
+        [gBtnEmoji setTarget:self];
+        [gBtnEmoji setAction:@selector(openDataWindow:)];
+        [v0 addSubview:gBtnEmoji];
+
+        NSBox *cLang = [self makeCardWithFrame:NSMakeRect(8, 54, 490, 58)];
+        [v0 addSubview:cLang];
+        lLang = [self makeLabel:NSMakeRect(24, 72, 240, 22) size:13 bold:YES secondary:NO];
+        [v0 addSubview:lLang];
+        langPop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(324, 70, 160, 26) pullsDown:NO];
         [langPop addItemsWithTitles:[NSArray arrayWithObjects:@"Tiếng Việt", @"English", nil]];
         [langPop setTarget:self];
         [langPop setAction:@selector(settingChanged:)];
-        [view addSubview:langPop];
+        [v0 addSubview:langPop];
         [langPop release];
+        [tabView addTabViewItem:ti0];
 
-        y -= 42;
-
-        // Group 1: Kiểu gõ (Telex / VNI)
-        lMode = [NSTextField labelWithString:@""];
-        [lMode setFrame:NSMakeRect(20, y, 140, 22)];
-        [lMode setFont:[NSFont boldSystemFontOfSize:13]];
-        [view addSubview:lMode];
-
-        modePop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(165, y - 2, 160, 26) pullsDown:NO];
+        /* Tab 1: Typing Modes */
+        NSTabViewItem *ti1 = [[[NSTabViewItem alloc] initWithIdentifier:@"1"] autorelease];
+        NSView *v1 = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 510, 404)] autorelease];
+        [ti1 setView:v1];
+        [v1 addSubview:[self makeCardWithFrame:NSMakeRect(8, 320, 490, 68)]];
+        lMode = [self makeLabel:NSMakeRect(24, 344, 180, 22) size:13 bold:YES secondary:NO];
+        [v1 addSubview:lMode];
+        modePop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(324, 340, 160, 26) pullsDown:NO];
         [modePop addItemsWithTitles:[NSArray arrayWithObjects:@"Telex", @"VNI", nil]];
         [modePop setTarget:self];
         [modePop setAction:@selector(settingChanged:)];
-        [view addSubview:modePop];
+        [v1 addSubview:modePop];
         [modePop release];
 
-        y -= 42;
-
-        // Group 2: Tùy chọn gõ dấu & Chính tả
-        lTone = [NSTextField labelWithString:@""];
-        [lTone setFrame:NSMakeRect(20, y, 350, 22)];
-        [lTone setFont:[NSFont boldSystemFontOfSize:13]];
-        [view addSubview:lTone];
-
-        y -= 28;
-        modernCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 420, 22)] autorelease];
+        [v1 addSubview:[self makeCardWithFrame:NSMakeRect(8, 194, 490, 114)]];
+        lTone = [self makeLabel:NSMakeRect(24, 276, 440, 22) size:13 bold:YES secondary:NO];
+        [v1 addSubview:lTone];
+        modernCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(24, 242, 450, 22)] autorelease];
         [modernCheck setButtonType:NSSwitchButton];
         [modernCheck setTarget:self];
         [modernCheck setAction:@selector(settingChanged:)];
-        [view addSubview:modernCheck];
-
-        y -= 26;
-        spellCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 420, 22)] autorelease];
+        [v1 addSubview:modernCheck];
+        spellCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(24, 212, 450, 22)] autorelease];
         [spellCheck setButtonType:NSSwitchButton];
         [spellCheck setTarget:self];
         [spellCheck setAction:@selector(settingChanged:)];
-        [view addSubview:spellCheck];
+        [v1 addSubview:spellCheck];
+        [tabView addTabViewItem:ti1];
 
-        y -= 26;
-        suggestCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 420, 22)] autorelease];
+        /* Tab 2: Dictionaries */
+        NSTabViewItem *ti2 = [[[NSTabViewItem alloc] initWithIdentifier:@"2"] autorelease];
+        NSView *v2 = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 510, 404)] autorelease];
+        [ti2 setView:v2];
+        [v2 addSubview:[self makeCardWithFrame:NSMakeRect(8, 174, 490, 214)]];
+        suggestCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(24, 352, 450, 22)] autorelease];
         [suggestCheck setButtonType:NSSwitchButton];
         [suggestCheck setTarget:self];
         [suggestCheck setAction:@selector(settingChanged:)];
-        [view addSubview:suggestCheck];
-
-        y -= 40;
-
-        // Group 3: Gói từ điển gợi ý
-        lDict = [NSTextField labelWithString:@""];
-        [lDict setFrame:NSMakeRect(20, y, 300, 22)];
-        [lDict setFont:[NSFont boldSystemFontOfSize:13]];
-        [view addSubview:lDict];
-
-        y -= 26;
-        viDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 130, 22)] autorelease];
+        [v2 addSubview:suggestCheck];
+        lDict = [self makeLabel:NSMakeRect(24, 318, 300, 22) size:13 bold:YES secondary:NO];
+        [v2 addSubview:lDict];
+        viDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(28, 286, 140, 22)] autorelease];
         [viDictCheck setButtonType:NSSwitchButton];
         [viDictCheck setTarget:self];
         [viDictCheck setAction:@selector(settingChanged:)];
-        [view addSubview:viDictCheck];
-
-        enDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(180, y, 130, 22)] autorelease];
+        [v2 addSubview:viDictCheck];
+        enDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(184, 286, 140, 22)] autorelease];
         [enDictCheck setButtonType:NSSwitchButton];
         [enDictCheck setTarget:self];
         [enDictCheck setAction:@selector(settingChanged:)];
-        [view addSubview:enDictCheck];
-
-        cDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(330, y, 120, 22)] autorelease];
+        [v2 addSubview:enDictCheck];
+        cDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(338, 286, 140, 22)] autorelease];
         [cDictCheck setButtonType:NSSwitchButton];
         [cDictCheck setTarget:self];
         [cDictCheck setAction:@selector(settingChanged:)];
-        [view addSubview:cDictCheck];
-
-        y -= 24;
-        csDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(30, y, 130, 22)] autorelease];
+        [v2 addSubview:cDictCheck];
+        csDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(28, 254, 140, 22)] autorelease];
         [csDictCheck setButtonType:NSSwitchButton];
         [csDictCheck setTarget:self];
         [csDictCheck setAction:@selector(settingChanged:)];
-        [view addSubview:csDictCheck];
-
-        tsqlDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(180, y, 120, 22)] autorelease];
+        [v2 addSubview:csDictCheck];
+        tsqlDictCheck = [[[NSButton alloc] initWithFrame:NSMakeRect(184, 254, 140, 22)] autorelease];
         [tsqlDictCheck setButtonType:NSSwitchButton];
         [tsqlDictCheck setTarget:self];
         [tsqlDictCheck setAction:@selector(settingChanged:)];
-        [view addSubview:tsqlDictCheck];
-
-        NSButton *btnAppDicts = [[[NSButton alloc] initWithFrame:NSMakeRect(305, y - 2, 155, 26)] autorelease];
-        [btnAppDicts setTitle:[NSString stringWithUTF8String:gtv_i18n("Theo từng ứng dụng...", "Per-app...")]];
-        [btnAppDicts setButtonType:NSMomentaryPushInButton];
+        [v2 addSubview:tsqlDictCheck];
+        btnAppDicts = [[[NSButton alloc] initWithFrame:NSMakeRect(24, 194, 200, 30)] autorelease];
         [btnAppDicts setBezelStyle:NSRoundedBezelStyle];
         [btnAppDicts setTarget:self];
         [btnAppDicts setAction:@selector(openAppDictsWindow:)];
-        [view addSubview:btnAppDicts];
+        [v2 addSubview:btnAppDicts];
+        [tabView addTabViewItem:ti2];
 
-        y -= 42;
-
-        // Group 4: Tiện ích & Dữ liệu
-        lUtil = [NSTextField labelWithString:@""];
-        [lUtil setFrame:NSMakeRect(20, y, 250, 22)];
-        [lUtil setFont:[NSFont boldSystemFontOfSize:13]];
-        [view addSubview:lUtil];
-
-        y -= 34;
-        btnData = [[[NSButton alloc] initWithFrame:NSMakeRect(28, y, 200, 30)] autorelease];
-        [btnData setButtonType:NSMomentaryPushInButton];
+        /* Tab 3: Shortcuts */
+        NSTabViewItem *ti3 = [[[NSTabViewItem alloc] initWithIdentifier:@"3"] autorelease];
+        NSView *v3 = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 510, 404)] autorelease];
+        [ti3 setView:v3];
+        [v3 addSubview:[self makeCardWithFrame:NSMakeRect(8, 320, 490, 68)]];
+        lUtil = [self makeLabel:NSMakeRect(24, 344, 280, 22) size:13 bold:YES secondary:NO];
+        [v3 addSubview:lUtil];
+        btnData = [[[NSButton alloc] initWithFrame:NSMakeRect(344, 339, 140, 30)] autorelease];
         [btnData setBezelStyle:NSRoundedBezelStyle];
         [btnData setTarget:self];
         [btnData setAction:@selector(openDataWindow:)];
-        [view addSubview:btnData];
+        [v3 addSubview:btnData];
+        [tabView addTabViewItem:ti3];
 
-        btnFolder = [[[NSButton alloc] initWithFrame:NSMakeRect(240, y, 200, 30)] autorelease];
-        [btnFolder setButtonType:NSMomentaryPushInButton];
+        /* Tab 4: About */
+        NSTabViewItem *ti4 = [[[NSTabViewItem alloc] initWithIdentifier:@"4"] autorelease];
+        NSView *v4 = [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 510, 404)] autorelease];
+        [ti4 setView:v4];
+        [v4 addSubview:[self makeCardWithFrame:NSMakeRect(8, 308, 490, 80)]];
+        verLabel = [self makeLabel:NSMakeRect(24, 348, 440, 22) size:13 bold:YES secondary:NO];
+        [v4 addSubview:verLabel];
+        NSTextField *repoL = [self makeLabel:NSMakeRect(24, 322, 440, 18) size:11 bold:NO secondary:YES];
+        [repoL setStringValue:@"https://github.com/isthaison/gotv"];
+        [v4 addSubview:repoL];
+        [v4 addSubview:[self makeCardWithFrame:NSMakeRect(8, 228, 490, 68)]];
+        btnFolder = [[[NSButton alloc] initWithFrame:NSMakeRect(24, 247, 210, 30)] autorelease];
         [btnFolder setBezelStyle:NSRoundedBezelStyle];
         [btnFolder setTarget:self];
         [btnFolder setAction:@selector(openConfigFolder:)];
-        [view addSubview:btnFolder];
-
-        y -= 34;
-        btnUpdate = [[[NSButton alloc] initWithFrame:NSMakeRect(28, y, 200, 30)] autorelease];
-        [btnUpdate setButtonType:NSMomentaryPushInButton];
+        [v4 addSubview:btnFolder];
+        btnUpdate = [[[NSButton alloc] initWithFrame:NSMakeRect(274, 247, 210, 30)] autorelease];
         [btnUpdate setBezelStyle:NSRoundedBezelStyle];
         [btnUpdate setTarget:self];
         [btnUpdate setAction:@selector(checkUpdates:)];
-        [view addSubview:btnUpdate];
+        [v4 addSubview:btnUpdate];
+        [tabView addTabViewItem:ti4];
 
-        verLabel = [NSTextField labelWithString:@""];
-        [verLabel setFrame:NSMakeRect(245, y + 4, 200, 22)];
-        [verLabel setTextColor:[NSColor secondaryLabelColor]];
-        [view addSubview:verLabel];
+        [self selectTab:0];
     }
 
     [self loadFromConfig];
     [window center];
     [window makeKeyAndOrderFront:nil];
     [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+}
+
+- (IBAction)telexSwitchChanged:(id)sender {
+    (void)sender;
+    BOOL on = ([telexSwitch state] == NSOnState);
+    [modePop selectItemAtIndex:(on ? 0 : 1)];
+    [self settingChanged:nil];
+}
+
+- (IBAction)vniSwitchChanged:(id)sender {
+    (void)sender;
+    BOOL on = ([vniSwitch state] == NSOnState);
+    [modePop selectItemAtIndex:(on ? 1 : 0)];
+    [self settingChanged:nil];
+}
+
+- (IBAction)suggestGenChanged:(id)sender {
+    (void)sender;
+    [suggestCheck setState:[suggestGenSwitch state]];
+    [self settingChanged:nil];
 }
 
 - (void)loadFromConfig {
@@ -764,9 +978,12 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [self applyLanguage];
 
     [modePop selectItemAtIndex:(config.mode == GTV_VNI ? 1 : 0)];
+    [telexSwitch setState:(config.mode == GTV_TELEX ? NSOnState : NSOffState)];
+    [vniSwitch setState:(config.mode == GTV_VNI ? NSOnState : NSOffState)];
     [modernCheck setState:(config.modern ? NSOnState : NSOffState)];
     [spellCheck setState:(config.spellcheck ? NSOnState : NSOffState)];
     [suggestCheck setState:(config.suggest_enabled ? NSOnState : NSOffState)];
+    [suggestGenSwitch setState:(config.suggest_enabled ? NSOnState : NSOffState)];
 
     const gchar *langs = config.dicts[0] ? config.dicts : gtv_dict_get_langs();
     [viDictCheck setState:(gtv_dict_lang_enabled(langs, "vi") ? NSOnState : NSOffState)];
@@ -790,9 +1007,12 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [self applyLanguage];
 
     config.mode = ([modePop indexOfSelectedItem] == 1) ? GTV_VNI : GTV_TELEX;
+    [telexSwitch setState:(config.mode == GTV_TELEX ? NSOnState : NSOffState)];
+    [vniSwitch setState:(config.mode == GTV_VNI ? NSOnState : NSOffState)];
     config.modern = ([modernCheck state] == NSOnState);
     config.spellcheck = ([spellCheck state] == NSOnState);
     config.suggest_enabled = ([suggestCheck state] == NSOnState);
+    [suggestGenSwitch setState:(config.suggest_enabled ? NSOnState : NSOffState)];
 
     // Build dicts string
     gchar *langs = g_strdup(config.dicts[0] ? config.dicts : gtv_dict_get_langs());
