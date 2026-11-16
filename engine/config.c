@@ -215,6 +215,16 @@ static void overlay_file(GKeyFile *file, GtvConfig *config, gboolean input) {
                 config->ui_lang = GTV_LANG_VI;
             g_free(lang);
         }
+        gchar *theme = g_key_file_get_string(file, "general", "theme", NULL);
+        if (!theme) theme = g_key_file_get_string(file, "ui", "theme", NULL);
+        if (theme) {
+            g_strstrip(theme);
+            if (!g_ascii_strcasecmp(theme, "light"))
+                config->ui_theme = GTV_THEME_LIGHT;
+            else if (!g_ascii_strcasecmp(theme, "dark"))
+                config->ui_theme = GTV_THEME_DARK;
+            g_free(theme);
+        }
     }
     overlay_suggest(file, config);
 }
@@ -226,7 +236,8 @@ static void overlay_path(GtvConfig *config, const gchar *path, gboolean input) {
 }
 void gtv_config_load(GtvConfig *config, const gchar *directory) {
     *config = (GtvConfig){.mode = GTV_TELEX, .switch_key = GTV_SWITCH_CTRL_SHIFT,
-        .modern = TRUE, .spellcheck = FALSE, .suggest_enabled = TRUE, .ui_lang = GTV_LANG_VI};
+        .modern = TRUE, .spellcheck = FALSE, .suggest_enabled = TRUE,
+        .ui_lang = GTV_LANG_VI, .ui_theme = GTV_THEME_DARK};
     g_strlcpy(config->dicts, "vi,tsql,c,csharp", sizeof(config->dicts));
     /* Shipped defaults first (data/config), then user files. */
     gchar *path = gtv_data_path("config");
@@ -249,6 +260,7 @@ gboolean gtv_config_save(const GtvConfig *config, const gchar *directory, GError
     gchar *path = g_build_filename(directory, "config", NULL);
     g_key_file_load_from_file(file, path, G_KEY_FILE_KEEP_COMMENTS, NULL);
     g_key_file_set_string(file, "general", "lang", config->ui_lang == GTV_LANG_EN ? "en" : "vi");
+    g_key_file_set_string(file, "general", "theme", config->ui_theme == GTV_THEME_LIGHT ? "light" : "dark");
     g_key_file_set_string(file, "input", "method", config->mode == GTV_VNI ? "vni" : "telex");
     g_key_file_set_string(file, "input", "switch_key", config->switch_key == GTV_SWITCH_ALT_Z ? "alt_z" : "ctrl_shift");
     g_key_file_set_boolean(file, "input", "modern", config->modern);

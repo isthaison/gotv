@@ -9,11 +9,13 @@ G_BEGIN_DECLS
 typedef enum { GTV_TELEX, GTV_VNI } GtvMode;
 typedef enum { GTV_SWITCH_CTRL_SHIFT = 0, GTV_SWITCH_ALT_Z = 1 } GtvSwitchKey;
 typedef enum { GTV_LANG_VI = 0, GTV_LANG_EN = 1 } GtvUiLang;
+typedef enum { GTV_THEME_DARK = 0, GTV_THEME_LIGHT = 1 } GtvUiTheme;
 typedef struct {
     GtvMode mode;
     GtvSwitchKey switch_key;
     gboolean modern, spellcheck, suggest_enabled;
     GtvUiLang ui_lang;
+    GtvUiTheme ui_theme;
     gchar dicts[128];
 } GtvConfig;
 typedef struct {

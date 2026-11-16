@@ -553,6 +553,10 @@ extern void GoTVCheckForUpdates(BOOL manual);
     NSButton *gBtnEmoji;
     NSTextField *lLang;
     NSPopUpButton *langPop;
+    NSPopUpButton *themePop;
+    NSBox *sbBg;
+    NSMutableArray *cards;
+    BOOL isLightTheme;
 
     /* Typing Modes tab */
     NSTextField *lMode;
@@ -602,12 +606,47 @@ extern void GoTVCheckForUpdates(BOOL manual);
     return shared;
 }
 
-- (NSColor *)cBg { return [NSColor colorWithCalibratedRed:0.098 green:0.098 blue:0.118 alpha:1.0]; }
-- (NSColor *)cSidebar { return [NSColor colorWithCalibratedRed:0.086 green:0.086 blue:0.106 alpha:1.0]; }
-- (NSColor *)cCard { return [NSColor colorWithCalibratedRed:0.137 green:0.137 blue:0.169 alpha:1.0]; }
-- (NSColor *)cCardBorder { return [NSColor colorWithCalibratedRed:0.196 green:0.196 blue:0.243 alpha:1.0]; }
-- (NSColor *)cAccent { return [NSColor colorWithCalibratedRed:0.431 green:0.416 blue:0.910 alpha:1.0]; }
-- (NSColor *)cNavSel { return [NSColor colorWithCalibratedRed:0.169 green:0.169 blue:0.212 alpha:1.0]; }
+- (NSColor *)cBg {
+    return isLightTheme
+        ? [NSColor colorWithCalibratedRed:0.980 green:0.969 blue:0.949 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.094 green:0.086 blue:0.090 alpha:1.0];
+}
+- (NSColor *)cSidebar {
+    return isLightTheme
+        ? [NSColor colorWithCalibratedRed:0.953 green:0.937 blue:0.910 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.075 green:0.067 blue:0.071 alpha:1.0];
+}
+- (NSColor *)cCard {
+    return isLightTheme
+        ? [NSColor colorWithCalibratedRed:1.000 green:1.000 blue:1.000 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.129 green:0.118 blue:0.125 alpha:1.0];
+}
+- (NSColor *)cCardBorder {
+    return isLightTheme
+        ? [NSColor colorWithCalibratedRed:0.906 green:0.898 blue:0.894 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.196 green:0.176 blue:0.188 alpha:1.0];
+}
+/* Primary brand accent matching GoTV logo (#D32F2F) */
+- (NSColor *)cAccent { return [NSColor colorWithCalibratedRed:0.827 green:0.184 blue:0.184 alpha:1.0]; }
+- (NSColor *)cNavSel {
+    return isLightTheme
+        ? [NSColor colorWithCalibratedRed:0.996 green:0.886 blue:0.886 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.173 green:0.149 blue:0.157 alpha:1.0];
+}
+
+- (void)applyTheme {
+    if (!window) return;
+    [window setAppearance:[NSAppearance appearanceNamed:(isLightTheme ? NSAppearanceNameAqua : NSAppearanceNameDarkAqua)]];
+    [window setBackgroundColor:[self cBg]];
+    [sbBg setFillColor:[self cSidebar]];
+    [sbBg setBorderColor:[self cCardBorder]];
+    [navActivePill setFillColor:[self cNavSel]];
+    [navAccentBar setFillColor:[self cAccent]];
+    for (NSBox *card in cards) {
+        [card setFillColor:[self cCard]];
+        [card setBorderColor:[self cCardBorder]];
+    }
+}
 
 - (NSBox *)makeCardWithFrame:(NSRect)frame {
     NSBox *card = [[[NSBox alloc] initWithFrame:frame] autorelease];
@@ -618,6 +657,8 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [card setBorderWidth:1.0];
     [card setFillColor:[self cCard]];
     [card setBorderColor:[self cCardBorder]];
+    if (!cards) cards = [[NSMutableArray alloc] init];
+    [cards addObject:card];
     return card;
 }
 
@@ -666,7 +707,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [gEmojiSub setStringValue:[NSString stringWithUTF8String:gtv_i18n("Quản lý bảng emoji và ký tự đặc biệt", "Manage emoji and symbol shortcuts")]];
     [gBtnEmoji setTitle:[NSString stringWithUTF8String:gtv_i18n("Mở bảng...", "Open...")]];
 
-    [lLang setStringValue:[NSString stringWithUTF8String:gtv_i18n("Ngôn ngữ giao diện", "Interface language")]];
+    [lLang setStringValue:[NSString stringWithUTF8String:gtv_i18n("Giao diện & Ngôn ngữ", "Theme & Language")]];
     [lMode setStringValue:[NSString stringWithUTF8String:gtv_i18n("Kiểu gõ chính:", "Primary input method:")]];
     [lTone setStringValue:[NSString stringWithUTF8String:gtv_i18n("Quy tắc dấu & Chính tả (Apple IMK):", "Tone rules & Spell check (Apple IMK):")]];
     [modernCheck setTitle:[NSString stringWithUTF8String:gtv_i18n("Bỏ dấu kiểu mới (hòa, thúy thay vì hoà, thuý)", "Modern tone placement (hòa, thúy instead of hoà, thuý)")]];
@@ -701,7 +742,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
         NSView *root = [window contentView];
 
         /* Left Sidebar */
-        NSBox *sbBg = [[[NSBox alloc] initWithFrame:NSMakeRect(0, 0, 194, 480)] autorelease];
+        sbBg = [[[NSBox alloc] initWithFrame:NSMakeRect(0, 0, 194, 480)] autorelease];
         [sbBg setBoxType:NSBoxCustom];
         [sbBg setBorderType:NSLineBorder];
         [sbBg setTitlePosition:NSNoTitle];
@@ -817,9 +858,15 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
         NSBox *cLang = [self makeCardWithFrame:NSMakeRect(8, 54, 490, 58)];
         [v0 addSubview:cLang];
-        lLang = [self makeLabel:NSMakeRect(24, 72, 240, 22) size:13 bold:YES secondary:NO];
+        lLang = [self makeLabel:NSMakeRect(24, 72, 180, 22) size:13 bold:YES secondary:NO];
         [v0 addSubview:lLang];
-        langPop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(324, 70, 160, 26) pullsDown:NO];
+        themePop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(224, 70, 110, 26) pullsDown:NO];
+        [themePop addItemsWithTitles:[NSArray arrayWithObjects:@"Dark", @"Light", nil]];
+        [themePop setTarget:self];
+        [themePop setAction:@selector(settingChanged:)];
+        [v0 addSubview:themePop];
+        [themePop release];
+        langPop = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(344, 70, 140, 26) pullsDown:NO];
         [langPop addItemsWithTitles:[NSArray arrayWithObjects:@"Tiếng Việt", @"English", nil]];
         [langPop setTarget:self];
         [langPop setAction:@selector(settingChanged:)];
@@ -974,7 +1021,10 @@ extern void GoTVCheckForUpdates(BOOL manual);
     g_free(dir);
 
     gtv_i18n_set_lang(config.ui_lang);
+    isLightTheme = (config.ui_theme == GTV_THEME_LIGHT);
+    [themePop selectItemAtIndex:(isLightTheme ? 1 : 0)];
     [langPop selectItemAtIndex:(config.ui_lang == GTV_LANG_EN ? 1 : 0)];
+    [self applyTheme];
     [self applyLanguage];
 
     [modePop selectItemAtIndex:(config.mode == GTV_VNI ? 1 : 0)];
@@ -1003,6 +1053,9 @@ extern void GoTVCheckForUpdates(BOOL manual);
     gtv_config_load(&config, dir);
 
     config.ui_lang = ([langPop indexOfSelectedItem] == 1) ? GTV_LANG_EN : GTV_LANG_VI;
+    config.ui_theme = ([themePop indexOfSelectedItem] == 1) ? GTV_THEME_LIGHT : GTV_THEME_DARK;
+    isLightTheme = (config.ui_theme == GTV_THEME_LIGHT);
+    [self applyTheme];
     gtv_i18n_set_lang(config.ui_lang);
     [self applyLanguage];
 

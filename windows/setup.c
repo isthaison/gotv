@@ -516,8 +516,84 @@ enum {
     HIT_BTN_KEYBOARD = 213,
     HIT_BTN_APP_DICTS = 214,
     HIT_BTN_OPEN_DIR = 215,
+    HIT_BTN_THEME_DARK = 216,
+    HIT_BTN_THEME_LIGHT = 217,
     HIT_TOGGLE_DICT_BASE = 300 /* + 0..4 */
 };
+
+typedef struct {
+    ARGB sidebar;
+    ARGB bg;
+    ARGB divider;
+    ARGB nav_active;
+    ARGB nav_hover;
+    ARGB accent;
+    ARGB accent_hover;
+    ARGB accent_border;
+    ARGB card;
+    ARGB card_border;
+    ARGB toggle_off;
+    ARGB toggle_off_hover;
+    ARGB toggle_knob;
+    ARGB btn_bg;
+    ARGB btn_hover;
+    ARGB btn_border;
+    COLORREF text_primary;
+    COLORREF text_secondary;
+    COLORREF text_muted;
+    COLORREF caption_rgb;
+} SetupPalette;
+
+/* Primary accent matches GoTV logo (#E53935 -> #B71C1C) and website (#B91C1C / #FAF7F2). */
+static const SetupPalette k_dark_pal = {
+    .sidebar = 0xFF131112,
+    .bg = 0xFF181617,
+    .divider = 0xFF2A2628,
+    .nav_active = 0xFF2C2628,
+    .nav_hover = 0xFF231F21,
+    .accent = 0xFFD32F2F,
+    .accent_hover = 0xFFE53935,
+    .accent_border = 0xFFEF5350,
+    .card = 0xFF211E20,
+    .card_border = 0xFF322D30,
+    .toggle_off = 0xFF3B3538,
+    .toggle_off_hover = 0xFF4A4346,
+    .toggle_knob = 0xFFFAF7F2,
+    .btn_bg = 0xFF2B2729,
+    .btn_hover = 0xFF383235,
+    .btn_border = 0xFF453E42,
+    .text_primary = RGB(0xF5, 0xF2, 0xF0),
+    .text_secondary = RGB(0xAC, 0xA3, 0xA0),
+    .text_muted = RGB(0x7E, 0x75, 0x72),
+    .caption_rgb = RGB(0x13, 0x11, 0x12),
+};
+
+static const SetupPalette k_light_pal = {
+    .sidebar = 0xFFF3EFE8,
+    .bg = 0xFFFAF7F2,
+    .divider = 0xFFE7E5E4,
+    .nav_active = 0xFFFEE2E2,
+    .nav_hover = 0xFFECE6DC,
+    .accent = 0xFFD32F2F,
+    .accent_hover = 0xFFB71C1C,
+    .accent_border = 0xFFE53935,
+    .card = 0xFFFFFFFF,
+    .card_border = 0xFFE7E5E4,
+    .toggle_off = 0xFFD6D3D1,
+    .toggle_off_hover = 0xFFA8A29E,
+    .toggle_knob = 0xFFFFFFFF,
+    .btn_bg = 0xFFF5F5F4,
+    .btn_hover = 0xFFE7E5E4,
+    .btn_border = 0xFFD6D3D1,
+    .text_primary = RGB(0x2B, 0x23, 0x20),
+    .text_secondary = RGB(0x57, 0x53, 0x4E),
+    .text_muted = RGB(0x78, 0x71, 0x6C),
+    .caption_rgb = RGB(0xF3, 0xEF, 0xE8),
+};
+
+static const SetupPalette *current_pal(void) {
+    return (g_app.config.ui_theme == GTV_THEME_LIGHT) ? &k_light_pal : &k_dark_pal;
+}
 
 typedef struct {
     RECT rc;
@@ -628,56 +704,56 @@ static void push_hit(RECT rc, int id, gboolean enabled) {
     s_sw.hits[s_sw.n_hits++] = (SetupHit){ rc, id, enabled };
 }
 
-static void draw_toggle(GpGraphics *g, RECT rc, gboolean on, gboolean hovered, gboolean enabled) {
+static void draw_toggle(GpGraphics *g, const SetupPalette *pal, RECT rc, gboolean on, gboolean hovered, gboolean enabled) {
     REAL x = (REAL)rc.left;
     REAL y = (REAL)rc.top;
     REAL w = (REAL)(rc.right - rc.left);
     REAL h = (REAL)(rc.bottom - rc.top);
     REAL r = h / 2.0f;
-    ARGB bg = on ? (hovered ? 0xFF7D79F2 : 0xFF6E6AE8)
-                 : (hovered ? 0xFF474756 : 0xFF3A3A46);
-    if (!enabled) bg = 0xFF2E2E38;
+    ARGB bg = on ? (hovered ? pal->accent_hover : pal->accent)
+                 : (hovered ? pal->toggle_off_hover : pal->toggle_off);
+    if (!enabled) bg = pal->toggle_off;
     fill_round_rect(g, x, y, w, h, r, bg, 0);
 
     REAL pad = h * 0.16f;
     REAL kd = h - pad * 2.0f;
     REAL kx = on ? (x + w - pad - kd) : (x + pad);
     GpSolidFill *kbr = NULL;
-    if (GdipCreateSolidFill(enabled ? 0xFFF5F5FA : 0xFF888898, &kbr) == 0 && kbr) {
+    if (GdipCreateSolidFill(enabled ? pal->toggle_knob : 0xFFA8A29E, &kbr) == 0 && kbr) {
         GdipFillEllipse(g, (GpBrush *)kbr, kx, y + pad, kd, kd);
         GdipDeleteBrush((GpBrush *)kbr);
     }
 }
 
-static void draw_button(GpGraphics *g, HDC hdc, RECT rc, const char *label, int id,
+static void draw_button(GpGraphics *g, HDC hdc, const SetupPalette *pal, RECT rc, const char *label, int id,
                         gboolean active, gboolean enabled, HFONT font, UINT dpi) {
     gboolean hov = enabled && (s_sw.hover_id == id);
-    ARGB bg = active ? 0xFF6E6AE8 : (hov ? 0xFF3A3A48 : 0xFF2F2F3B);
-    ARGB bd = active ? 0xFF827EF0 : (hov ? 0xFF56566A : 0xFF444454);
-    if (!enabled) { bg = 0xFF262630; bd = 0xFF343440; }
+    ARGB bg = active ? pal->accent : (hov ? pal->btn_hover : pal->btn_bg);
+    ARGB bd = active ? pal->accent_border : pal->btn_border;
+    if (!enabled) { bg = pal->btn_bg; bd = pal->card_border; }
     fill_round_rect(g, (REAL)rc.left, (REAL)rc.top, (REAL)(rc.right - rc.left),
                     (REAL)(rc.bottom - rc.top), (REAL)sc(6, dpi), bg, bd);
     RECT trc = rc;
-    COLORREF tc = !enabled ? RGB(0x70, 0x70, 0x82)
+    COLORREF tc = !enabled ? pal->text_muted
                 : active   ? RGB(0xFF, 0xFF, 0xFF)
-                           : RGB(0xEA, 0xEA, 0xF2);
+                           : pal->text_primary;
     draw_text_u8(hdc, label, &trc, tc, font, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     push_hit(rc, id, enabled);
 }
 
-static RECT draw_card_frame(GpGraphics *g, HDC hdc, int x, int y, int w, int h,
+static RECT draw_card_frame(GpGraphics *g, HDC hdc, const SetupPalette *pal, int x, int y, int w, int h,
                             const char *title, const char *subtitle,
                             HFONT f_title, HFONT f_sub, UINT dpi) {
-    fill_round_rect(g, (REAL)x, (REAL)y, (REAL)w, (REAL)h, (REAL)sc(10, dpi), 0xFF23232B, 0xFF32323E);
+    fill_round_rect(g, (REAL)x, (REAL)y, (REAL)w, (REAL)h, (REAL)sc(10, dpi), pal->card, pal->card_border);
     int pad = sc(16, dpi);
     if (subtitle && *subtitle) {
         RECT t1 = { x + pad, y + sc(10, dpi), x + w - sc(180, dpi), y + sc(32, dpi) };
-        draw_text_u8(hdc, title, &t1, RGB(0xF0, 0xF0, 0xF5), f_title, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        draw_text_u8(hdc, title, &t1, pal->text_primary, f_title, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         RECT t2 = { x + pad, y + sc(32, dpi), x + w - sc(180, dpi), y + h - sc(8, dpi) };
-        draw_text_u8(hdc, subtitle, &t2, RGB(0x98, 0x98, 0xA8), f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        draw_text_u8(hdc, subtitle, &t2, pal->text_secondary, f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     } else {
         RECT t1 = { x + pad, y, x + w - sc(180, dpi), y + h };
-        draw_text_u8(hdc, title, &t1, RGB(0xF0, 0xF0, 0xF5), f_title, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        draw_text_u8(hdc, title, &t1, pal->text_primary, f_title, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     }
     RECT card = { x, y, x + w, y + h };
     return card;
@@ -718,23 +794,11 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
     s_sw.n_hits = 0;
 
     int sb_w = sc(196, dpi);
+    const SetupPalette *pal = current_pal();
     /* Sidebar + Content backgrounds */
-    GpSolidFill *sb_br = NULL, *bg_br = NULL, *div_br = NULL;
-    GdipCreateSolidFill(0xFF16161B, &sb_br);
-    GdipCreateSolidFill(0xFF19191E, &bg_br);
-    GdipCreateSolidFill(0xFF282832, &div_br);
-    if (sb_br) {
-        fill_round_rect(g, 0, 0, (REAL)sb_w, (REAL)ch, 0, 0xFF16161B, 0);
-        GdipDeleteBrush((GpBrush *)sb_br);
-    }
-    if (bg_br) {
-        fill_round_rect(g, (REAL)sb_w, 0, (REAL)(cw - sb_w), (REAL)ch, 0, 0xFF19191E, 0);
-        GdipDeleteBrush((GpBrush *)bg_br);
-    }
-    if (div_br) {
-        fill_round_rect(g, (REAL)sb_w, 0, 1.0f, (REAL)ch, 0, 0xFF282832, 0);
-        GdipDeleteBrush((GpBrush *)div_br);
-    }
+    fill_round_rect(g, 0, 0, (REAL)sb_w, (REAL)ch, 0, pal->sidebar, 0);
+    fill_round_rect(g, (REAL)sb_w, 0, (REAL)(cw - sb_w), (REAL)ch, 0, pal->bg, 0);
+    fill_round_rect(g, (REAL)sb_w, 0, 1.0f, (REAL)ch, 0, pal->divider, 0);
 
     /* Brand header */
     int hdr_y = sc(16, dpi);
@@ -743,7 +807,7 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         DrawIconEx(mem, sc(18, dpi), hdr_y + sc(2, dpi), s_sw.app_icon, isz, isz, 0, NULL, DI_NORMAL);
     }
     RECT brc = { sc(48, dpi), hdr_y, sb_w - sc(12, dpi), hdr_y + sc(26, dpi) };
-    draw_text_u8(mem, "GoTV", &brc, RGB(0xF0, 0xF0, 0xF6), f_brand, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    draw_text_u8(mem, "GoTV", &brc, pal->text_primary, f_brand, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
     /* Sidebar items */
     struct { const char *icon; const char *vi; const char *en; } navs[NAV_COUNT] = {
@@ -764,19 +828,19 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         if (active || hov) {
             fill_round_rect(g, (REAL)nrc.left, (REAL)nrc.top,
                             (REAL)(nrc.right - nrc.left), (REAL)(nrc.bottom - nrc.top),
-                            (REAL)sc(6, dpi), active ? 0xFF2B2B36 : 0xFF22222B, 0);
+                            (REAL)sc(6, dpi), active ? pal->nav_active : pal->nav_hover, 0);
         }
         if (active) {
             fill_round_rect(g, (REAL)(nrc.left + sc(2, dpi)), (REAL)(nrc.top + sc(9, dpi)),
                             (REAL)sc(3, dpi), (REAL)(nh - sc(18, dpi)),
-                            (REAL)sc(2, dpi), 0xFF6E6AE8, 0);
+                            (REAL)sc(2, dpi), pal->accent, 0);
         }
         RECT irc = { nrc.left + sc(12, dpi), nrc.top, nrc.left + sc(34, dpi), nrc.bottom };
-        draw_text_u8(mem, navs[i].icon, &irc, active ? RGB(0x8C, 0x88, 0xF4) : RGB(0x98, 0x98, 0xA8),
+        draw_text_u8(mem, navs[i].icon, &irc, active ? RGB(0xE5, 0x39, 0x35) : pal->text_secondary,
                      f_nav, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         RECT trc = { nrc.left + sc(38, dpi), nrc.top, nrc.right - sc(8, dpi), nrc.bottom };
         draw_text_u8(mem, tr(navs[i].vi, navs[i].en), &trc,
-                     active ? RGB(0xF6, 0xF6, 0xFA) : RGB(0xB8, 0xB8, 0xC8),
+                     active ? pal->text_primary : pal->text_secondary,
                      f_nav, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         push_hit(nrc, id, TRUE);
         ny += nh + ngap;
@@ -784,7 +848,7 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
 
     /* Footer note in sidebar */
     RECT frc = { sc(16, dpi), ch - sc(32, dpi), sb_w - sc(16, dpi), ch - sc(10, dpi) };
-    draw_text_u8(mem, "v" GTV_VERSION " · Native", &frc, RGB(0x6C, 0x6C, 0x7E), f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    draw_text_u8(mem, "v" GTV_VERSION " · Native", &frc, pal->text_muted, f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
     /* Right Content Pane */
     int cx = sb_w + sc(28, dpi);
@@ -799,204 +863,212 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         tr("Thông tin GoTV", "About GoTV"),
     };
     RECT h1rc = { cx, cy, cx + cwid, cy + sc(34, dpi) };
-    draw_text_u8(mem, page_titles[s_sw.active_tab], &h1rc, RGB(0xF4, 0xF4, 0xFA), f_h1, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    draw_text_u8(mem, page_titles[s_sw.active_tab], &h1rc, pal->text_primary, f_h1, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     cy += sc(46, dpi);
 
     int tw = sc(40, dpi);
     int th = sc(22, dpi);
-    int card_h = sc(56, dpi);
-    int card_h2 = sc(64, dpi);
-    int gap = sc(10, dpi);
+    int card_h = sc(54, dpi);
+    int card_h2 = sc(60, dpi);
+    int gap = sc(8, dpi);
 
     if (s_sw.active_tab == NAV_GENERAL) {
         /* Card 1: Kiểu gõ (Telex / VNI toggles) */
-        RECT c1 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Kiểu gõ", "Input method"), NULL, f_card, f_sub, dpi);
         int ty = c1.top + (card_h - th) / 2;
         RECT vni_sw = { c1.right - sc(16, dpi) - tw, ty, c1.right - sc(16, dpi), ty + th };
         RECT vni_lbl = { vni_sw.left - sc(42, dpi), c1.top, vni_sw.left - sc(8, dpi), c1.bottom };
-        draw_text_u8(mem, "VNI", &vni_lbl, RGB(0xD8, 0xD8, 0xE6), f_nav, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-        draw_toggle(g, vni_sw, g_app.config.mode == GTV_VNI, s_sw.hover_id == HIT_TOGGLE_VNI, TRUE);
+        draw_text_u8(mem, "VNI", &vni_lbl, pal->text_primary, f_nav, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+        draw_toggle(g, pal, vni_sw, g_app.config.mode == GTV_VNI, s_sw.hover_id == HIT_TOGGLE_VNI, TRUE);
         push_hit(vni_sw, HIT_TOGGLE_VNI, TRUE);
 
         RECT tlx_sw = { vni_lbl.left - sc(18, dpi) - tw, ty, vni_lbl.left - sc(18, dpi), ty + th };
         RECT tlx_lbl = { tlx_sw.left - sc(50, dpi), c1.top, tlx_sw.left - sc(8, dpi), c1.bottom };
-        draw_text_u8(mem, "Telex", &tlx_lbl, RGB(0xD8, 0xD8, 0xE6), f_nav, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-        draw_toggle(g, tlx_sw, g_app.config.mode == GTV_TELEX, s_sw.hover_id == HIT_TOGGLE_TELEX, TRUE);
+        draw_text_u8(mem, "Telex", &tlx_lbl, pal->text_primary, f_nav, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+        draw_toggle(g, pal, tlx_sw, g_app.config.mode == GTV_TELEX, s_sw.hover_id == HIT_TOGGLE_TELEX, TRUE);
         push_hit(tlx_sw, HIT_TOGGLE_TELEX, TRUE);
         cy += card_h + gap;
 
         /* Card 2: Từ điển offline */
         gchar *dsub = s_sw.dict_status ? g_strdup(s_sw.dict_status) : dict_summary_text();
-        RECT c2 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c2 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   tr("Từ điển offline", "Offline dictionary"), dsub, f_card, f_sub, dpi);
         g_free(dsub);
-        int bw = sc(126, dpi), bh = sc(30, dpi);
+        int bw = sc(126, dpi), bh = sc(28, dpi);
         RECT upd_btn = { c2.right - sc(16, dpi) - bw, c2.top + (card_h2 - bh) / 2, c2.right - sc(16, dpi), c2.top + (card_h2 + bh) / 2 };
-        draw_button(g, mem, upd_btn, s_sw.dict_updating ? tr("Đang tải...", "Updating...") : tr("Tải xuống/Cập nhật", "Download/Update"),
+        draw_button(g, mem, pal, upd_btn, s_sw.dict_updating ? tr("Đang tải...", "Updating...") : tr("Tải xuống/Cập nhật", "Download/Update"),
                     HIT_BTN_DICT_UPDATE, FALSE, !s_sw.dict_updating, f_btn, dpi);
         RECT sug_sw = { upd_btn.left - sc(14, dpi) - tw, c2.top + (card_h2 - th) / 2, upd_btn.left - sc(14, dpi), c2.top + (card_h2 + th) / 2 };
-        draw_toggle(g, sug_sw, g_app.config.suggest_enabled, s_sw.hover_id == HIT_TOGGLE_SUGGEST, TRUE);
+        draw_toggle(g, pal, sug_sw, g_app.config.suggest_enabled, s_sw.hover_id == HIT_TOGGLE_SUGGEST, TRUE);
         push_hit(sug_sw, HIT_TOGGLE_SUGGEST, TRUE);
         cy += card_h2 + gap;
 
         /* Card 3: Phím tắt macro */
-        RECT c3 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c3 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Phím tắt macro", "Macro shortcuts"),
                                   tr("Bấm Tab để bung từ gõ tắt", "Press Tab to expand shortcuts"), f_card, f_sub, dpi);
         int mw = sc(96, dpi);
         RECT mac_btn = { c3.right - sc(16, dpi) - mw, c3.top + (card_h - bh) / 2, c3.right - sc(16, dpi), c3.top + (card_h + bh) / 2 };
-        draw_button(g, mem, mac_btn, tr("Cấu hình", "Configure"), HIT_BTN_MACRO_CFG, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, mac_btn, tr("Cấu hình", "Configure"), HIT_BTN_MACRO_CFG, FALSE, TRUE, f_btn, dpi);
         cy += card_h + gap;
 
         /* Card 4: Bảng emoji & Ký tự */
-        RECT c4 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c4 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Bảng emoji & Ký tự", "Emoji & Symbols"),
                                   tr("Quản lý bảng emoji và ký tự đặc biệt", "Manage emoji and symbol shortcuts"), f_card, f_sub, dpi);
         RECT emo_btn = { c4.right - sc(16, dpi) - mw, c4.top + (card_h - bh) / 2, c4.right - sc(16, dpi), c4.top + (card_h + bh) / 2 };
-        draw_button(g, mem, emo_btn, tr("Mở bảng...", "Open..."), HIT_BTN_EMOJI_CFG, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, emo_btn, tr("Mở bảng...", "Open..."), HIT_BTN_EMOJI_CFG, FALSE, TRUE, f_btn, dpi);
         cy += card_h + gap;
 
-        /* Card 5: Ngôn ngữ & Khởi động */
-        RECT c5 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
-                                  tr("Ngôn ngữ & Khởi động", "Language & Startup"),
-                                  tr("Khởi động cùng Windows", "Start with Windows"), f_card, f_sub, dpi);
-        RECT st_sw = { c5.right - sc(16, dpi) - tw, c5.top + sc(34, dpi), c5.right - sc(16, dpi), c5.top + sc(34, dpi) + th };
-        draw_toggle(g, st_sw, gtv_startup_get() != GTV_STARTUP_NONE, s_sw.hover_id == HIT_TOGGLE_STARTUP, TRUE);
+        /* Card 5: Giao diện & Ngôn ngữ */
+        RECT c5 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
+                                  tr("Giao diện & Ngôn ngữ", "Theme & Language"), NULL, f_card, f_sub, dpi);
+        int lw = sc(70, dpi), lh = sc(26, dpi), thw = sc(56, dpi);
+        int by5 = c5.top + (card_h - lh) / 2;
+        RECT en_btn = { c5.right - sc(16, dpi) - lw, by5, c5.right - sc(16, dpi), by5 + lh };
+        RECT vi_btn = { en_btn.left - sc(6, dpi) - lw, by5, en_btn.left - sc(6, dpi), by5 + lh };
+        RECT lt_btn = { vi_btn.left - sc(14, dpi) - thw, by5, vi_btn.left - sc(14, dpi), by5 + lh };
+        RECT dk_btn = { lt_btn.left - sc(6, dpi) - thw, by5, lt_btn.left - sc(6, dpi), by5 + lh };
+        draw_button(g, mem, pal, dk_btn, tr("Tối", "Dark"), HIT_BTN_THEME_DARK, g_app.config.ui_theme == GTV_THEME_DARK, TRUE, f_sub, dpi);
+        draw_button(g, mem, pal, lt_btn, tr("Sáng", "Light"), HIT_BTN_THEME_LIGHT, g_app.config.ui_theme == GTV_THEME_LIGHT, TRUE, f_sub, dpi);
+        draw_button(g, mem, pal, vi_btn, "Tiếng Việt", HIT_BTN_LANG_VI, g_app.config.ui_lang == GTV_LANG_VI, TRUE, f_sub, dpi);
+        draw_button(g, mem, pal, en_btn, "English", HIT_BTN_LANG_EN, g_app.config.ui_lang == GTV_LANG_EN, TRUE, f_sub, dpi);
+        cy += card_h + gap;
+
+        /* Card 6: Khởi động cùng Windows */
+        RECT c6 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
+                                  tr("Khởi động cùng Windows", "Start with Windows"), NULL, f_card, f_sub, dpi);
+        RECT st_sw = { c6.right - sc(16, dpi) - tw, c6.top + (card_h - th) / 2, c6.right - sc(16, dpi), c6.top + (card_h + th) / 2 };
+        draw_toggle(g, pal, st_sw, gtv_startup_get() != GTV_STARTUP_NONE, s_sw.hover_id == HIT_TOGGLE_STARTUP, TRUE);
         push_hit(st_sw, HIT_TOGGLE_STARTUP, TRUE);
 
-        int lw = sc(78, dpi), lh = sc(26, dpi);
-        RECT en_btn = { c5.right - sc(16, dpi) - lw, c5.top + sc(6, dpi), c5.right - sc(16, dpi), c5.top + sc(6, dpi) + lh };
-        RECT vi_btn = { en_btn.left - sc(8, dpi) - lw, c5.top + sc(6, dpi), en_btn.left - sc(8, dpi), c5.top + sc(6, dpi) + lh };
-        draw_button(g, mem, vi_btn, "Tiếng Việt", HIT_BTN_LANG_VI, g_app.config.ui_lang == GTV_LANG_VI, TRUE, f_sub, dpi);
-        draw_button(g, mem, en_btn, "English", HIT_BTN_LANG_EN, g_app.config.ui_lang == GTV_LANG_EN, TRUE, f_sub, dpi);
-
     } else if (s_sw.active_tab == NAV_TYPING) {
-        RECT c1 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   "Telex", "s f r x j, w z, aa ee oo aw ow uw dd, uow → ươ", f_card, f_sub, dpi);
         RECT sw1 = { c1.right - sc(16, dpi) - tw, c1.top + (card_h2 - th) / 2, c1.right - sc(16, dpi), c1.top + (card_h2 + th) / 2 };
-        draw_toggle(g, sw1, g_app.config.mode == GTV_TELEX, s_sw.hover_id == HIT_TOGGLE_TELEX, TRUE);
+        draw_toggle(g, pal, sw1, g_app.config.mode == GTV_TELEX, s_sw.hover_id == HIT_TOGGLE_TELEX, TRUE);
         push_hit(sw1, HIT_TOGGLE_TELEX, TRUE);
         cy += card_h2 + gap;
 
-        RECT c2 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c2 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   "VNI", "1 2 3 4 5, 6 7 8 9 0, a6 → â, a8 → ă, o7 → ơ", f_card, f_sub, dpi);
         RECT sw2 = { c2.right - sc(16, dpi) - tw, c2.top + (card_h2 - th) / 2, c2.right - sc(16, dpi), c2.top + (card_h2 + th) / 2 };
-        draw_toggle(g, sw2, g_app.config.mode == GTV_VNI, s_sw.hover_id == HIT_TOGGLE_VNI, TRUE);
+        draw_toggle(g, pal, sw2, g_app.config.mode == GTV_VNI, s_sw.hover_id == HIT_TOGGLE_VNI, TRUE);
         push_hit(sw2, HIT_TOGGLE_VNI, TRUE);
         cy += card_h2 + gap;
 
-        RECT c3 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c3 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   tr("Đặt dấu kiểu mới", "Modern tone placement"),
                                   tr("hòa, thúy thay vì hoà, thuý (oa, oe, uy)", "hòa, thúy instead of hoà, thuý (oa, oe, uy)"),
                                   f_card, f_sub, dpi);
         RECT sw3 = { c3.right - sc(16, dpi) - tw, c3.top + (card_h2 - th) / 2, c3.right - sc(16, dpi), c3.top + (card_h2 + th) / 2 };
-        draw_toggle(g, sw3, g_app.config.modern, s_sw.hover_id == HIT_TOGGLE_MODERN, TRUE);
+        draw_toggle(g, pal, sw3, g_app.config.modern, s_sw.hover_id == HIT_TOGGLE_MODERN, TRUE);
         push_hit(sw3, HIT_TOGGLE_MODERN, TRUE);
         cy += card_h2 + gap;
 
-        RECT c4 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c4 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   tr("Kiểm tra chính tả tiếng Việt", "Vietnamese spell check"),
                                   tr("Phát hiện vần không hợp lệ khi gõ", "Detect invalid Vietnamese syllables while typing"),
                                   f_card, f_sub, dpi);
         RECT sw4 = { c4.right - sc(16, dpi) - tw, c4.top + (card_h2 - th) / 2, c4.right - sc(16, dpi), c4.top + (card_h2 + th) / 2 };
-        draw_toggle(g, sw4, g_app.config.spellcheck, s_sw.hover_id == HIT_TOGGLE_SPELL, TRUE);
+        draw_toggle(g, pal, sw4, g_app.config.spellcheck, s_sw.hover_id == HIT_TOGGLE_SPELL, TRUE);
         push_hit(sw4, HIT_TOGGLE_SPELL, TRUE);
 
     } else if (s_sw.active_tab == NAV_DICTS) {
-        RECT c1 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Bật gợi ý từ thông minh", "Enable smart word suggestions"),
                                   tr("Hoạt động 100% offline", "100% offline suggestions"), f_card, f_sub, dpi);
         RECT sw1 = { c1.right - sc(16, dpi) - tw, c1.top + (card_h - th) / 2, c1.right - sc(16, dpi), c1.top + (card_h + th) / 2 };
-        draw_toggle(g, sw1, g_app.config.suggest_enabled, s_sw.hover_id == HIT_TOGGLE_SUGGEST, TRUE);
+        draw_toggle(g, pal, sw1, g_app.config.suggest_enabled, s_sw.hover_id == HIT_TOGGLE_SUGGEST, TRUE);
         push_hit(sw1, HIT_TOGGLE_SUGGEST, TRUE);
         cy += card_h + gap;
 
         int packs_h = sc(164, dpi);
-        fill_round_rect(g, (REAL)cx, (REAL)cy, (REAL)cwid, (REAL)packs_h, (REAL)sc(10, dpi), 0xFF23232B, 0xFF32323E);
+        fill_round_rect(g, (REAL)cx, (REAL)cy, (REAL)cwid, (REAL)packs_h, (REAL)sc(10, dpi), pal->card, pal->card_border);
         RECT p_hdr = { cx + sc(16, dpi), cy + sc(10, dpi), cx + cwid - sc(16, dpi), cy + sc(32, dpi) };
-        draw_text_u8(mem, tr("Gói từ điển đã chọn", "Selected dictionary packs"), &p_hdr, RGB(0xF0, 0xF0, 0xF5), f_card, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        draw_text_u8(mem, tr("Gói từ điển đã chọn", "Selected dictionary packs"), &p_hdr, pal->text_primary, f_card, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         int py = cy + sc(36, dpi);
         int rh = sc(24, dpi);
         for (guint i = 0; i < G_N_ELEMENTS(dict_pack_ctls); i++) {
             const char *lbl = tr(dict_pack_ctls[i].label_vi, dict_pack_ctls[i].label_en);
             RECT lrc = { cx + sc(16, dpi), py, cx + cwid - sc(80, dpi), py + rh };
-            draw_text_u8(mem, lbl, &lrc, RGB(0xD0, 0xD0, 0xDE), f_nav, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            draw_text_u8(mem, lbl, &lrc, pal->text_secondary, f_nav, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
             RECT psw = { cx + cwid - sc(16, dpi) - tw, py + sc(1, dpi), cx + cwid - sc(16, dpi), py + sc(1, dpi) + th };
             gboolean on = gtv_dict_lang_enabled(g_app.config.dicts, dict_pack_ctls[i].dict_id);
             int hid = HIT_TOGGLE_DICT_BASE + (int)i;
-            draw_toggle(g, psw, on, s_sw.hover_id == hid, TRUE);
+            draw_toggle(g, pal, psw, on, s_sw.hover_id == hid, TRUE);
             push_hit(psw, hid, TRUE);
             py += rh;
         }
         cy += packs_h + gap;
 
         gchar *dsum = dict_summary_text();
-        RECT c3 = draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        RECT c3 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                                   dsum, s_sw.dict_status ? s_sw.dict_status : tr("Cập nhật từ GitHub Release", "Update from GitHub Release"),
                                   f_card, f_sub, dpi);
         g_free(dsum);
         int bw = sc(128, dpi), bh = sc(30, dpi);
         RECT upd_btn = { c3.right - sc(16, dpi) - bw, c3.top + (card_h2 - bh) / 2, c3.right - sc(16, dpi), c3.top + (card_h2 + bh) / 2 };
-        draw_button(g, mem, upd_btn, s_sw.dict_updating ? tr("Đang tải...", "Updating...") : tr("Tải xuống/Cập nhật", "Download/Update"),
+        draw_button(g, mem, pal, upd_btn, s_sw.dict_updating ? tr("Đang tải...", "Updating...") : tr("Tải xuống/Cập nhật", "Download/Update"),
                     HIT_BTN_DICT_UPDATE, FALSE, !s_sw.dict_updating, f_btn, dpi);
         cy += card_h2 + gap;
 
-        RECT c4 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c4 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Từ điển theo từng ứng dụng", "Per-app dictionaries"),
                                   tr("Chỉ định từ điển riêng cho từng phần mềm", "Assign custom packs per executable"), f_card, f_sub, dpi);
         RECT app_btn = { c4.right - sc(16, dpi) - bw, c4.top + (card_h - bh) / 2, c4.right - sc(16, dpi), c4.top + (card_h + bh) / 2 };
-        draw_button(g, mem, app_btn, tr("Theo từng ứng dụng...", "Per-app..."), HIT_BTN_APP_DICTS, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, app_btn, tr("Theo từng ứng dụng...", "Per-app..."), HIT_BTN_APP_DICTS, FALSE, TRUE, f_btn, dpi);
 
     } else if (s_sw.active_tab == NAV_SHORTCUTS) {
-        RECT c1 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Phím chuyển E/V: Ctrl + Shift", "E/V Switch key: Ctrl + Shift"),
                                   tr("Nhấn nhanh để bật/tắt tiếng Việt", "Quick press to toggle Vietnamese"), f_card, f_sub, dpi);
         RECT sw1 = { c1.right - sc(16, dpi) - tw, c1.top + (card_h - th) / 2, c1.right - sc(16, dpi), c1.top + (card_h + th) / 2 };
-        draw_toggle(g, sw1, g_app.config.switch_key == GTV_SWITCH_CTRL_SHIFT, s_sw.hover_id == HIT_TOGGLE_CTRL_SHIFT, TRUE);
+        draw_toggle(g, pal, sw1, g_app.config.switch_key == GTV_SWITCH_CTRL_SHIFT, s_sw.hover_id == HIT_TOGGLE_CTRL_SHIFT, TRUE);
         push_hit(sw1, HIT_TOGGLE_CTRL_SHIFT, TRUE);
         cy += card_h + gap;
 
-        RECT c2 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c2 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Phím chuyển E/V: Alt + Z", "E/V Switch key: Alt + Z"),
                                   tr("Thay thế Ctrl + Shift nếu trùng phím tắt app khác", "Alternative switch key"), f_card, f_sub, dpi);
         RECT sw2 = { c2.right - sc(16, dpi) - tw, c2.top + (card_h - th) / 2, c2.right - sc(16, dpi), c2.top + (card_h + th) / 2 };
-        draw_toggle(g, sw2, g_app.config.switch_key == GTV_SWITCH_ALT_Z, s_sw.hover_id == HIT_TOGGLE_ALT_Z, TRUE);
+        draw_toggle(g, pal, sw2, g_app.config.switch_key == GTV_SWITCH_ALT_Z, s_sw.hover_id == HIT_TOGGLE_ALT_Z, TRUE);
         push_hit(sw2, HIT_TOGGLE_ALT_Z, TRUE);
         cy += card_h + gap;
 
         int bw = sc(120, dpi), bh = sc(30, dpi);
-        RECT c3 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c3 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Quản lý bàn phím Windows", "Windows Keyboard Switcher"),
                                   tr("Sắp xếp thứ tự Win+Space và khôi phục mặc định", "Manage Win+Space order and defaults"), f_card, f_sub, dpi);
         RECT kb_btn = { c3.right - sc(16, dpi) - bw, c3.top + (card_h - bh) / 2, c3.right - sc(16, dpi), c3.top + (card_h + bh) / 2 };
-        draw_button(g, mem, kb_btn, tr("Bàn phím...", "Keyboards..."), HIT_BTN_KEYBOARD, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, kb_btn, tr("Bàn phím...", "Keyboards..."), HIT_BTN_KEYBOARD, FALSE, TRUE, f_btn, dpi);
         cy += card_h + gap;
 
-        RECT c4 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c4 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Bảng gõ tắt (Macro) & Emoji", "Macro & Emoji Tables"),
                                   tr("Thêm, sửa hoặc xóa từ viết tắt", "Edit shortcut expansions"), f_card, f_sub, dpi);
         RECT da_btn = { c4.right - sc(16, dpi) - bw, c4.top + (card_h - bh) / 2, c4.right - sc(16, dpi), c4.top + (card_h + bh) / 2 };
-        draw_button(g, mem, da_btn, tr("Dữ liệu...", "Data..."), HIT_BTN_MACRO_CFG, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, da_btn, tr("Dữ liệu...", "Data..."), HIT_BTN_MACRO_CFG, FALSE, TRUE, f_btn, dpi);
 
     } else if (s_sw.active_tab == NAV_ABOUT) {
-        draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                         "GoTV v" GTV_VERSION,
                         tr("Bộ gõ tiếng Việt thuần C/Win32 TSF · Mã nguồn mở MIT", "Native C/Win32 TSF Vietnamese Input · MIT Open Source"),
                         f_card, f_sub, dpi);
         cy += card_h2 + gap;
 
-        draw_card_frame(g, mem, cx, cy, cwid, card_h2,
+        draw_card_frame(g, mem, pal, cx, cy, cwid, card_h2,
                         tr("Mã nguồn & Phát hành", "Repository & Releases"),
                         "https://github.com/isthaison/gotv", f_card, f_sub, dpi);
         cy += card_h2 + gap;
 
         int bw = sc(120, dpi), bh = sc(30, dpi);
-        RECT c3 = draw_card_frame(g, mem, cx, cy, cwid, card_h,
+        RECT c3 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Thư mục cấu hình & dữ liệu", "Config & Data Folder"),
                                   "%LOCALAPPDATA%\\gotv", f_card, f_sub, dpi);
         RECT dir_btn = { c3.right - sc(16, dpi) - bw, c3.top + (card_h - bh) / 2, c3.right - sc(16, dpi), c3.top + (card_h + bh) / 2 };
-        draw_button(g, mem, dir_btn, tr("Mở thư mục", "Open folder"), HIT_BTN_OPEN_DIR, FALSE, TRUE, f_btn, dpi);
+        draw_button(g, mem, pal, dir_btn, tr("Mở thư mục", "Open folder"), HIT_BTN_OPEN_DIR, FALSE, TRUE, f_btn, dpi);
     }
 
     DeleteObject(f_brand);
@@ -1012,6 +1084,8 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
     DeleteObject(bmp);
     DeleteDC(mem);
 }
+
+static void apply_dwm_frame(HWND hwnd);
 
 static void save_and_refresh(HWND hwnd) {
     gtv_app_save_config();
@@ -1071,6 +1145,16 @@ static void handle_hit(HWND hwnd, int id) {
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         }
+        case HIT_BTN_THEME_DARK:
+            g_app.config.ui_theme = GTV_THEME_DARK;
+            apply_dwm_frame(hwnd);
+            save_and_refresh(hwnd);
+            break;
+        case HIT_BTN_THEME_LIGHT:
+            g_app.config.ui_theme = GTV_THEME_LIGHT;
+            apply_dwm_frame(hwnd);
+            save_and_refresh(hwnd);
+            break;
         case HIT_BTN_LANG_VI:
             g_app.config.ui_lang = GTV_LANG_VI;
             gtv_i18n_set_lang(GTV_LANG_VI);
@@ -1146,12 +1230,13 @@ static int find_hit(POINT pt) {
     return HIT_NONE;
 }
 
-static void apply_dwm_dark_frame(HWND hwnd) {
-    BOOL dark = TRUE;
+static void apply_dwm_frame(HWND hwnd) {
+    const SetupPalette *pal = current_pal();
+    BOOL dark = (g_app.config.ui_theme != GTV_THEME_LIGHT);
     DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
     DWORD corner = 2; /* DWMWCP_ROUND */
     DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &corner, sizeof(corner));
-    COLORREF cap = RGB(0x16, 0x16, 0x1B);
+    COLORREF cap = pal->caption_rgb;
     DwmSetWindowAttribute(hwnd, 35 /* DWMWA_CAPTION_COLOR */, &cap, sizeof(cap));
 }
 
@@ -1162,7 +1247,7 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             GdiplusStartup(&s_sw.gdip_token, &in, NULL);
             s_sw.app_icon = (HICON)LoadImageW(GetModuleHandle(NULL), MAKEINTRESOURCEW(IDI_APP_ICON),
                                               IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
-            apply_dwm_dark_frame(hwnd);
+            apply_dwm_frame(hwnd);
             return 0;
         }
         case WM_ERASEBKGND:
@@ -1253,8 +1338,8 @@ void gtv_setup_show(HWND parent) {
     RegisterClassExW(&wc);
 
     UINT dpi = win_dpi(NULL);
-    int w = sc(740, dpi);
-    int h = sc(480, dpi);
+    int w = sc(760, dpi);
+    int h = sc(512, dpi);
     RECT desk = {0};
     SystemParametersInfoW(SPI_GETWORKAREA, 0, &desk, 0);
     int x = desk.left + ((desk.right - desk.left) - w) / 2;

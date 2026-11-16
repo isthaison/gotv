@@ -483,6 +483,8 @@ static GtkWidget *rb_telex, *rb_vni, *cb_modern, *cb_spell;
 static GtkWidget *sw_telex, *sw_vni, *sw_suggest_gen;
 static gboolean ui_syncing = FALSE;
 static GtkWidget *rb_lang_vi, *rb_lang_en;
+static GtkWidget *rb_theme_dark, *rb_theme_light;
+static GtkCssProvider *setup_css = NULL;
 static GtkWidget *lbl_preview;
 static GtkWidget *cb_suggest, *lbl_dict_ver, *lbl_dict_status, *btn_dict_update;
 static GtkWidget *cb_dict_packs[8];
@@ -606,7 +608,8 @@ static void on_save(GtkWidget *w, gpointer data){
     GtvConfig config = {.mode = strcmp(method,"vni") == 0 ? GTV_VNI : GTV_TELEX,
         .modern = strcmp(modern,"true") == 0, .spellcheck = strcmp(spell,"true") == 0,
         .suggest_enabled = strcmp(suggest,"true") == 0,
-        .ui_lang = (rb_lang_en && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(rb_lang_en))) ? GTV_LANG_EN : GTV_LANG_VI};
+        .ui_lang = (rb_lang_en && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(rb_lang_en))) ? GTV_LANG_EN : GTV_LANG_VI,
+        .ui_theme = (rb_theme_light && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(rb_theme_light))) ? GTV_THEME_LIGHT : GTV_THEME_DARK};
     gchar *sel = collect_selected_dicts();
     g_strlcpy(config.dicts, sel, sizeof(config.dicts));
     g_free(sel);
@@ -1015,35 +1018,78 @@ static void on_open_config_dir(GtkWidget *w, gpointer data) {
     }
 }
 
+static void apply_linux_theme(gboolean is_light) {
+    if (!setup_css) return;
+    const char *dark_css =
+        "window.gtv-win { background-color: #181617; color: #F5F2F0; }"
+        ".gtv-sidebar { background-color: #131112; border-right: 1px solid #2A2628; padding: 12px 8px; }"
+        ".gtv-brand { font-size: 15px; font-weight: 700; color: #F5F2F0; padding: 6px 8px 14px 8px; }"
+        ".gtv-nav-row { border-radius: 6px; color: #ACA3A0; margin: 2px 0; }"
+        ".gtv-nav-row:hover { background-color: #231F21; }"
+        ".gtv-nav-row:selected { background-color: #2C2628; color: #FFFFFF; border-left: 3px solid #D32F2F; }"
+        ".gtv-h1 { font-size: 20px; font-weight: 700; color: #F5F2F0; }"
+        ".gtv-card { background-color: #211E20; border: 1px solid #322D30; border-radius: 10px; padding: 12px 16px; }"
+        ".gtv-card-title { font-size: 13px; font-weight: 600; color: #F5F2F0; }"
+        ".gtv-card-sub { font-size: 11px; color: #ACA3A0; }"
+        ".gtv-btn { background: #2B2729; border: 1px solid #453E42; border-radius: 6px; color: #F5F2F0; padding: 6px 12px; }"
+        ".gtv-btn:hover { background: #383235; }"
+        "button.suggested-action { background: #D32F2F; border-color: #E53935; border-radius: 6px; color: #FFFFFF; padding: 6px 14px; }"
+        "switch { background-color: #3B3538; border-radius: 999px; border: none; }"
+        "switch:checked { background-color: #D32F2F; }"
+        "switch slider { background-color: #FAF7F2; border-radius: 999px; }"
+        "checkbutton, radiobutton { color: #F5F2F0; }";
+    const char *light_css =
+        "window.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
+        ".gtv-sidebar { background-color: #F3EFE8; border-right: 1px solid #E7E5E4; padding: 12px 8px; }"
+        ".gtv-brand { font-size: 15px; font-weight: 700; color: #2B2320; padding: 6px 8px 14px 8px; }"
+        ".gtv-nav-row { border-radius: 6px; color: #57534E; margin: 2px 0; }"
+        ".gtv-nav-row:hover { background-color: #ECE6DC; }"
+        ".gtv-nav-row:selected { background-color: #FEE2E2; color: #B71C1C; border-left: 3px solid #D32F2F; }"
+        ".gtv-h1 { font-size: 20px; font-weight: 700; color: #2B2320; }"
+        ".gtv-card { background-color: #FFFFFF; border: 1px solid #E7E5E4; border-radius: 10px; padding: 12px 16px; }"
+        ".gtv-card-title { font-size: 13px; font-weight: 600; color: #2B2320; }"
+        ".gtv-card-sub { font-size: 11px; color: #57534E; }"
+        ".gtv-btn { background: #F5F5F4; border: 1px solid #D6D3D1; border-radius: 6px; color: #2B2320; padding: 6px 12px; }"
+        ".gtv-btn:hover { background: #E7E5E4; }"
+        "button.suggested-action { background: #D32F2F; border-color: #B71C1C; border-radius: 6px; color: #FFFFFF; padding: 6px 14px; }"
+        "switch { background-color: #D6D3D1; border-radius: 999px; border: none; }"
+        "switch:checked { background-color: #D32F2F; }"
+        "switch slider { background-color: #FFFFFF; border-radius: 999px; }"
+        "checkbutton, radiobutton { color: #2B2320; }";
+    gtk_css_provider_load_from_data(setup_css, is_light ? light_css : dark_css, -1, NULL);
+}
+
+static void on_theme_radio_toggled(GtkToggleButton *btn, gpointer data) {
+    (void)data;
+    if (!gtk_toggle_button_get_active(btn)) return;
+    apply_linux_theme(GTK_WIDGET(btn) == rb_theme_light);
+}
+
 int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_modern, const char *cur_spell, const char *cur_suggest, const char *cfg){
     g_set_prgname("gotv");
     g_set_application_name("GoTV");
     config_path = strdup(cfg);
     gtk_init(&argc, &argv);
 
-    GtkCssProvider *css = gtk_css_provider_new();
-    const char *dark_css =
-        "window.gtv-win { background-color: #19191E; color: #F0F0F5; }"
-        ".gtv-sidebar { background-color: #16161B; border-right: 1px solid #282832; padding: 12px 8px; }"
-        ".gtv-brand { font-size: 15px; font-weight: 700; color: #F4F4FA; padding: 6px 8px 14px 8px; }"
-        ".gtv-nav-row { border-radius: 6px; color: #B8B8C8; margin: 2px 0; }"
-        ".gtv-nav-row:hover { background-color: #22222B; }"
-        ".gtv-nav-row:selected { background-color: #2B2B36; color: #FFFFFF; border-left: 3px solid #6E6AE8; }"
-        ".gtv-h1 { font-size: 20px; font-weight: 700; color: #F4F4FA; }"
-        ".gtv-card { background-color: #23232B; border: 1px solid #32323E; border-radius: 10px; padding: 12px 16px; }"
-        ".gtv-card-title { font-size: 13px; font-weight: 600; color: #F0F0F5; }"
-        ".gtv-card-sub { font-size: 11px; color: #9898A8; }"
-        ".gtv-btn { background: #2F2F3B; border: 1px solid #444454; border-radius: 6px; color: #EAEAF2; padding: 6px 12px; }"
-        ".gtv-btn:hover { background: #3A3A48; }"
-        "button.suggested-action { background: #6E6AE8; border-color: #827EF0; border-radius: 6px; color: #FFFFFF; padding: 6px 14px; }"
-        "switch { background-color: #3A3A46; border-radius: 999px; border: none; }"
-        "switch:checked { background-color: #6E6AE8; }"
-        "switch slider { background-color: #F4F4FA; border-radius: 999px; }"
-        "checkbutton, radiobutton { color: #D8D8E6; }";
-    gtk_css_provider_load_from_data(css, dark_css, -1, NULL);
+    gboolean init_light = FALSE;
+    {
+        GKeyFile *kf = g_key_file_new();
+        if (g_key_file_load_from_file(kf, cfg, G_KEY_FILE_NONE, NULL)) {
+            gchar *th = g_key_file_get_string(kf, "general", "theme", NULL);
+            if (th) {
+                g_strstrip(th);
+                if (!g_ascii_strcasecmp(th, "light")) init_light = TRUE;
+                g_free(th);
+            }
+        }
+        g_key_file_unref(kf);
+    }
+
+    setup_css = gtk_css_provider_new();
+    apply_linux_theme(init_light);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-        GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-    g_object_unref(css);
+        GTK_STYLE_PROVIDER(setup_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(setup_css);
 
     GtkIconTheme *theme = gtk_icon_theme_get_default();
     if(theme){
@@ -1156,6 +1202,16 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_box_pack_start(GTK_BOX(lang_box), rb_lang_vi, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(lang_box), rb_lang_en, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(pg_gen), make_card_box(gtv_i18n("Ngôn ngữ giao diện", "Interface language"), NULL, lang_box), FALSE, FALSE, 0);
+
+    GtkWidget *theme_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    rb_theme_dark = gtk_radio_button_new_with_label(NULL, gtv_i18n("Tối", "Dark"));
+    rb_theme_light = gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(rb_theme_dark), gtv_i18n("Sáng", "Light"));
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(init_light ? rb_theme_light : rb_theme_dark), TRUE);
+    g_signal_connect(rb_theme_dark, "toggled", G_CALLBACK(on_theme_radio_toggled), NULL);
+    g_signal_connect(rb_theme_light, "toggled", G_CALLBACK(on_theme_radio_toggled), NULL);
+    gtk_box_pack_start(GTK_BOX(theme_box), rb_theme_dark, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(theme_box), rb_theme_light, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(pg_gen), make_card_box(gtv_i18n("Giao diện", "Theme"), NULL, theme_box), FALSE, FALSE, 0);
 
     /* Page 2: Typing Modes */
     GtkWidget *pg_typ = make_page_box(gtv_i18n("Kiểu gõ & Chính tả", "Typing Modes"));
