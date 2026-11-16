@@ -51,23 +51,6 @@ static GtvUiLang tray_current_lang(void) {
     return res;
 }
 
-static void tray_update_config_lang(const char *lang) {
-    char *path = gtv_user_path(g_get_user_config_dir(), "config");
-    char *dir = g_path_get_dirname(path);
-    g_mkdir_with_parents(dir, 0755);
-    g_free(dir);
-    GKeyFile *kf = g_key_file_new();
-    g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL);
-    g_key_file_set_string(kf, "general", "lang", lang);
-    gsize len = 0;
-    gchar *data = g_key_file_to_data(kf, &len, NULL);
-    if (data) g_file_set_contents(path, data, (gssize)len, NULL);
-    g_free(data);
-    g_key_file_free(kf);
-    g_free(path);
-    gtv_i18n_set_lang(!g_ascii_strcasecmp(lang, "en") ? GTV_LANG_EN : GTV_LANG_VI);
-}
-
 static void tray_update_config_method(const char *method){
     char *path = gtv_user_path(g_get_user_config_dir(), "config");
     char *dir = g_path_get_dirname(path);
@@ -162,37 +145,6 @@ static void tray_on_activate_vni(GtkMenuItem *item, gpointer data){
     run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &",
                        "notify-send 'GoTV' 'Switched to VNI (1-5, 6-9)' 2>/dev/null &"));
     tray_refresh_checks();
-}
-static void tray_toggle_method(void){
-    char *m = tray_current_method();
-    gboolean is_telex = (g_strcmp0(m, "vni") != 0 && g_strcmp0(m, "VNI") != 0);
-    g_free(m);
-    if (is_telex) {
-        tray_update_config_method("vni");
-        run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang VNI (1-5, 6-9)' 2>/dev/null &",
-                           "notify-send 'GoTV' 'Switched to VNI (1-5, 6-9)' 2>/dev/null &"));
-    } else {
-        tray_update_config_method("telex");
-        run_shell(gtv_i18n("notify-send 'GoTV' 'Đã chuyển sang Telex (s f r x j)' 2>/dev/null &",
-                           "notify-send 'GoTV' 'Switched to Telex (s f r x j)' 2>/dev/null &"));
-    }
-    tray_refresh_checks();
-}
-static void tray_on_activate_lang_vi(GtkMenuItem *item, gpointer data){
-    (void)data;
-    if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
-    tray_update_config_lang("vi");
-    run_shell("notify-send 'GoTV' 'Đã chuyển sang Tiếng Việt' 2>/dev/null &");
-}
-static void tray_on_activate_lang_en(GtkMenuItem *item, gpointer data){
-    (void)data;
-    if(!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item))) return;
-    tray_update_config_lang("en");
-    run_shell("notify-send 'GoTV' 'Language switched to English' 2>/dev/null &");
-}
-static void tray_on_activate_toggle(GtkMenuItem *item, gpointer data){
-    (void)item; (void)data;
-    tray_toggle_method();
 }
 static void tray_on_activate_quit(GtkMenuItem *item, gpointer data){
     (void)item; (void)data;
@@ -415,33 +367,16 @@ int tray_run(int argc, char *argv[]){
     app_indicator_set_icon_full(tray_indicator, "gotv", "GoTV");
     app_indicator_set_title(tray_indicator, "GoTV — Telex/VNI");
 
+    (void)tray_current_lang();
+
     GtkWidget *menu = gtk_menu_new();
     GSList *group = NULL;
-    tray_item_telex = gtk_radio_menu_item_new_with_label(group, "Telex (s f r x j, w)");
+    tray_item_telex = gtk_radio_menu_item_new_with_label(group, "Telex");
     group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(tray_item_telex));
-    tray_item_vni = gtk_radio_menu_item_new_with_label(group, "VNI (1-5, 6-9)");
+    tray_item_vni = gtk_radio_menu_item_new_with_label(group, "VNI");
 
-    GtkWidget *tray_item_toggle = gtk_menu_item_new_with_label(gtv_i18n("Chuyển kiểu gõ (Telex ↔ VNI)", "Switch input mode (Telex ↔ VNI)"));
-    g_signal_connect(tray_item_toggle, "activate", G_CALLBACK(tray_on_activate_toggle), NULL);
-
-    GtkWidget *tray_item_lang = gtk_menu_item_new_with_label(gtv_i18n("Ngôn ngữ giao diện", "Interface language"));
-    GtkWidget *lang_menu = gtk_menu_new();
-    GSList *lang_group = NULL;
-    GtkWidget *tray_lang_vi = gtk_radio_menu_item_new_with_label(lang_group, "Tiếng Việt");
-    lang_group = gtk_radio_menu_item_get_group(GTK_RADIO_MENU_ITEM(tray_lang_vi));
-    GtkWidget *tray_lang_en = gtk_radio_menu_item_new_with_label(lang_group, "English");
-    if (tray_current_lang() == GTV_LANG_EN)
-        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(tray_lang_en), TRUE);
-    else
-        gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(tray_lang_vi), TRUE);
-    g_signal_connect(tray_lang_vi, "toggled", G_CALLBACK(tray_on_activate_lang_vi), NULL);
-    g_signal_connect(tray_lang_en, "toggled", G_CALLBACK(tray_on_activate_lang_en), NULL);
-    gtk_menu_shell_append(GTK_MENU_SHELL(lang_menu), tray_lang_vi);
-    gtk_menu_shell_append(GTK_MENU_SHELL(lang_menu), tray_lang_en);
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(tray_item_lang), lang_menu);
-
-    GtkWidget *tray_item_setup = gtk_menu_item_new_with_label(gtv_i18n("Mở GoTV Setup...", "GoTV Settings..."));
-    GtkWidget *tray_item_data = gtk_menu_item_new_with_label(gtv_i18n("Quản lý Gõ tắt & Emoji...", "Manage Macros & Emoji..."));
+    GtkWidget *tray_item_setup = gtk_menu_item_new_with_label(gtv_i18n("Cài đặt GoTV...", "GoTV Settings..."));
+    GtkWidget *tray_item_data = gtk_menu_item_new_with_label(gtv_i18n("Gõ tắt & Emoji...", "Macros & Emoji..."));
     GtkWidget *tray_item_update = gtk_menu_item_new_with_label(gtv_i18n("Kiểm tra cập nhật...", "Check for updates..."));
     GtkWidget *tray_item_quit = gtk_menu_item_new_with_label(gtv_i18n("Thoát", "Quit"));
     g_signal_connect(tray_item_telex, "toggled", G_CALLBACK(tray_on_activate_telex), NULL);
@@ -450,21 +385,18 @@ int tray_run(int argc, char *argv[]){
     g_signal_connect(tray_item_data, "activate", G_CALLBACK(tray_on_activate_data), NULL);
     g_signal_connect(tray_item_update, "activate", G_CALLBACK(tray_on_activate_update), NULL);
     g_signal_connect(tray_item_quit, "activate", G_CALLBACK(tray_on_activate_quit), NULL);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_toggle);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_telex);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_vni);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_lang);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_setup);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_data);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_update);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), tray_item_quit);
     gtk_widget_show_all(menu);
 
     app_indicator_set_menu(tray_indicator, GTK_MENU(menu));
-    app_indicator_set_secondary_activate_target(tray_indicator, tray_item_toggle);
+    app_indicator_set_secondary_activate_target(tray_indicator, tray_item_setup);
     tray_refresh_checks();
 
     if(gtv_update_should_autocheck()){

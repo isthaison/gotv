@@ -570,57 +570,25 @@ extern void GoTVCheckForUpdates(BOOL manual);
 {
     NSMenu *m = [[[NSMenu alloc] initWithTitle:@"GoTV"] autorelease];
 
-    NSString *ver = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    if (!ver) ver = @"0.9.19";
-    NSString *titleStr = [NSString stringWithFormat:@"GoTV v%@", ver];
-    NSMenuItem *titleItem = [m addItemWithTitle:titleStr action:nil keyEquivalent:@""];
-    [titleItem setEnabled:NO];
-
-    [m addItem:[NSMenuItem separatorItem]];
-
     BOOL isTelex = (!engine || engine->mode == GTV_TELEX);
-    NSMenuItem *telexItem = [m addItemWithTitle:@"Kiểu gõ: Telex" action:@selector(selectTelexAction:) keyEquivalent:@""];
+    NSMenuItem *telexItem = [m addItemWithTitle:@"Telex" action:@selector(selectTelexAction:) keyEquivalent:@""];
     [telexItem setTarget:self];
     [telexItem setState:(isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
 
-    NSMenuItem *vniItem = [m addItemWithTitle:@"Kiểu gõ: VNI" action:@selector(selectVniAction:) keyEquivalent:@""];
+    NSMenuItem *vniItem = [m addItemWithTitle:@"VNI" action:@selector(selectVniAction:) keyEquivalent:@""];
     [vniItem setTarget:self];
     [vniItem setState:(!isTelex ? NSControlStateValueOn : NSControlStateValueOff)];
 
     [m addItem:[NSMenuItem separatorItem]];
 
-    BOOL isModern = (engine && engine->modern);
-    NSMenuItem *modernItem = [m addItemWithTitle:@"Bỏ dấu kiểu mới (hòa, thúy)" action:@selector(toggleModernAction:) keyEquivalent:@""];
-    [modernItem setTarget:self];
-    [modernItem setState:(isModern ? NSControlStateValueOn : NSControlStateValueOff)];
-
-    BOOL isSpell = (engine && engine->spellcheck);
-    NSMenuItem *spellItem = [m addItemWithTitle:@"Kiểm tra chính tả" action:@selector(toggleSpellcheckAction:) keyEquivalent:@""];
-    [spellItem setTarget:self];
-    [spellItem setState:(isSpell ? NSControlStateValueOn : NSControlStateValueOff)];
-
-    NSMenuItem *sugItem = [m addItemWithTitle:@"Gợi ý từ điển thông minh" action:@selector(toggleSuggestAction:) keyEquivalent:@""];
-    [sugItem setTarget:self];
-    [sugItem setState:(suggestEnabled ? NSControlStateValueOn : NSControlStateValueOff)];
-
-    [m addItem:[NSMenuItem separatorItem]];
-
-    NSMenuItem *dataItem = [m addItemWithTitle:@"Bảng gõ tắt & Emoji..." action:@selector(openDataWindowAction:) keyEquivalent:@""];
-    [dataItem setTarget:self];
-
-    NSMenuItem *prefItem = [m addItemWithTitle:@"Cài đặt..." action:@selector(openSettingsAction:) keyEquivalent:@","];
+    NSMenuItem *prefItem = [m addItemWithTitle:@"Cài đặt GoTV..." action:@selector(openSettingsAction:) keyEquivalent:@","];
     [prefItem setTarget:self];
+
+    NSMenuItem *dataItem = [m addItemWithTitle:@"Gõ tắt & Emoji..." action:@selector(openDataWindowAction:) keyEquivalent:@""];
+    [dataItem setTarget:self];
 
     NSMenuItem *updateItem = [m addItemWithTitle:@"Kiểm tra cập nhật..." action:@selector(checkUpdatesAction:) keyEquivalent:@""];
     [updateItem setTarget:self];
-
-    [m addItem:[NSMenuItem separatorItem]];
-
-    NSMenuItem *homeItem = [m addItemWithTitle:@"Trang chủ GoTV..." action:@selector(openHomepageAction:) keyEquivalent:@""];
-    [homeItem setTarget:self];
-
-    NSMenuItem *issuesItem = [m addItemWithTitle:@"Góp ý & Báo lỗi trên GitHub..." action:@selector(openIssuesAction:) keyEquivalent:@""];
-    [issuesItem setTarget:self];
 
     return m;
 }
