@@ -49,10 +49,17 @@ static DWORD WINAPI takeover_watcher(LPVOID param) {
 }
 
 static UINT s_uTaskbarRestartMsg = 0;
+static UINT s_uOpenSettingsMsg = 0;
+#define IDT_TRAY_RETRY 101
+static int s_tray_retries = 0;
 
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (s_uTaskbarRestartMsg != 0 && msg == s_uTaskbarRestartMsg) {
         gtv_tray_init(hwnd);
+        return 0;
+    }
+    if (s_uOpenSettingsMsg != 0 && msg == s_uOpenSettingsMsg) {
+        gtv_setup_show(hwnd);
         return 0;
     }
 
@@ -111,6 +118,14 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 else g_free(word);
             }
             return TRUE;
+        }
+        case WM_TIMER: {
+            if (wParam == IDT_TRAY_RETRY) {
+                if (gtv_tray_init(hwnd) || ++s_tray_retries >= 15) {
+                    KillTimer(hwnd, IDT_TRAY_RETRY);
+                }
+            }
+            break;
         }
         case WM_DESTROY:
             PostQuitMessage(0);
@@ -225,6 +240,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         HWND existing = FindWindowA(WINDOW_CLASS_NAME, NULL);
         if (existing) {
             SetForegroundWindow(existing);
+            UINT open_msg = RegisterWindowMessageA("GoTV_Open_Settings");
+            if (open_msg) PostMessage(existing, open_msg, 0, 0);
             PostMessage(existing, WM_COMMAND, MAKEWPARAM(ID_TRAY_SETTINGS, 0), 0);
         }
         if (hMutex) CloseHandle(hMutex);
@@ -265,6 +282,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     /* 4. Register message window class */
     s_uTaskbarRestartMsg = RegisterWindowMessageA("TaskbarCreated");
+    s_uOpenSettingsMsg = RegisterWindowMessageA("GoTV_Open_Settings");
 
     WNDCLASSEXA wc = {0};
     wc.cbSize = sizeof(WNDCLASSEXA);
@@ -277,7 +295,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                                        WS_POPUP, 0, 0, 0, 0,
                                        NULL, NULL, hInstance, NULL);
 
-    /* Allow WM_COPYDATA from lower-integrity processes (e.g. sandboxed Chromium/Electron renderers) */
+    /* Allow WM_COPYDATA, TaskbarCreated, and GoTV_Open_Settings from lower-integrity
+     * processes (sandboxed renderers, Explorer when running as admin, or unelevated clicks). */
     {
 #ifndef MSGFLT_ALLOW
 #define MSGFLT_ALLOW 1
@@ -288,6 +307,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             hUser32 ? (pfnChangeWindowMessageFilterEx)(void *)GetProcAddress(hUser32, "ChangeWindowMessageFilterEx") : NULL;
         if (pChangeFilter) {
             pChangeFilter(g_app.hwnd_main, WM_COPYDATA, MSGFLT_ALLOW, NULL);
+            if (s_uTaskbarRestartMsg) pChangeFilter(g_app.hwnd_main, s_uTaskbarRestartMsg, MSGFLT_ALLOW, NULL);
+            if (s_uOpenSettingsMsg) pChangeFilter(g_app.hwnd_main, s_uOpenSettingsMsg, MSGFLT_ALLOW, NULL);
         }
     }
 
@@ -301,7 +322,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     /* 5. Initialize Tray Icon & Global Hotkey */
-    gtv_tray_init(g_app.hwnd_main);
+    if (!gtv_tray_init(g_app.hwnd_main)) {
+        s_tray_retries = 0;
+        SetTimer(g_app.hwnd_main, IDT_TRAY_RETRY, 2000, NULL);
+    }
     gtv_hotkey_init(g_app.hwnd_main, g_app.config.switch_key);
 
     /* Store submissions are updated through their versioned Store listing. */

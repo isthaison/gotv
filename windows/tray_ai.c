@@ -12,8 +12,13 @@ static gchar *pending_fix = NULL;
 static volatile LONG ai_word_generation = 0;
 static LONG pending_ai_generation = 0;
 
+static gboolean ai_inited = FALSE;
+
 void gtv_tray_ai_init(void) {
-    InitializeCriticalSection(&learned_lock);
+    if (!ai_inited) {
+        InitializeCriticalSection(&learned_lock);
+        ai_inited = TRUE;
+    }
 }
 
 void gtv_tray_ai_cleanup(void) {
@@ -21,7 +26,10 @@ void gtv_tray_ai_cleanup(void) {
     g_free(pending_fix);
     if (w_learned_words) g_hash_table_unref(w_learned_words);
     if (w_learned_fixes) g_hash_table_unref(w_learned_fixes);
-    DeleteCriticalSection(&learned_lock);
+    if (ai_inited) {
+        DeleteCriticalSection(&learned_lock);
+        ai_inited = FALSE;
+    }
 }
 
 static void w_learned_ensure(void) {
