@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.20" date="2026-11-16">
+      <description>
+        <p>Sửa lỗi giao diện cài đặt GTK3 trên Linux (sidebar, switch, kích thước cửa sổ, dark titlebar).</p>
+      </description>
+    </release>
     <release version="0.9.19" date="2026-11-16">
       <description>
         <p>Sua loi icon tray khi chay quyen Admin, mo app tu phien thuong va lam gon menu tray.</p>
