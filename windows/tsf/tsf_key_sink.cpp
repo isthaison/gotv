@@ -110,6 +110,10 @@ STDMETHODIMP CGtvTextService::OnTestKeyDown(ITfContext *pic, WPARAM wParam, LPAR
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
 
+    if (!IsComposing()) {
+        ReloadConfigIfChanged();
+    }
+
     // No software on/off: the TIP is active only while selected.
     // Switching to English is a Win+Space keyboard change (Windows owns it).
 

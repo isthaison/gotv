@@ -1247,7 +1247,7 @@ void gtv_suggest_on_key(CGtvTextService *service, ITfContext *pic) {
      * always see the current candidate list immediately). */
     GtvConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
-    gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    gchar *dir = gtv_tsf_config_dir();
     gtv_config_load(&cfg, dir);
     g_free(dir);
     gboolean enabled = cfg.suggest_enabled;

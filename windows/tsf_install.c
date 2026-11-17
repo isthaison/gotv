@@ -7,6 +7,8 @@
 #include <wchar.h>
 #include <objbase.h>
 #include <msctf.h>
+#include <aclapi.h>
+#include <sddl.h>
 
 static const wchar_t *GTV_TSF_CLSID_STR =
     L"{E3B0C442-98FC-4F2E-9C8F-7B2A3E1D4C5B}";
@@ -524,6 +526,69 @@ static gboolean app_paths(wchar_t *app_dir, wchar_t *dll_path) {
     return FALSE;
 }
 
+/* AppContainer / UWP / Edge / Win11 Notepad processes run under
+ * ALL APPLICATION PACKAGES (S-1-15-2-1), which has no access to
+ * %LOCALAPPDATA% by default. Without RX on {app} and %LOCALAPPDATA%\gotv,
+ * Windows TSF fails to LoadLibrary(gtv_tsf.dll) / gtv_engine.dll. */
+static void ensure_appcontainer_acl(const wchar_t *path) {
+    if (!path || !*path) return;
+    PSID sid = NULL;
+    if (!ConvertStringSidToSidW(L"S-1-15-2-1", &sid) || !sid) return;
+
+    PACL old_dacl = NULL;
+    PSECURITY_DESCRIPTOR sd = NULL;
+    DWORD rc = GetNamedSecurityInfoW(path, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+                                     NULL, NULL, &old_dacl, NULL, &sd);
+    if (rc != ERROR_SUCCESS) {
+        LocalFree(sid);
+        return;
+    }
+
+    gboolean already_has = FALSE;
+    if (old_dacl) {
+        ULONG count = 0;
+        PEXPLICIT_ACCESS_W entries = NULL;
+        if (GetExplicitEntriesFromAclW(old_dacl, &count, &entries) == ERROR_SUCCESS && entries) {
+            for (ULONG i = 0; i < count; i++) {
+                if (entries[i].grfAccessMode == GRANT_ACCESS &&
+                    entries[i].Trustee.TrusteeForm == TRUSTEE_IS_SID &&
+                    EqualSid(entries[i].Trustee.ptstrName, sid) &&
+                    (entries[i].grfAccessPermissions & (FILE_GENERIC_READ | FILE_GENERIC_EXECUTE)) ==
+                        (FILE_GENERIC_READ | FILE_GENERIC_EXECUTE) &&
+                    (entries[i].grfInheritance & SUB_CONTAINERS_AND_OBJECTS_INHERIT) ==
+                        SUB_CONTAINERS_AND_OBJECTS_INHERIT) {
+                    already_has = TRUE;
+                    break;
+                }
+            }
+            LocalFree(entries);
+        }
+    }
+
+    if (!already_has) {
+        EXPLICIT_ACCESSW ea;
+        ZeroMemory(&ea, sizeof(ea));
+        ea.grfAccessPermissions = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
+        ea.grfAccessMode = GRANT_ACCESS;
+        ea.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
+        ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+        ea.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+        ea.Trustee.ptstrName = (LPWSTR)sid;
+
+        PACL new_dacl = NULL;
+        if (SetEntriesInAclW(1, &ea, old_dacl, &new_dacl) == ERROR_SUCCESS && new_dacl) {
+            DWORD set_rc = SetNamedSecurityInfoW((LPWSTR)path, SE_FILE_OBJECT,
+                                                 DACL_SECURITY_INFORMATION,
+                                                 NULL, NULL, new_dacl, NULL);
+            log_msg("AppContainer RX ACL on %ls rc=%lu", path, (unsigned long)set_rc);
+            LocalFree(new_dacl);
+        }
+    }
+
+    if (sd) LocalFree(sd);
+    LocalFree(sid);
+}
+
 void gtv_tsf_install_ensure_registered(void) {
     wchar_t app_dir[MAX_PATH];
     wchar_t dll_path[MAX_PATH];
@@ -539,6 +604,19 @@ void gtv_tsf_install_ensure_registered(void) {
     }
 
     log_msg("app dir resolved, checking TSF registration");
+    ensure_appcontainer_acl(app_dir);
+    {
+        gchar *cfg_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        if (cfg_dir) {
+            g_mkdir_with_parents(cfg_dir, 0755);
+            wchar_t *wcfg = (wchar_t *)g_utf8_to_utf16(cfg_dir, -1, NULL, NULL, NULL);
+            if (wcfg) {
+                ensure_appcontainer_acl(wcfg);
+                g_free(wcfg);
+            }
+            g_free(cfg_dir);
+        }
+    }
     remove_stale_en_profile_tree(HKEY_CURRENT_USER);
 
     /* Re-register if: InprocServer32 path mismatch OR TSF profiles missing

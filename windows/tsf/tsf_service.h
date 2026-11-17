@@ -12,6 +12,8 @@
 void DllAddRef(void);
 void DllRelease(void);
 
+gchar *gtv_tsf_config_dir(void);
+
 class CEditSession;
 
 class CGtvTextService :
@@ -64,6 +66,7 @@ public:
     BOOL IsComposing() const { return m_pComposition != NULL; }
 
     void ReloadConfig();
+    void ReloadConfigIfChanged();
     BOOL IsEnabled() const { return m_fEnabled; }
     void SetEnabled(BOOL enabled);
     void ToggleEnabled();
@@ -95,6 +98,9 @@ private:
     RECT m_sessionSelRect;
     BOOL m_sessionCompOk;
     BOOL m_sessionSelOk;
+    FILETIME m_lastConfigMtime;
+    BOOL m_hasConfigMtime;
+    DWORD m_lastConfigCheckTick;
 
     BOOL InitKeyEventSink();
     void UninitKeyEventSink();

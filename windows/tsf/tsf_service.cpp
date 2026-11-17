@@ -1,6 +1,39 @@
 #include "tsf_service.h"
 #include "tsf_suggest.h"
 
+gchar *gtv_tsf_config_dir(void)
+{
+    gchar *primary = gtv_user_path(g_get_user_config_dir(), NULL);
+    gchar *cfg_file = g_build_filename(primary, "config", NULL);
+    gboolean exists = (GetFileAttributesA(cfg_file) != INVALID_FILE_ATTRIBUTES);
+    g_free(cfg_file);
+    if (exists) return primary;
+
+    /* Inside AppContainer (Win11 Notepad, Edge, Chrome sandbox, UWP),
+     * LOCALAPPDATA is redirected to Packages\<PFN>\AC\..., whereas
+     * USERPROFILE still points to C:\Users\<user>. */
+    WCHAR prof[MAX_PATH];
+    DWORD plen = GetEnvironmentVariableW(L"USERPROFILE", prof, MAX_PATH);
+    if (plen > 0 && plen < MAX_PATH) {
+        gchar *u8_prof = g_utf16_to_utf8((const gunichar2 *)prof, -1, NULL, NULL, NULL);
+        if (u8_prof) {
+            gchar *real_local = g_build_filename(u8_prof, "AppData", "Local", NULL);
+            gchar *real_dir = gtv_user_path(real_local, NULL);
+            gchar *real_cfg = g_build_filename(real_dir, "config", NULL);
+            gboolean real_exists = (GetFileAttributesA(real_cfg) != INVALID_FILE_ATTRIBUTES);
+            g_free(real_cfg);
+            g_free(real_local);
+            g_free(u8_prof);
+            if (real_exists) {
+                g_free(primary);
+                return real_dir;
+            }
+            g_free(real_dir);
+        }
+    }
+    return primary;
+}
+
 CGtvTextService::CGtvTextService() :
     m_cRef(1),
     m_pThreadMgr(NULL),
@@ -13,10 +46,13 @@ CGtvTextService::CGtvTextService() :
     m_pEngine(NULL),
     m_fEnabled(TRUE),
     m_sessionCompOk(FALSE),
-    m_sessionSelOk(FALSE)
+    m_sessionSelOk(FALSE),
+    m_hasConfigMtime(FALSE),
+    m_lastConfigCheckTick(0)
 {
     memset(&m_sessionCompRect, 0, sizeof(m_sessionCompRect));
     memset(&m_sessionSelRect, 0, sizeof(m_sessionSelRect));
+    memset(&m_lastConfigMtime, 0, sizeof(m_lastConfigMtime));
     ReloadConfig();
     DllAddRef();
 }
@@ -25,7 +61,14 @@ void CGtvTextService::ReloadConfig()
 {
     GtvConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
-    gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    gchar *config_dir = gtv_tsf_config_dir();
+    gchar *config_file = g_build_filename(config_dir, "config", NULL);
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (GetFileAttributesExA(config_file, GetFileExInfoStandard, &fad)) {
+        m_lastConfigMtime = fad.ftLastWriteTime;
+        m_hasConfigMtime = TRUE;
+    }
+    g_free(config_file);
     gtv_config_load(&cfg, config_dir);
     g_free(config_dir);
 
@@ -37,6 +80,28 @@ void CGtvTextService::ReloadConfig()
         m_pEngine = gtv_engine_new(&cfg);
     }
     gtv_config_clear(&cfg);
+    m_lastConfigCheckTick = GetTickCount();
+}
+
+void CGtvTextService::ReloadConfigIfChanged()
+{
+    DWORD now = GetTickCount();
+    if (m_hasConfigMtime && (DWORD)(now - m_lastConfigCheckTick) < 250)
+        return;
+    m_lastConfigCheckTick = now;
+
+    gchar *config_dir = gtv_tsf_config_dir();
+    gchar *config_file = g_build_filename(config_dir, "config", NULL);
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    BOOL has_file = GetFileAttributesExA(config_file, GetFileExInfoStandard, &fad);
+    g_free(config_file);
+    g_free(config_dir);
+
+    if (has_file && (!m_hasConfigMtime ||
+        fad.ftLastWriteTime.dwLowDateTime != m_lastConfigMtime.dwLowDateTime ||
+        fad.ftLastWriteTime.dwHighDateTime != m_lastConfigMtime.dwHighDateTime)) {
+        ReloadConfig();
+    }
 }
 
 CGtvTextService::~CGtvTextService()
