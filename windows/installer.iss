@@ -108,6 +108,10 @@ Name: "{userdesktop}\GoTV"; Filename: "{app}\ver\{#AppVersion}\gotv.exe"; Tasks:
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "GoTV"; ValueData: """{app}\ver\{#AppVersion}\gotv.exe"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
+; Grant ALL APPLICATION PACKAGES (S-1-15-2-1) Read & Execute on {app} and {localappdata}\gotv
+; so AppContainer apps (Win11 Notepad, Edge, Chrome sandbox, UWP) can load gtv_tsf.dll and read config.
+Filename: "{sys}\icacls.exe"; Parameters: """{app}"" /grant *S-1-15-2-1:(OI)(CI)(RX) /Q"; Flags: runhidden waituntilterminated
+Filename: "{cmd}"; Parameters: "/c if not exist ""{localappdata}\gotv"" mkdir ""{localappdata}\gotv"" & ""{sys}\icacls.exe"" ""{localappdata}\gotv"" /grant *S-1-15-2-1:(OI)(CI)(RX) /Q"; Flags: runhidden waituntilterminated
 ; regsvr32 loads from System32, so its DLL search misses our bundled glib
 ; next to gtv_tsf.dll: prepend {app} to PATH or registration silently
 ; fails and no keyboard appears in language settings.
