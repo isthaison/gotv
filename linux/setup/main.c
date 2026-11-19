@@ -966,7 +966,8 @@ static void apply_linux_theme(gboolean is_light) {
     const char *dark_css =
         "window.gtv-win { background-color: #181617; color: #F5F2F0; }"
         ".gtv-sidebar { background-color: #131112; border-right: 1px solid #2A2628; padding: 12px 8px; }"
-        ".gtv-brand { font-size: 15px; font-weight: 700; color: #F5F2F0; padding: 6px 8px 14px 8px; }"
+        ".gtv-brand-row { padding: 6px 8px 14px 8px; }"
+        ".gtv-brand { font-size: 15px; font-weight: 700; color: #F5F2F0; }"
         ".gtv-nav-list { background-color: transparent; border: none; }"
         ".gtv-nav-row { background-color: transparent; border-radius: 6px; color: #ACA3A0; margin: 2px 0; outline-style: none; }"
         ".gtv-nav-row:hover { background-color: #231F21; }"
@@ -986,7 +987,8 @@ static void apply_linux_theme(gboolean is_light) {
     const char *light_css =
         "window.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
         ".gtv-sidebar { background-color: #F3EFE8; border-right: 1px solid #E7E5E4; padding: 12px 8px; }"
-        ".gtv-brand { font-size: 15px; font-weight: 700; color: #2B2320; padding: 6px 8px 14px 8px; }"
+        ".gtv-brand-row { padding: 6px 8px 14px 8px; }"
+        ".gtv-brand { font-size: 15px; font-weight: 700; color: #2B2320; }"
         ".gtv-nav-list { background-color: transparent; border: none; }"
         ".gtv-nav-row { background-color: transparent; border-radius: 6px; color: #57534E; margin: 2px 0; outline-style: none; }"
         ".gtv-nav-row:hover { background-color: #ECE6DC; }"
@@ -1063,10 +1065,22 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     gtk_widget_set_size_request(sb_box, 196, -1);
     gtk_box_pack_start(GTK_BOX(root), sb_box, FALSE, FALSE, 0);
 
+    GtkWidget *brand_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(brand_box), "gtv-brand-row");
+    GdkPixbuf *logo_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.png", 22, 22, TRUE, NULL);
+    if (!logo_pb)
+        logo_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.svg", 22, 22, TRUE, NULL);
+    GtkWidget *brand_icon = logo_pb
+        ? gtk_image_new_from_pixbuf(logo_pb)
+        : gtk_image_new_from_icon_name("gotv", GTK_ICON_SIZE_LARGE_TOOLBAR);
+    if (logo_pb) g_object_unref(logo_pb);
+    gtk_box_pack_start(GTK_BOX(brand_box), brand_icon, FALSE, FALSE, 0);
+
     GtkWidget *brand = gtk_label_new("GoTV");
     gtk_style_context_add_class(gtk_widget_get_style_context(brand), "gtv-brand");
     gtk_label_set_xalign(GTK_LABEL(brand), 0.0);
-    gtk_box_pack_start(GTK_BOX(sb_box), brand, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(brand_box), brand, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sb_box), brand_box, FALSE, FALSE, 0);
 
     GtkWidget *sidebar = gtk_list_box_new();
     gtk_style_context_add_class(gtk_widget_get_style_context(sidebar), "gtv-nav-list");
