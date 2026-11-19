@@ -97,7 +97,6 @@ STDAPI DllRegisterServer(void)
         // GoTV is a Vietnamese input method only: ensure it is never registered
         // or enabled under English (0x0409), which would create an unwanted
         // "ENG English (United States) - GoTV" entry in the Windows keyboard switcher.
-        pProfiles->EnableLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile, FALSE);
         pProfiles->RemoveLanguageProfile(CLSID_GtvTextService, GTV_LANG_ENGLISH, GUID_GtvProfile);
         pProfiles->Release();
     }

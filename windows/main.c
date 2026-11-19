@@ -266,6 +266,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     /* 2. Ensure this installation owns the per-user TSF registration. */
     gtv_tsf_install_ensure_registered();
+    gtv_kbd_cleanup_vi_tip_only();
 
     /* 2b. Attach GoTV to Vietnamese (Win+Space switcher).
      * Async worker; setup-revision stamped, additive-only. */
