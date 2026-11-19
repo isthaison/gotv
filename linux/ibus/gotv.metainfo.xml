@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.23" date="2026-11-19">
+      <description>
+        <p>Fix Windows tray icon and settings window startup</p>
+      </description>
+    </release>
     <release version="0.9.22" date="2026-11-19">
       <description>
         <p>Allow maximizing Windows settings window, unload stray vi HKL, add Linux sidebar logo and Windows showcase</p>
