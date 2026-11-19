@@ -955,8 +955,9 @@ BOOL gtv_kbd_is_vietnamese_active(void) {
 #define KBD_HKL_VI_CLASSIC ((HKL)(ULONG_PTR)0x042a042a)
 
 static void unload_vi_hkls(gboolean unload_substitute) {
+    HDESK hOrig = GetThreadDesktop(GetCurrentThreadId());
     HDESK hDesk = OpenInputDesktop(0, FALSE, DESKTOP_READOBJECTS | DESKTOP_WRITEOBJECTS | DESKTOP_SWITCHDESKTOP);
-    if (hDesk) SetThreadDesktop(hDesk);
+    BOOL switched = (hDesk && hDesk != hOrig) ? SetThreadDesktop(hDesk) : FALSE;
 
     HKL hkls[32];
     int n = GetKeyboardLayoutList((int)G_N_ELEMENTS(hkls), hkls);
@@ -970,6 +971,7 @@ static void unload_vi_hkls(gboolean unload_substitute) {
     if (unload_substitute) UnloadKeyboardLayout(KBD_HKL_VI_SUB);
     UnloadKeyboardLayout(KBD_HKL_VI_CLASSIC);
 
+    if (switched && hOrig) SetThreadDesktop(hOrig);
     if (hDesk) CloseDesktop(hDesk);
 }
 

@@ -239,10 +239,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (!primary) {
         HWND existing = FindWindowA(WINDOW_CLASS_NAME, NULL);
         if (existing) {
-            SetForegroundWindow(existing);
+            DWORD pid = 0;
+            GetWindowThreadProcessId(existing, &pid);
+            if (pid) AllowSetForegroundWindow(pid);
             UINT open_msg = RegisterWindowMessageA("GoTV_Open_Settings");
             if (open_msg) PostMessage(existing, open_msg, 0, 0);
-            PostMessage(existing, WM_COMMAND, MAKEWPARAM(ID_TRAY_SETTINGS, 0), 0);
+            else PostMessage(existing, WM_COMMAND, MAKEWPARAM(ID_TRAY_SETTINGS, 0), 0);
         }
         if (hMutex) CloseHandle(hMutex);
         return 0;

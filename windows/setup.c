@@ -1377,6 +1377,7 @@ void gtv_setup_show(HWND parent) {
     g_free(wtitle);
     if (s_hwndSetup) {
         ShowWindow(s_hwndSetup, SW_SHOW);
+        SetForegroundWindow(s_hwndSetup);
         UpdateWindow(s_hwndSetup);
     }
 }
