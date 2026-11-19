@@ -1252,6 +1252,19 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         }
         case WM_ERASEBKGND:
             return 1;
+        case WM_SIZE:
+            InvalidateRect(hwnd, NULL, FALSE);
+            return 0;
+        case WM_GETMINMAXINFO: {
+            MINMAXINFO *mmi = (MINMAXINFO *)lParam;
+            UINT dpi = win_dpi(hwnd);
+            DWORD st = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+            RECT r = { 0, 0, sc(640, dpi), sc(440, dpi) };
+            AdjustWindowRectEx(&r, st ? st : WS_OVERLAPPEDWINDOW, FALSE, 0);
+            mmi->ptMinTrackSize.x = r.right - r.left;
+            mmi->ptMinTrackSize.y = r.bottom - r.top;
+            return 0;
+        }
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
@@ -1345,7 +1358,7 @@ void gtv_setup_show(HWND parent) {
     int x = desk.left + ((desk.right - desk.left) - w) / 2;
     int y = desk.top + ((desk.bottom - desk.top) - h) / 2;
 
-    DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+    DWORD style = WS_OVERLAPPEDWINDOW;
     RECT wr = { 0, 0, w, h };
     AdjustWindowRectEx(&wr, style, FALSE, 0);
     int ww = wr.right - wr.left;
