@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # Auto-generate showcase screenshots for GoTV into site/
-# - Linux GTK+ 3.0 Setup UI (compiled & captured via xvfb-run + ImageMagick)
-# - Web UI Desktop & Mobile (captured via headless Chromium against vite preview)
+# - Linux GTK+ 3.0 Setup UI (compiled & captured via xvfb-run + import/scrot)
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SITE_DIR="${ROOT_DIR}/site"
-WEB_DIR="${ROOT_DIR}/web"
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -22,8 +20,14 @@ generate_linux_setup_screenshot() {
     echo "⚠️  Bỏ qua ảnh Linux: thiếu gtk+-3.0 hoặc gio-2.0."
     return 0
   fi
-  if ! command -v xvfb-run >/dev/null 2>&1 || ! command -v import >/dev/null 2>&1; then
-    echo "⚠️  Bỏ qua ảnh Linux: thiếu xvfb-run hoặc ImageMagick (import)."
+  local capture_cmd=""
+  if command -v import >/dev/null 2>&1; then
+    capture_cmd="import"
+  elif command -v scrot >/dev/null 2>&1; then
+    capture_cmd="scrot"
+  fi
+  if ! command -v xvfb-run >/dev/null 2>&1 || [ -z "${capture_cmd}" ]; then
+    echo "⚠️  Bỏ qua ảnh Linux: thiếu xvfb-run hoặc công cụ chụp màn hình (import/scrot)."
     return 0
   fi
 
@@ -65,73 +69,48 @@ EOF
     $(pkg-config --libs gtk+-3.0 gio-2.0) ${extra_libs} -lm -o "${bin}"
 
   local out="${SITE_DIR}/showcase-linux.png"
+  local fake_home="${TMP_DIR}/home"
+  mkdir -p "${fake_home}/.config/gotv"
+
+  local shot_step=""
+  if [ "${capture_cmd}" = "import" ]; then
+    shot_step="import -window root '${out}'"
+  else
+    shot_step="scrot -o '${out}'"
+  fi
+
   xvfb-run -a -s "-screen 0 1024x768x24" bash -c "
-    GTV_DATA_DIR='${ROOT_DIR}/data' '${bin}' &
+    HOME='${fake_home}' GDK_BACKEND=x11 WAYLAND_DISPLAY= GTV_DATA_DIR='${ROOT_DIR}/data' '${bin}' &
     PID=\$!
     sleep 2
-    import -window root '${out}'
+    ${shot_step}
     kill \$PID 2>/dev/null || true
   "
 
   if command -v convert >/dev/null 2>&1; then
     convert "${out}" -trim +repage "${out}"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+from PIL import Image, ImageChops
+im = Image.open('${out}')
+bg = Image.new(im.mode, im.size, im.getpixel((0, 0)))
+diff = ImageChops.difference(im, bg)
+bbox = diff.getbbox()
+if bbox:
+    im.crop(bbox).save('${out}')
+"
   fi
   echo "✅ Đã tạo ${out}"
 }
 
-generate_web_screenshots() {
-  local browser=""
-  if command -v chromium >/dev/null 2>&1; then
-    browser="chromium"
-  elif command -v google-chrome >/dev/null 2>&1; then
-    browser="google-chrome"
-  else
-    echo "⚠️  Bỏ qua ảnh Web: không tìm thấy chromium hoặc google-chrome."
-    return 0
-  fi
-
-  if [ ! -d "${WEB_DIR}/dist" ]; then
-    echo "⚠️  Chưa có web/dist, đang chạy vite build..."
-    (cd "${WEB_DIR}" && npx vite build)
-  fi
-
-  echo "🌐 Đang chụp giao diện Web (Desktop & Mobile)..."
-  local port=4179
-  (cd "${WEB_DIR}" && npx vite preview --port "${port}" --strictPort >/dev/null 2>&1) &
-  local server_pid=$!
-  trap 'kill ${server_pid} 2>/dev/null || true; cleanup' EXIT
-
-  sleep 2
-  "${browser}" --headless --no-sandbox --disable-gpu \
-    --window-size=1280,800 \
-    --screenshot="${SITE_DIR}/showcase-web-desktop.png" \
-    "http://localhost:${port}/gotv/" 2>/dev/null
-
-  "${browser}" --headless --no-sandbox --disable-gpu \
-    --window-size=390,844 \
-    --screenshot="${SITE_DIR}/showcase-web-mobile.png" \
-    "http://localhost:${port}/gotv/" 2>/dev/null
-
-  kill "${server_pid}" 2>/dev/null || true
-  trap cleanup EXIT
-  echo "✅ Đã tạo ${SITE_DIR}/showcase-web-desktop.png và ${SITE_DIR}/showcase-web-mobile.png"
-}
-
 main() {
-  local target="${1:-all}"
+  local target="${1:-linux}"
   case "${target}" in
-    linux)
+    linux|all)
       generate_linux_setup_screenshot
-      ;;
-    web)
-      generate_web_screenshots
-      ;;
-    all)
-      generate_linux_setup_screenshot
-      generate_web_screenshots
       ;;
     *)
-      echo "Cách dùng: $0 [all|linux|web]" >&2
+      echo "Cách dùng: $0 [linux]" >&2
       exit 1
       ;;
   esac

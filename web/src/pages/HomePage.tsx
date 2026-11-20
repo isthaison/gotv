@@ -141,12 +141,12 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             Giao diện thực tế
           </h2>
           <p className="text-stone-600 text-sm mb-8">
-            Ảnh chụp trực tiếp từ ứng dụng và bản dùng thử WebAssembly.
+            Ảnh chụp trực tiếp từ ứng dụng GoTV trên Windows và Linux.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <figure className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm flex flex-col">
-              <div className="h-64 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
+              <div className="h-72 sm:h-80 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
                 <img
                   src={`${basePath}showcase-windows.png`}
                   alt="Giao diện cài đặt GoTV trên Windows (TSF · Native)"
@@ -164,7 +164,7 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
             </figure>
 
             <figure className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm flex flex-col">
-              <div className="h-64 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
+              <div className="h-72 sm:h-80 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
                 <img
                   src={`${basePath}showcase-linux.png`}
                   alt="Giao diện cài đặt GoTV trên Linux (GTK+ 3.0)"
@@ -178,42 +178,6 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               </figcaption>
               <p className="text-xs text-stone-500 mt-1">
                 Cửa sổ cấu hình kiểu gõ, chính tả và từ điển ngoại tuyến.
-              </p>
-            </figure>
-
-            <figure className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm flex flex-col">
-              <div className="h-64 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
-                <img
-                  src={`${basePath}showcase-web-desktop.png`}
-                  alt="Giao diện GoTV Web trên Desktop"
-                  loading="lazy"
-                  className="max-h-full w-auto object-contain rounded-lg shadow-sm"
-                />
-              </div>
-              <figcaption className="flex items-center gap-2 text-sm font-bold text-stone-900">
-                <Sparkles className="w-4 h-4 text-red-600 shrink-0" />
-                <span>Web Live Demo (Desktop)</span>
-              </figcaption>
-              <p className="text-xs text-stone-500 mt-1">
-                Lõi C biên dịch WebAssembly chạy trực tiếp trên trình duyệt.
-              </p>
-            </figure>
-
-            <figure className="bg-white rounded-2xl border border-stone-200 p-4 shadow-sm flex flex-col">
-              <div className="h-64 bg-stone-100 rounded-xl p-3 flex items-center justify-center overflow-hidden mb-3">
-                <img
-                  src={`${basePath}showcase-web-mobile.png`}
-                  alt="Giao diện GoTV Web trên Mobile"
-                  loading="lazy"
-                  className="max-h-full w-auto object-contain rounded-lg shadow-sm"
-                />
-              </div>
-              <figcaption className="flex items-center gap-2 text-sm font-bold text-stone-900">
-                <Sparkles className="w-4 h-4 text-red-600 shrink-0" />
-                <span>Web Live Demo (Mobile)</span>
-              </figcaption>
-              <p className="text-xs text-stone-500 mt-1">
-                Giao diện đáp ứng trên thiết bị di động.
               </p>
             </figure>
           </div>
