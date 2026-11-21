@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.24" date="2026-11-21">
+      <description>
+        <p>Unify per-app dictionary UI across Windows, Linux, and macOS</p>
+      </description>
+    </release>
     <release version="0.9.23" date="2026-11-19">
       <description>
         <p>Fix Windows tray icon and settings window startup</p>
