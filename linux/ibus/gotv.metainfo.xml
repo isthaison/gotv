@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.26" date="2026-11-21">
+      <description>
+        <p>Render full-color emojis via Direct2D/DirectWrite on Windows</p>
+      </description>
+    </release>
     <release version="0.9.25" date="2026-11-21">
       <description>
         <p>Modernize Macro and Emoji data manager UI across Windows, Linux, and macOS</p>
