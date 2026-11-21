@@ -438,38 +438,40 @@ static void paint_data_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
     if (s_scrollPos < 0) s_scrollPos = 0;
 
     gboolean use_color_emoji = s_showEmoji && ensure_d2d(dpi, pal->text_primary);
-    gboolean d2d_begun = FALSE;
-    if (use_color_emoji) {
-        RECT full = { 0, 0, cw, ch };
-        if (SUCCEEDED(ID2D1DCRenderTarget_BindDC(s_d2dRT, mem, &full))) {
-            ID2D1DCRenderTarget_BeginDraw(s_d2dRT);
-            d2d_begun = TRUE;
-        }
-    }
 
+    /* Pass 1: draw all row backgrounds, left-column keys, and non-emoji values via GDI/GDI+ */
     for (int r = 0; r < s_visibleRows && (guint)(s_scrollPos + r) < total; r++) {
         guint idx = (guint)(s_scrollPos + r);
         const gchar *k = NULL, *v = NULL;
         if (!gtv_table_get(s_showEmoji, idx, &k, &v)) continue;
-        RECT rr = { pad + dsc(6, dpi), ry, cw - pad - dsc(6, dpi), ry + row_h };
+        int row_y = ry + r * row_h;
+        RECT rr = { pad + dsc(6, dpi), row_y, cw - pad - dsc(6, dpi), row_y + row_h };
         int hid = HIT_DATA_ROW_BASE + (int)idx;
         if ((int)idx == s_selIdx || s_hoverId == hid) {
-            if (d2d_begun) { ID2D1DCRenderTarget_EndDraw(s_d2dRT, NULL, NULL); d2d_begun = FALSE; }
             d_fill_rr(g, (REAL)rr.left, (REAL)rr.top, (REAL)(rr.right - rr.left), (REAL)row_h,
                       (REAL)dsc(5, dpi), ((int)idx == s_selIdx) ? pal->row_sel : pal->row_hover, 0);
         }
-        RECT rk = { rr.left + dsc(8, dpi), ry, pad + col_w, ry + row_h };
-        RECT rv = { pad + col_w + dsc(8, dpi), ry, rr.right - dsc(8, dpi), ry + row_h };
+        RECT rk = { rr.left + dsc(8, dpi), row_y, pad + col_w, row_y + row_h };
+        RECT rv = { pad + col_w + dsc(8, dpi), row_y, rr.right - dsc(8, dpi), row_y + row_h };
         d_text(mem, k ? k : "", &rk, pal->text_primary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-        if (use_color_emoji && v && *v) {
-            if (!d2d_begun) {
-                RECT full = { 0, 0, cw, ch };
-                if (SUCCEEDED(ID2D1DCRenderTarget_BindDC(s_d2dRT, mem, &full))) {
-                    ID2D1DCRenderTarget_BeginDraw(s_d2dRT);
-                    d2d_begun = TRUE;
-                }
-            }
-            if (d2d_begun) {
+        if (!use_color_emoji) {
+            d_text(mem, v ? v : "", &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        }
+        d_push_hit(rr, hid, TRUE);
+    }
+
+    /* Pass 2: draw color emojis via Direct2D/DirectWrite without mixing GDI calls inside BeginDraw/EndDraw */
+    if (use_color_emoji) {
+        RECT full = { 0, 0, cw, ch };
+        if (SUCCEEDED(ID2D1DCRenderTarget_BindDC(s_d2dRT, mem, &full))) {
+            ID2D1DCRenderTarget_BeginDraw(s_d2dRT);
+            for (int r = 0; r < s_visibleRows && (guint)(s_scrollPos + r) < total; r++) {
+                guint idx = (guint)(s_scrollPos + r);
+                const gchar *k = NULL, *v = NULL;
+                if (!gtv_table_get(s_showEmoji, idx, &k, &v) || !v || !*v) continue;
+                int row_y = ry + r * row_h;
+                RECT rr = { pad + dsc(6, dpi), row_y, cw - pad - dsc(6, dpi), row_y + row_h };
+                RECT rv = { pad + col_w + dsc(8, dpi), row_y, rr.right - dsc(8, dpi), row_y + row_h };
                 glong wlen = 0;
                 gunichar2 *wv = g_utf8_to_utf16(v, -1, NULL, &wlen, NULL);
                 if (wv) {
@@ -480,16 +482,10 @@ static void paint_data_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
                         DWRITE_MEASURING_MODE_NATURAL);
                     g_free(wv);
                 }
-            } else {
-                d_text(mem, v, &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
             }
-        } else {
-            d_text(mem, v ? v : "", &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+            ID2D1DCRenderTarget_EndDraw(s_d2dRT, NULL, NULL);
         }
-        d_push_hit(rr, hid, TRUE);
-        ry += row_h;
     }
-    if (d2d_begun) ID2D1DCRenderTarget_EndDraw(s_d2dRT, NULL, NULL);
 
     /* Labels for edits */
     int lbl_w = dsc(80, dpi);
