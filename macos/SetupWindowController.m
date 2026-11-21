@@ -421,6 +421,9 @@ extern void GoTVCheckForUpdates(BOOL manual);
         btnAdd = [[[NSButton alloc] initWithFrame:NSMakeRect(12, 12, 110, 30)] autorelease];
         [btnAdd setButtonType:NSMomentaryPushInButton];
         [btnAdd setBezelStyle:NSRoundedBezelStyle];
+        if ([btnAdd respondsToSelector:@selector(setBezelColor:)]) {
+            [btnAdd setBezelColor:[NSColor colorWithCalibratedRed:0.827 green:0.184 blue:0.184 alpha:1.0]];
+        }
         [btnAdd setTarget:self];
         [btnAdd setAction:@selector(addOrUpdate:)];
         [view addSubview:btnAdd];
@@ -439,6 +442,19 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [btnFolder setAction:@selector(openFolder:)];
         [view addSubview:btnFolder];
     }
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gchar *cfg_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    gtv_config_load(&cfg, cfg_dir);
+    g_free(cfg_dir);
+    BOOL isLight = (cfg.ui_theme == GTV_THEME_LIGHT);
+    gtv_config_clear(&cfg);
+    if (@available(macOS 10.14, *)) {
+        [window setAppearance:[NSAppearance appearanceNamed:(isLight ? NSAppearanceNameAqua : NSAppearanceNameDarkAqua)]];
+    }
+    [window setBackgroundColor:(isLight
+        ? [NSColor colorWithCalibratedRed:0.980 green:0.969 blue:0.949 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.094 green:0.086 blue:0.090 alpha:1.0])];
     [self applyLanguage];
     [self refresh];
     [window center];

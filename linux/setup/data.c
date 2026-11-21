@@ -127,9 +127,15 @@ void data_show(GtkWindow *parent) {
     DataUi u = {0};
     u.dlg = gtk_dialog_new_with_buttons(gtv_i18n("GoTV — Dữ liệu", "GoTV — Data"),
         parent, GTK_DIALOG_MODAL, gtv_i18n("_Đóng", "_Close"), GTK_RESPONSE_CLOSE, NULL);
-    gtk_window_set_default_size(GTK_WINDOW(u.dlg), 520, 430);
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(u.dlg));
-    gtk_box_set_spacing(GTK_BOX(content), 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(u.dlg), "gtv-win");
+    gtk_window_set_default_size(GTK_WINDOW(u.dlg), 540, 460);
+    GtkWidget *b_close = gtk_dialog_get_widget_for_response(GTK_DIALOG(u.dlg), GTK_RESPONSE_CLOSE);
+    if (b_close) gtk_style_context_add_class(gtk_widget_get_style_context(b_close), "gtv-btn");
+
+    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(u.dlg));
+    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(content), 14);
+    gtk_box_pack_start(GTK_BOX(area), content, TRUE, TRUE, 0);
 
     GtkWidget *typebox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_pack_start(GTK_BOX(content), typebox, FALSE, FALSE, 0);
@@ -141,11 +147,14 @@ void data_show(GtkWindow *parent) {
     gtk_box_pack_start(GTK_BOX(typebox), u.rb_macro, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(typebox), rb_emoji, FALSE, FALSE, 0);
 
+    GtkWidget *list_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(list_card), "gtv-card");
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
         GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_widget_set_vexpand(scroll, TRUE);
-    gtk_box_pack_start(GTK_BOX(content), scroll, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(list_card), scroll, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(content), list_card, TRUE, TRUE, 0);
     u.store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
     u.view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(u.store));
     g_object_unref(u.store);
@@ -161,10 +170,14 @@ void data_show(GtkWindow *parent) {
         G_CALLBACK(on_selection_changed), &u);
     gtk_container_add(GTK_CONTAINER(scroll), u.view);
 
+    GtkWidget *form_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_style_context_add_class(gtk_widget_get_style_context(form_card), "gtv-card");
+    gtk_box_pack_start(GTK_BOX(content), form_card, FALSE, FALSE, 0);
+
     GtkWidget *form = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(form), 6);
-    gtk_grid_set_column_spacing(GTK_GRID(form), 8);
-    gtk_box_pack_start(GTK_BOX(content), form, FALSE, FALSE, 0);
+    gtk_grid_set_row_spacing(GTK_GRID(form), 8);
+    gtk_grid_set_column_spacing(GTK_GRID(form), 10);
+    gtk_box_pack_start(GTK_BOX(form_card), form, FALSE, FALSE, 0);
     gtk_grid_attach(GTK_GRID(form), gtk_label_new(gtv_i18n("Từ gõ:", "Shortcut:")), 0, 0, 1, 1);
     u.key_entry = gtk_entry_new();
     gtk_entry_set_max_length(GTK_ENTRY(u.key_entry), 255);
@@ -176,11 +189,14 @@ void data_show(GtkWindow *parent) {
     gtk_widget_set_hexpand(u.val_entry, TRUE);
     gtk_grid_attach(GTK_GRID(form), u.val_entry, 1, 1, 1, 1);
 
-    GtkWidget *btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    gtk_box_pack_start(GTK_BOX(content), btns, FALSE, FALSE, 0);
+    GtkWidget *btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_pack_start(GTK_BOX(form_card), btns, FALSE, FALSE, 0);
     GtkWidget *b_save = gtk_button_new_with_label(gtv_i18n("Lưu", "Save"));
     GtkWidget *b_del = gtk_button_new_with_label(gtv_i18n("Xóa", "Delete"));
     GtkWidget *b_folder = gtk_button_new_with_label(gtv_i18n("Mở thư mục", "Open folder"));
+    gtk_style_context_add_class(gtk_widget_get_style_context(b_save), "suggested-action");
+    gtk_style_context_add_class(gtk_widget_get_style_context(b_del), "gtv-btn");
+    gtk_style_context_add_class(gtk_widget_get_style_context(b_folder), "gtv-btn");
     g_signal_connect(b_save, "clicked", G_CALLBACK(on_save), &u);
     g_signal_connect(b_del, "clicked", G_CALLBACK(on_delete), &u);
     g_signal_connect(b_folder, "clicked", G_CALLBACK(on_folder), &u);
@@ -190,6 +206,7 @@ void data_show(GtkWindow *parent) {
 
     GtkWidget *note = gtk_label_new(gtv_i18n("Thay đổi lưu vào file riêng của bạn. Đóng cửa sổ này sẽ restart ibus để engine nhận bảng mới.",
                                              "Changes are saved to your personal file. Closing this window will restart ibus to load the new table."));
+    gtk_style_context_add_class(gtk_widget_get_style_context(note), "gtv-card-sub");
     gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
     gtk_label_set_xalign(GTK_LABEL(note), 0.0);
     gtk_box_pack_start(GTK_BOX(content), note, FALSE, FALSE, 0);
