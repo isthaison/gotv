@@ -3,7 +3,10 @@
 #include "resource.h"
 #include "win_utf.h"
 #include "internal.h"
+#define COBJMACROS
 #include <windows.h>
+#include <d2d1.h>
+#include <dwrite.h>
 #include <dwmapi.h>
 #include <shellapi.h>
 #include <glib.h>
@@ -131,6 +134,76 @@ static RECT s_listRect = {0};
 static int s_visibleRows = 1;
 static DataHit s_hits[64];
 static int s_nHits = 0;
+
+static HMODULE s_hD2D1 = NULL;
+static HMODULE s_hDWrite = NULL;
+static ID2D1Factory *s_d2dFactory = NULL;
+static IDWriteFactory *s_dwFactory = NULL;
+static ID2D1DCRenderTarget *s_d2dRT = NULL;
+static ID2D1SolidColorBrush *s_d2dBrush = NULL;
+static IDWriteTextFormat *s_dwEmojiFmt = NULL;
+static UINT s_dwFmtDpi = 0;
+
+static void release_d2d(void) {
+    if (s_dwEmojiFmt) { IDWriteTextFormat_Release(s_dwEmojiFmt); s_dwEmojiFmt = NULL; }
+    if (s_d2dBrush) { ID2D1SolidColorBrush_Release(s_d2dBrush); s_d2dBrush = NULL; }
+    if (s_d2dRT) { ID2D1DCRenderTarget_Release(s_d2dRT); s_d2dRT = NULL; }
+    if (s_dwFactory) { IDWriteFactory_Release(s_dwFactory); s_dwFactory = NULL; }
+    if (s_d2dFactory) { ID2D1Factory_Release(s_d2dFactory); s_d2dFactory = NULL; }
+    s_dwFmtDpi = 0;
+}
+
+static const GUID GTV_IID_IDWriteFactory = {
+    0xb859ee5a, 0xd838, 0x4b5b, { 0xa2, 0xe8, 0x1a, 0xdc, 0x7d, 0x93, 0xdb, 0x48 }
+};
+
+static gboolean ensure_d2d(UINT dpi, COLORREF text_col) {
+    typedef HRESULT (WINAPI *PfnD2D1CreateFactory)(D2D1_FACTORY_TYPE, REFIID, const D2D1_FACTORY_OPTIONS *, void **);
+    typedef HRESULT (WINAPI *PfnDWriteCreateFactory)(DWRITE_FACTORY_TYPE, REFIID, IUnknown **);
+    if (!s_hD2D1) s_hD2D1 = LoadLibraryW(L"d2d1.dll");
+    if (!s_hDWrite) s_hDWrite = LoadLibraryW(L"dwrite.dll");
+    if (!s_hD2D1 || !s_hDWrite) return FALSE;
+
+    if (!s_d2dFactory) {
+        PfnD2D1CreateFactory pfn = (PfnD2D1CreateFactory)(void *)GetProcAddress(s_hD2D1, "D2D1CreateFactory");
+        if (!pfn || FAILED(pfn(D2D1_FACTORY_TYPE_SINGLE_THREADED, &IID_ID2D1Factory, NULL, (void **)&s_d2dFactory)))
+            return FALSE;
+    }
+    if (!s_dwFactory) {
+        PfnDWriteCreateFactory pfn = (PfnDWriteCreateFactory)(void *)GetProcAddress(s_hDWrite, "DWriteCreateFactory");
+        if (!pfn || FAILED(pfn(DWRITE_FACTORY_TYPE_SHARED, &GTV_IID_IDWriteFactory, (IUnknown **)&s_dwFactory)))
+            return FALSE;
+    }
+    if (!s_d2dRT) {
+        D2D1_RENDER_TARGET_PROPERTIES props = {
+            D2D1_RENDER_TARGET_TYPE_DEFAULT,
+            { DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE },
+            96.0f, 96.0f, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_FEATURE_LEVEL_DEFAULT
+        };
+        if (FAILED(ID2D1Factory_CreateDCRenderTarget(s_d2dFactory, &props, &s_d2dRT)))
+            return FALSE;
+    }
+    if (!s_d2dBrush) {
+        D2D1_COLOR_F col = { GetRValue(text_col) / 255.0f, GetGValue(text_col) / 255.0f, GetBValue(text_col) / 255.0f, 1.0f };
+        if (FAILED(ID2D1DCRenderTarget_CreateSolidColorBrush(s_d2dRT, &col, NULL, &s_d2dBrush)))
+            return FALSE;
+    } else {
+        D2D1_COLOR_F col = { GetRValue(text_col) / 255.0f, GetGValue(text_col) / 255.0f, GetBValue(text_col) / 255.0f, 1.0f };
+        ID2D1SolidColorBrush_SetColor(s_d2dBrush, &col);
+    }
+    if (!s_dwEmojiFmt || s_dwFmtDpi != dpi) {
+        if (s_dwEmojiFmt) { IDWriteTextFormat_Release(s_dwEmojiFmt); s_dwEmojiFmt = NULL; }
+        FLOAT fsz = (FLOAT)MulDiv(15, (int)dpi, 96);
+        if (FAILED(IDWriteFactory_CreateTextFormat(s_dwFactory, L"Segoe UI Emoji", NULL,
+                DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+                fsz, L"en-US", &s_dwEmojiFmt)))
+            return FALSE;
+        IDWriteTextFormat_SetParagraphAlignment(s_dwEmojiFmt, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        IDWriteTextFormat_SetWordWrapping(s_dwEmojiFmt, DWRITE_WORD_WRAPPING_NO_WRAP);
+        s_dwFmtDpi = dpi;
+    }
+    return TRUE;
+}
 
 static const DataPalette *data_pal(void) {
     return (g_app.config.ui_theme == GTV_THEME_LIGHT) ? &k_data_light : &k_data_dark;
@@ -364,6 +437,16 @@ static void paint_data_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
     if (s_scrollPos > max_scroll) s_scrollPos = max_scroll;
     if (s_scrollPos < 0) s_scrollPos = 0;
 
+    gboolean use_color_emoji = s_showEmoji && ensure_d2d(dpi, pal->text_primary);
+    gboolean d2d_begun = FALSE;
+    if (use_color_emoji) {
+        RECT full = { 0, 0, cw, ch };
+        if (SUCCEEDED(ID2D1DCRenderTarget_BindDC(s_d2dRT, mem, &full))) {
+            ID2D1DCRenderTarget_BeginDraw(s_d2dRT);
+            d2d_begun = TRUE;
+        }
+    }
+
     for (int r = 0; r < s_visibleRows && (guint)(s_scrollPos + r) < total; r++) {
         guint idx = (guint)(s_scrollPos + r);
         const gchar *k = NULL, *v = NULL;
@@ -371,16 +454,42 @@ static void paint_data_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         RECT rr = { pad + dsc(6, dpi), ry, cw - pad - dsc(6, dpi), ry + row_h };
         int hid = HIT_DATA_ROW_BASE + (int)idx;
         if ((int)idx == s_selIdx || s_hoverId == hid) {
+            if (d2d_begun) { ID2D1DCRenderTarget_EndDraw(s_d2dRT, NULL, NULL); d2d_begun = FALSE; }
             d_fill_rr(g, (REAL)rr.left, (REAL)rr.top, (REAL)(rr.right - rr.left), (REAL)row_h,
                       (REAL)dsc(5, dpi), ((int)idx == s_selIdx) ? pal->row_sel : pal->row_hover, 0);
         }
         RECT rk = { rr.left + dsc(8, dpi), ry, pad + col_w, ry + row_h };
         RECT rv = { pad + col_w + dsc(8, dpi), ry, rr.right - dsc(8, dpi), ry + row_h };
         d_text(mem, k ? k : "", &rk, pal->text_primary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-        d_text(mem, v ? v : "", &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        if (use_color_emoji && v && *v) {
+            if (!d2d_begun) {
+                RECT full = { 0, 0, cw, ch };
+                if (SUCCEEDED(ID2D1DCRenderTarget_BindDC(s_d2dRT, mem, &full))) {
+                    ID2D1DCRenderTarget_BeginDraw(s_d2dRT);
+                    d2d_begun = TRUE;
+                }
+            }
+            if (d2d_begun) {
+                glong wlen = 0;
+                gunichar2 *wv = g_utf8_to_utf16(v, -1, NULL, &wlen, NULL);
+                if (wv) {
+                    D2D1_RECT_F dr = { (FLOAT)rv.left, (FLOAT)rv.top, (FLOAT)rv.right, (FLOAT)rv.bottom };
+                    ID2D1DCRenderTarget_DrawText(s_d2dRT, (const WCHAR *)wv, (UINT32)wlen,
+                        s_dwEmojiFmt, &dr, (ID2D1Brush *)s_d2dBrush,
+                        D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT | D2D1_DRAW_TEXT_OPTIONS_CLIP,
+                        DWRITE_MEASURING_MODE_NATURAL);
+                    g_free(wv);
+                }
+            } else {
+                d_text(mem, v, &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+            }
+        } else {
+            d_text(mem, v ? v : "", &rv, pal->text_secondary, f_txt, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+        }
         d_push_hit(rr, hid, TRUE);
         ry += row_h;
     }
+    if (d2d_begun) ID2D1DCRenderTarget_EndDraw(s_d2dRT, NULL, NULL);
 
     /* Labels for edits */
     int lbl_w = dsc(80, dpi);
@@ -561,6 +670,7 @@ static LRESULT CALLBACK DataWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             s_hwndData = NULL;
             s_hwndKey = NULL;
             s_hwndVal = NULL;
+            release_d2d();
             if (s_hEditFont) { DeleteObject(s_hEditFont); s_hEditFont = NULL; }
             if (s_hEditBrush) { DeleteObject(s_hEditBrush); s_hEditBrush = NULL; }
             if (s_gdipToken) { GdiplusShutdown(s_gdipToken); s_gdipToken = 0; }
