@@ -61,32 +61,33 @@ extern void GoTVCheckForUpdates(BOOL manual);
 
 - (void)show {
     if (!window) {
-        NSRect frame = NSMakeRect(0, 0, 480, 390);
+        NSRect frame = NSMakeRect(0, 0, 500, 410);
         window = [[NSWindow alloc] initWithContentRect:frame
                                              styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask)
                                                backing:NSBackingStoreBuffered
                                                  defer:NO];
-        [window setTitle:@"GoTV — Từ điển theo từng ứng dụng"];
         [window setReleasedWhenClosed:NO];
         NSView *view = [window contentView];
 
-        NSTextField *note = [NSTextField labelWithString:@"Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:"];
-        [note setFrame:NSMakeRect(12, 356, 456, 22)];
+        NSTextField *note = [NSTextField labelWithString:[NSString stringWithUTF8String:gtv_i18n(
+            "Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:",
+            "Select an app and choose its dictionary packs:")]];
+        [note setFrame:NSMakeRect(16, 372, 468, 22)];
         [view addSubview:note];
 
-        NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(12, 165, 456, 185)] autorelease];
+        NSScrollView *scroll = [[[NSScrollView alloc] initWithFrame:NSMakeRect(16, 174, 468, 190)] autorelease];
         [scroll setHasVerticalScroller:YES];
         [scroll setBorderType:NSBezelBorder];
 
         table = [[[NSTableView alloc] initWithFrame:[[scroll contentView] bounds]] autorelease];
         NSTableColumn *colApp = [[[NSTableColumn alloc] initWithIdentifier:@"app"] autorelease];
-        [[colApp headerCell] setStringValue:@"Ứng dụng (Bundle ID)"];
-        [colApp setWidth:240];
+        [[colApp headerCell] setStringValue:[NSString stringWithUTF8String:gtv_i18n("Ứng dụng (Bundle ID)", "Application (Bundle ID)")]];
+        [colApp setWidth:250];
         [table addTableColumn:colApp];
 
         NSTableColumn *colDict = [[[NSTableColumn alloc] initWithIdentifier:@"dicts"] autorelease];
-        [[colDict headerCell] setStringValue:@"Bộ từ điển"];
-        [colDict setWidth:195];
+        [[colDict headerCell] setStringValue:[NSString stringWithUTF8String:gtv_i18n("Bộ từ điển", "Dictionary Packs")]];
+        [colDict setWidth:200];
         [table addTableColumn:colDict];
 
         [table setDataSource:self];
@@ -94,36 +95,55 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [scroll setDocumentView:table];
         [view addSubview:scroll];
 
-        appPop = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(12, 126, 456, 26) pullsDown:NO] autorelease];
+        appPop = [[[NSPopUpButton alloc] initWithFrame:NSMakeRect(16, 134, 468, 26) pullsDown:NO] autorelease];
         [view addSubview:appPop];
 
-        const char *titles[5] = { "Tiếng Việt", "T-SQL", "C / C++", "C# (.NET)", "Tiếng Anh" };
+        const char *titles[5] = {
+            gtv_i18n("Tiếng Việt", "Vietnamese"), "T-SQL", "C / C++", "C# (.NET)", gtv_i18n("Tiếng Anh", "English")
+        };
         for (int i = 0; i < 5; i++) {
             int col = i % 3;
             int row = i / 3;
-            checks[i] = [[[NSButton alloc] initWithFrame:NSMakeRect(12 + col * 150, 95 - row * 24, 145, 22)] autorelease];
+            checks[i] = [[[NSButton alloc] initWithFrame:NSMakeRect(16 + col * 156, 100 - row * 24, 150, 22)] autorelease];
             [checks[i] setButtonType:NSSwitchButton];
             [checks[i] setTitle:[NSString stringWithUTF8String:titles[i]]];
             [checks[i] setState:(i == 0 ? NSOnState : NSOffState)];
             [view addSubview:checks[i]];
         }
 
-        NSButton *btnAdd = [[[NSButton alloc] initWithFrame:NSMakeRect(12, 18, 160, 28)] autorelease];
-        [btnAdd setTitle:@"Thêm / Cập nhật"];
+        NSButton *btnAdd = [[[NSButton alloc] initWithFrame:NSMakeRect(16, 18, 166, 30)] autorelease];
+        [btnAdd setTitle:[NSString stringWithUTF8String:gtv_i18n("Thêm / Cập nhật", "Add / Update")]];
         [btnAdd setButtonType:NSMomentaryPushInButton];
         [btnAdd setBezelStyle:NSRoundedBezelStyle];
+        if ([btnAdd respondsToSelector:@selector(setBezelColor:)]) {
+            [btnAdd setBezelColor:[NSColor colorWithCalibratedRed:0.827 green:0.184 blue:0.184 alpha:1.0]];
+        }
         [btnAdd setTarget:self];
         [btnAdd setAction:@selector(addOrUpdate:)];
         [view addSubview:btnAdd];
 
-        NSButton *btnDel = [[[NSButton alloc] initWithFrame:NSMakeRect(182, 18, 130, 28)] autorelease];
-        [btnDel setTitle:@"Xóa đã chọn"];
+        NSButton *btnDel = [[[NSButton alloc] initWithFrame:NSMakeRect(192, 18, 136, 30)] autorelease];
+        [btnDel setTitle:[NSString stringWithUTF8String:gtv_i18n("Xóa đã chọn", "Delete selected")]];
         [btnDel setButtonType:NSMomentaryPushInButton];
         [btnDel setBezelStyle:NSRoundedBezelStyle];
         [btnDel setTarget:self];
         [btnDel setAction:@selector(removeSelected:)];
         [view addSubview:btnDel];
     }
+    [window setTitle:[NSString stringWithUTF8String:gtv_i18n("GoTV — Từ điển theo từng ứng dụng", "GoTV — Per-app dictionaries")]];
+    GtvConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    gchar *cfg_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+    gtv_config_load(&cfg, cfg_dir);
+    g_free(cfg_dir);
+    BOOL isLight = (cfg.ui_theme == GTV_THEME_LIGHT);
+    gtv_config_clear(&cfg);
+    if (@available(macOS 10.14, *)) {
+        [window setAppearance:[NSAppearance appearanceNamed:(isLight ? NSAppearanceNameAqua : NSAppearanceNameDarkAqua)]];
+    }
+    [window setBackgroundColor:(isLight
+        ? [NSColor colorWithCalibratedRed:0.980 green:0.969 blue:0.949 alpha:1.0]
+        : [NSColor colorWithCalibratedRed:0.094 green:0.086 blue:0.090 alpha:1.0])];
     [self refresh];
     [window center];
     [window makeKeyAndOrderFront:nil];

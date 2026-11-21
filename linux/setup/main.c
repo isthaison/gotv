@@ -767,38 +767,54 @@ static void on_app_dicts(GtkWidget *w, gpointer data) {
     (void)w;
     GtkWindow *parent = GTK_WINDOW(data);
     GtkWidget *dlg = gtk_dialog_new_with_buttons(
-        "Từ điển theo từng ứng dụng", parent,
+        gtv_i18n("Từ điển theo từng ứng dụng", "Per-app dictionaries"), parent,
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        "Đóng", GTK_RESPONSE_CLOSE, NULL);
-    gtk_window_set_default_size(GTK_WINDOW(dlg), 460, 380);
+        gtv_i18n("Đóng", "Close"), GTK_RESPONSE_CLOSE, NULL);
+    gtk_style_context_add_class(gtk_widget_get_style_context(dlg), "gtv-win");
+    gtk_window_set_default_size(GTK_WINDOW(dlg), 500, 420);
+    GtkWidget *close_btn = gtk_dialog_get_widget_for_response(GTK_DIALOG(dlg), GTK_RESPONSE_CLOSE);
+    if (close_btn) gtk_style_context_add_class(gtk_widget_get_style_context(close_btn), "gtv-btn");
+
     GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 10);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(box), 14);
     gtk_box_pack_start(GTK_BOX(content), box, TRUE, TRUE, 0);
 
-    GtkWidget *hint = gtk_label_new("Chọn ứng dụng từ danh sách bên dưới và đánh dấu bộ từ điển tương ứng:");
+    GtkWidget *hint = gtk_label_new(gtv_i18n(
+        "Chọn ứng dụng và đánh dấu bộ từ điển riêng (ứng dụng khác dùng mặc định):",
+        "Select an app and choose its dictionary packs (others use defaults):"));
+    gtk_style_context_add_class(gtk_widget_get_style_context(hint), "gtv-card-sub");
     gtk_label_set_xalign(GTK_LABEL(hint), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
     gtk_box_pack_start(GTK_BOX(box), hint, FALSE, FALSE, 0);
 
     AppDictDlg d = {0};
     d.rules = gtv_app_dicts_load(NULL);
 
+    GtkWidget *list_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(list_card), "gtv-card");
     GtkWidget *sc = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sc), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(sc, -1, 160);
+    gtk_widget_set_size_request(sc, -1, 165);
     d.list = gtk_list_box_new();
+    gtk_style_context_add_class(gtk_widget_get_style_context(d.list), "gtv-nav-list");
     gtk_container_add(GTK_CONTAINER(sc), d.list);
-    gtk_box_pack_start(GTK_BOX(box), sc, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(list_card), sc, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(box), list_card, TRUE, TRUE, 0);
     g_signal_connect(d.list, "row-selected", G_CALLBACK(on_app_dict_row_selected), &d);
 
+    GtkWidget *edit_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_style_context_add_class(gtk_widget_get_style_context(edit_card), "gtv-card");
+    gtk_box_pack_start(GTK_BOX(box), edit_card, FALSE, FALSE, 0);
+
     d.combo_app = gtk_combo_box_text_new();
-    gtk_box_pack_start(GTK_BOX(box), d.combo_app, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(edit_card), d.combo_app, FALSE, FALSE, 0);
     app_dict_populate_combo(&d);
 
     GtkWidget *grid = gtk_grid_new();
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
-    gtk_box_pack_start(GTK_BOX(box), grid, FALSE, FALSE, 0);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_box_pack_start(GTK_BOX(edit_card), grid, FALSE, FALSE, 0);
     guint n = gtv_dict_catalog_count();
     for (guint i = 0; i < n && i < G_N_ELEMENTS(d.checks); i++) {
         const GtvDictInfo *info = gtv_dict_catalog_get(i);
@@ -808,10 +824,12 @@ static void on_app_dicts(GtkWidget *w, gpointer data) {
         gtk_grid_attach(GTK_GRID(grid), d.checks[i], (gint)(i % 3), (gint)(i / 3), 1, 1);
     }
 
-    GtkWidget *act = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    gtk_box_pack_start(GTK_BOX(box), act, FALSE, FALSE, 0);
-    GtkWidget *btn_add = gtk_button_new_with_label("Thêm / Cập nhật");
-    GtkWidget *btn_del = gtk_button_new_with_label("Xóa đã chọn");
+    GtkWidget *act = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_pack_start(GTK_BOX(edit_card), act, FALSE, FALSE, 0);
+    GtkWidget *btn_add = gtk_button_new_with_label(gtv_i18n("Thêm / Cập nhật", "Add / Update"));
+    GtkWidget *btn_del = gtk_button_new_with_label(gtv_i18n("Xóa đã chọn", "Delete selected"));
+    gtk_style_context_add_class(gtk_widget_get_style_context(btn_add), "suggested-action");
+    gtk_style_context_add_class(gtk_widget_get_style_context(btn_del), "gtv-btn");
     gtk_box_pack_start(GTK_BOX(act), btn_add, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(act), btn_del, FALSE, FALSE, 0);
     g_signal_connect(btn_add, "clicked", G_CALLBACK(on_app_dict_add), &d);
