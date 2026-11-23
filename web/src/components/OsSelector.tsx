@@ -65,14 +65,20 @@ export const OsSelector: React.FC = () => {
                 <Download className="w-4 h-4" /> Tải gotv-*-x64-setup.exe
               </a>
             </div>
+            <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-sm space-y-2 text-xs text-stone-700">
+              <div className="font-bold text-sm text-stone-900">Cài nhanh qua Windows Package Manager (Winget)</div>
+              <div className="bg-stone-900 text-emerald-400 p-2.5 rounded-lg font-mono text-[11px] overflow-x-auto">
+                <code>winget install isthaison.GoTV</code>
+              </div>
+            </div>
             <div className="text-sm text-stone-600 space-y-2">
               <p className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Chạy file cài đặt &rarr; Đăng xuất / đăng nhập lại Windows.</span>
+                <span>Chạy file cài đặt (hoặc lệnh <code>winget</code> ở trên) &rarr; Đăng xuất / đăng nhập lại Windows nếu cần.</span>
               </p>
               <p className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                <span>Chuyển đổi nhanh bàn phím sang <strong>GoTV</strong> bằng phím tắt <code>Win + Space</code>.</span>
+                <span>Chuyển đổi nhanh bàn phím sang <strong>GoTV</strong> bằng <code>Win + Space</code>, hoặc bật/tắt bằng <code>Ctrl + Shift</code> / <code>Alt + Z</code>.</span>
               </p>
             </div>
           </div>
@@ -83,7 +89,7 @@ export const OsSelector: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-amber-50/60 p-4 rounded-xl border border-amber-200/70">
               <div>
                 <h4 className="font-bold text-stone-900 text-base">Gói cài đặt GoTV cho Linux (.deb / .rpm)</h4>
-                <p className="text-xs text-stone-600">Hỗ trợ Ubuntu, Debian, CentOS, RHEL, Fedora, Rocky Linux trên IBus / Fcitx5.</p>
+                <p className="text-xs text-stone-600">Hỗ trợ Ubuntu, Debian, CentOS, RHEL, Fedora, Rocky Linux qua IBus (Wayland &amp; X11).</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <a

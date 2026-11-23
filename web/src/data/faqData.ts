@@ -272,5 +272,33 @@ export const FAQ_ITEMS: FaqItem[] = [
       </ul>
       <p>Nếu GoTV giúp bạn gõ tiếng Việt mượt mà hơn trên Linux, hãy ghé <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a> để tải bản mới nhất và tặng dự án một <strong>Star</strong> ủng hộ mã nguồn mở Việt!</p>
     `
+  },
+  {
+    id: 'windows-zalo-vscode-electron',
+    slug: 'go-tieng-viet-zalo-vscode-chrome-windows',
+    question: 'Cách gõ tiếng Việt mượt mà trên Zalo PC, VS Code, Chrome & Edge (Windows 10/11) bằng GoTV?',
+    shortAnswer: 'GoTV hỗ trợ chuẩn Windows Text Services Framework (TSF) cho cả ứng dụng 64-bit (VS Code, Chrome, Edge) và 32-bit WOW64 (Zalo PC), cài nhanh qua winget install isthaison.GoTV hoặc bộ cài per-user không cần quyền Admin.',
+    category: 'usage',
+    dateModified: '2026-11-23',
+    detailHtml: `
+      <h3 class="text-xl font-bold mt-2 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Vì sao hay gặp lỗi khi gõ tiếng Việt trên Zalo PC, VS Code và trình duyệt?</h3>
+      <p class="mb-4">Nhiều ứng dụng phổ biến trên Windows sử dụng kiến trúc khác nhau gây khó khăn cho các bộ gõ hook cũ:</p>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Zalo PC (32-bit WOW64):</strong> chạy dưới tiến trình 32-bit trên Windows 64-bit, dễ bị mất dấu hoặc không ăn bộ gõ nếu Text Service chỉ đăng ký 64-bit.</li>
+        <li><strong>VS Code, Chrome, Edge (Electron / Chromium):</strong> dễ gặp hiện tượng nhân đôi chữ trên thanh địa chỉ, lệch vị trí khung gợi ý, hoặc gạch chân đỏ gây rối mắt khi gõ xen kẽ tiếng Việt và mã nguồn.</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Giải pháp đồng bộ của GoTV trên Windows 10/11</h3>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Hỗ trợ cả TSF 64-bit và 32-bit (WOW64):</strong> bộ cài đặt GoTV tự động đăng ký song song cho cả app 64-bit lẫn ứng dụng 32-bit như Zalo PC, đồng thời hỗ trợ ứng dụng chạy quyền Administrator / AppContainer.</li>
+        <li><strong>Từ điển riêng theo từng ứng dụng (Per-App Dictionaries):</strong> bạn có thể bật bộ từ điển <code>C/C++</code>, <code>C# (.NET)</code>, <code>T-SQL</code>, <code>English</code> cho VS Code hoặc Windows Terminal, và giữ từ điển <code>Tiếng Việt</code> thuần cho Zalo, Word, trình duyệt.</li>
+        <li><strong>Ép dịch phím layout US:</strong> tự động tránh lỗi gõ số <code>1</code> ra <code>ă</code> của layout VIE mặc định trên Windows.</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">3. Cài đặt nhanh trong 10 giây</h3>
+      <p class="mb-2">Mở Terminal / PowerShell và chạy:</p>
+      <pre class="bg-stone-900 text-emerald-400 p-3 rounded-xl font-mono text-xs overflow-x-auto mb-4">winget install isthaison.GoTV</pre>
+      <p>Hoặc tải trực tiếp tệp <code>gotv-*-x64-setup.exe</code> (cài đặt per-user không bắt buộc quyền Admin) tại <a href="https://github.com/isthaison/gotv/releases/latest" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">GitHub Releases</a>. Nếu thấy hữu ích, hãy tặng một <strong>Star</strong> tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>!</p>
+    `
   }
 ];
