@@ -263,6 +263,9 @@ enum {
     HIT_AD_PICK_APP = 219,
     HIT_AD_SAVE = 220,
     HIT_AD_DELETE = 221,
+    HIT_AD_PICK_SEARCH = 222,
+    HIT_AD_PICK_CLEAR = 223,
+    HIT_AD_PICK_SCROLLBAR = 224,
     HIT_TOGGLE_DICT_BASE = 300, /* + 0..4 */
     HIT_AD_DICT_BASE = 320,     /* + 0..4 */
     HIT_AD_RULE_BASE = 400,     /* + 0..N */
@@ -364,12 +367,54 @@ typedef struct {
     RECT ad_pick_rc;
     gboolean ad_pick_open;
     int ad_pick_scroll;
+    int ad_wheel_accum;
+    char ad_pick_query[64];
+    RECT ad_drop_rc;
+    RECT ad_sb_rc;
+    gboolean ad_sb_drag;
+    int ad_vis_rows;
+    int ad_filtered_count;
     SetupHit hits[64];
     int n_hits;
     HICON app_icon;
 } SetupWinState;
 
 static SetupWinState s_sw = {0};
+
+static gboolean ad_pick_matches(const WinAppComboItem *it, const char *q) {
+    if (!it) return FALSE;
+    if (!q || !*q) return TRUE;
+    gchar *ql = g_utf8_strdown(q, -1);
+    gboolean ok = FALSE;
+    if (it->label) {
+        gchar *ll = g_utf8_strdown(it->label, -1);
+        if (strstr(ll, ql)) ok = TRUE;
+        g_free(ll);
+    }
+    if (!ok && it->id) {
+        gchar *il = g_utf8_strdown(it->id, -1);
+        if (strstr(il, ql)) ok = TRUE;
+        g_free(il);
+    }
+    g_free(ql);
+    return ok;
+}
+
+static void ad_scroll_from_y(int py) {
+    int max_sc = s_sw.ad_filtered_count > s_sw.ad_vis_rows ? s_sw.ad_filtered_count - s_sw.ad_vis_rows : 0;
+    if (max_sc <= 0) {
+        s_sw.ad_pick_scroll = 0;
+        return;
+    }
+    int track_h = s_sw.ad_sb_rc.bottom - s_sw.ad_sb_rc.top;
+    if (track_h <= 0) return;
+    int rel = py - s_sw.ad_sb_rc.top;
+    if (rel < 0) rel = 0;
+    if (rel > track_h) rel = track_h;
+    s_sw.ad_pick_scroll = (rel * max_sc + track_h / 2) / track_h;
+    if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
+    if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
+}
 
 static void ad_load_data(void) {
     if (s_sw.ad_rules) g_ptr_array_unref(s_sw.ad_rules);
@@ -877,45 +922,115 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
             }
         }
 
-        /* Floating in-window dropdown when app picker is open */
+        /* Floating in-window dropdown with search + scrollbar */
         if (s_sw.ad_pick_open && s_sw.ad_apps && s_sw.ad_apps->len > 0) {
+            int *matched = g_new(int, s_sw.ad_apps->len);
+            int n_match = 0;
+            for (guint i = 0; i < s_sw.ad_apps->len; i++) {
+                const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, i);
+                if (ad_pick_matches(it, s_sw.ad_pick_query))
+                    matched[n_match++] = (int)i;
+            }
+            s_sw.ad_filtered_count = n_match;
+
             int max_vis = 7;
-            int vis = (int)s_sw.ad_apps->len < max_vis ? (int)s_sw.ad_apps->len : max_vis;
+            int vis = n_match > 0 ? (n_match < max_vis ? n_match : max_vis) : 1;
             int d_row = sc(28, dpi);
+            int d_srch_h = sc(30, dpi);
             int d_pad = sc(6, dpi);
-            int d_h = vis * d_row + d_pad * 2;
+            int d_gap = sc(4, dpi);
+            int d_h = d_pad * 2 + d_srch_h + d_gap + vis * d_row;
             int d_x = s_sw.ad_pick_rc.left;
             int d_y = s_sw.ad_pick_rc.bottom + sc(4, dpi);
             int d_w = s_sw.ad_pick_rc.right - s_sw.ad_pick_rc.left;
             if (d_y + d_h > ch - sc(10, dpi)) d_h = ch - sc(10, dpi) - d_y;
-            vis = (d_h - d_pad * 2) / d_row;
+            vis = (d_h - d_pad * 2 - d_srch_h - d_gap) / d_row;
             if (vis < 1) vis = 1;
-            int max_sc = (int)s_sw.ad_apps->len > vis ? (int)s_sw.ad_apps->len - vis : 0;
+            s_sw.ad_vis_rows = vis;
+            int max_sc = n_match > vis ? n_match - vis : 0;
             if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
             if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
 
+            SetRect(&s_sw.ad_drop_rc, d_x, d_y, d_x + d_w, d_y + d_h);
             fill_round_rect(g, (REAL)d_x, (REAL)d_y, (REAL)d_w, (REAL)d_h,
                             (REAL)sc(8, dpi), pal->card, pal->accent_border);
-            for (int r = 0; r < vis && (guint)(s_sw.ad_pick_scroll + r) < s_sw.ad_apps->len; r++) {
-                guint idx = (guint)(s_sw.ad_pick_scroll + r);
-                const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, idx);
-                int hid = HIT_AD_PICK_ITEM_BASE + (int)idx;
-                int iy = d_y + d_pad + r * d_row;
-                RECT ir = { d_x + sc(6, dpi), iy, d_x + d_w - sc(6, dpi), iy + d_row };
-                if ((int)idx == s_sw.ad_sel_app || s_sw.hover_id == hid) {
-                    fill_round_rect(g, (REAL)ir.left, (REAL)ir.top, (REAL)(ir.right - ir.left), (REAL)d_row,
-                                    (REAL)sc(5, dpi), ((int)idx == s_sw.ad_sel_app) ? pal->nav_active : pal->nav_hover, 0);
-                }
-                RECT trc = { ir.left + sc(8, dpi), iy, ir.right - sc(74, dpi), iy + d_row };
-                draw_text_u8(mem, it && it->label ? it->label : "", &trc, pal->text_primary, f_nav,
+
+            RECT srch_rc = { d_x + d_pad, d_y + d_pad, d_x + d_w - d_pad, d_y + d_pad + d_srch_h };
+            fill_round_rect(g, (REAL)srch_rc.left, (REAL)srch_rc.top,
+                            (REAL)(srch_rc.right - srch_rc.left), (REAL)d_srch_h,
+                            (REAL)sc(6, dpi), pal->bg, pal->card_border);
+            push_hit(srch_rc, HIT_AD_PICK_SEARCH, TRUE);
+
+            if (s_sw.ad_pick_query[0]) {
+                gchar *q_disp = g_strdup_printf("%s|", s_sw.ad_pick_query);
+                RECT qrc = { srch_rc.left + sc(8, dpi), srch_rc.top, srch_rc.right - sc(28, dpi), srch_rc.bottom };
+                draw_text_u8(mem, q_disp, &qrc, pal->text_primary, f_nav,
                              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-                if (it && it->is_running) {
-                    RECT brc = { ir.right - sc(70, dpi), iy, ir.right - sc(8, dpi), iy + d_row };
-                    draw_text_u8(mem, tr("Đang chạy", "Running"), &brc, pal->text_muted, f_sub,
-                                 DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-                }
-                push_hit(ir, hid, TRUE);
+                g_free(q_disp);
+                RECT clr_rc = { srch_rc.right - sc(26, dpi), srch_rc.top, srch_rc.right - sc(2, dpi), srch_rc.bottom };
+                draw_text_u8(mem, "\xC3\x97", &clr_rc,
+                             (s_sw.hover_id == HIT_AD_PICK_CLEAR) ? pal->text_primary : pal->text_muted,
+                             f_card, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                push_hit(clr_rc, HIT_AD_PICK_CLEAR, TRUE);
+            } else {
+                RECT prc = { srch_rc.left + sc(8, dpi), srch_rc.top, srch_rc.right - sc(8, dpi), srch_rc.bottom };
+                draw_text_u8(mem, tr("Gõ để tìm ứng dụng...", "Type to search apps..."),
+                             &prc, pal->text_muted, f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
             }
+
+            int list_y = d_y + d_pad + d_srch_h + d_gap;
+            gboolean has_sb = (n_match > vis);
+            int sb_w = has_sb ? sc(12, dpi) : 0;
+            if (has_sb) {
+                int sb_x = d_x + d_w - d_pad - sc(8, dpi);
+                int sb_y0 = list_y + sc(2, dpi);
+                int sb_h = vis * d_row - sc(4, dpi);
+                SetRect(&s_sw.ad_sb_rc, sb_x - sc(4, dpi), sb_y0, d_x + d_w - d_pad + sc(2, dpi), sb_y0 + sb_h);
+                fill_round_rect(g, (REAL)sb_x, (REAL)sb_y0, (REAL)sc(6, dpi), (REAL)sb_h,
+                                (REAL)sc(3, dpi), pal->divider, 0);
+                int th_h = (vis * sb_h) / n_match;
+                if (th_h < sc(18, dpi)) th_h = sc(18, dpi);
+                if (th_h > sb_h) th_h = sb_h;
+                int th_y = sb_y0 + (max_sc > 0 ? ((sb_h - th_h) * s_sw.ad_pick_scroll) / max_sc : 0);
+                ARGB th_col = (s_sw.ad_sb_drag || s_sw.hover_id == HIT_AD_PICK_SCROLLBAR)
+                              ? pal->accent : pal->text_muted;
+                fill_round_rect(g, (REAL)sb_x, (REAL)th_y, (REAL)sc(6, dpi), (REAL)th_h,
+                                (REAL)sc(3, dpi), th_col, 0);
+                push_hit(s_sw.ad_sb_rc, HIT_AD_PICK_SCROLLBAR, TRUE);
+            } else {
+                SetRectEmpty(&s_sw.ad_sb_rc);
+            }
+
+            if (n_match == 0) {
+                RECT erc = { d_x + d_pad + sc(8, dpi), list_y, d_x + d_w - d_pad - sc(8, dpi), list_y + d_row };
+                draw_text_u8(mem, tr("Không tìm thấy ứng dụng", "No matching apps"),
+                             &erc, pal->text_muted, f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            } else {
+                for (int r = 0; r < vis && (s_sw.ad_pick_scroll + r) < n_match; r++) {
+                    int idx = matched[s_sw.ad_pick_scroll + r];
+                    const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, (guint)idx);
+                    int hid = HIT_AD_PICK_ITEM_BASE + idx;
+                    int iy = list_y + r * d_row;
+                    RECT ir = { d_x + d_pad, iy, d_x + d_w - d_pad - sb_w, iy + d_row };
+                    if (idx == s_sw.ad_sel_app || s_sw.hover_id == hid) {
+                        fill_round_rect(g, (REAL)ir.left, (REAL)ir.top, (REAL)(ir.right - ir.left), (REAL)d_row,
+                                        (REAL)sc(5, dpi), (idx == s_sw.ad_sel_app) ? pal->nav_active : pal->nav_hover, 0);
+                    }
+                    RECT trc = { ir.left + sc(8, dpi), iy, ir.right - sc(74, dpi), iy + d_row };
+                    draw_text_u8(mem, it && it->label ? it->label : "", &trc, pal->text_primary, f_nav,
+                                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                    if (it && it->is_running) {
+                        RECT brc = { ir.right - sc(70, dpi), iy, ir.right - sc(8, dpi), iy + d_row };
+                        draw_text_u8(mem, tr("Đang chạy", "Running"), &brc, pal->text_muted, f_sub,
+                                     DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+                    }
+                    push_hit(ir, hid, TRUE);
+                }
+            }
+            g_free(matched);
+        } else {
+            SetRectEmpty(&s_sw.ad_drop_rc);
+            SetRectEmpty(&s_sw.ad_sb_rc);
         }
 
     } else if (s_sw.active_tab == NAV_DICTS) {
@@ -1042,6 +1157,7 @@ static void handle_hit(HWND hwnd, int id) {
         s_sw.ad_sel_app = id - HIT_AD_PICK_ITEM_BASE;
         s_sw.ad_sel_rule = -1;
         s_sw.ad_pick_open = FALSE;
+        s_sw.ad_pick_query[0] = '\0';
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -1186,8 +1302,19 @@ static void handle_hit(HWND hwnd, int id) {
             if (s_sw.ad_apps && s_sw.ad_apps->len > 0) {
                 s_sw.ad_pick_open = !s_sw.ad_pick_open;
                 s_sw.ad_pick_scroll = 0;
+                s_sw.ad_wheel_accum = 0;
+                s_sw.ad_sb_drag = FALSE;
+                s_sw.ad_pick_query[0] = '\0';
                 InvalidateRect(hwnd, NULL, FALSE);
             }
+            break;
+        case HIT_AD_PICK_SEARCH:
+        case HIT_AD_PICK_SCROLLBAR:
+            break;
+        case HIT_AD_PICK_CLEAR:
+            s_sw.ad_pick_query[0] = '\0';
+            s_sw.ad_pick_scroll = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
             break;
         case HIT_AD_SAVE: {
             if (!s_sw.ad_apps || s_sw.ad_sel_app < 0 || (guint)s_sw.ad_sel_app >= s_sw.ad_apps->len) break;
@@ -1298,10 +1425,28 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             EndPaint(hwnd, &ps);
             return 0;
         }
+        case WM_LBUTTONDOWN: {
+            if (s_sw.ad_pick_open && !IsRectEmpty(&s_sw.ad_sb_rc)) {
+                POINT pt = { (short)LOWORD(lParam), (short)HIWORD(lParam) };
+                if (PtInRect(&s_sw.ad_sb_rc, pt)) {
+                    s_sw.ad_sb_drag = TRUE;
+                    SetCapture(hwnd);
+                    ad_scroll_from_y(pt.y);
+                    InvalidateRect(hwnd, NULL, FALSE);
+                    return 0;
+                }
+            }
+            break;
+        }
         case WM_MOUSEMOVE: {
             TRACKMOUSEEVENT tme = { sizeof(tme), TME_LEAVE, hwnd, 0 };
             TrackMouseEvent(&tme);
             POINT pt = { (short)LOWORD(lParam), (short)HIWORD(lParam) };
+            if (s_sw.ad_sb_drag) {
+                ad_scroll_from_y(pt.y);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
             int hid = find_hit(pt);
             if (hid != s_sw.hover_id) {
                 s_sw.hover_id = hid;
@@ -1318,32 +1463,92 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             return 0;
         case WM_MOUSEWHEEL:
             if (s_sw.ad_pick_open && s_sw.ad_apps && s_sw.ad_apps->len > 0) {
-                int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-                s_sw.ad_pick_scroll -= (delta / WHEEL_DELTA) * 2;
+                s_sw.ad_wheel_accum += GET_WHEEL_DELTA_WPARAM(wParam);
+                int step = 40;
+                while (s_sw.ad_wheel_accum >= step) {
+                    s_sw.ad_pick_scroll--;
+                    s_sw.ad_wheel_accum -= step;
+                }
+                while (s_sw.ad_wheel_accum <= -step) {
+                    s_sw.ad_pick_scroll++;
+                    s_sw.ad_wheel_accum += step;
+                }
+                int max_sc = s_sw.ad_filtered_count > s_sw.ad_vis_rows ? s_sw.ad_filtered_count - s_sw.ad_vis_rows : 0;
+                if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
                 if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
             break;
         case WM_LBUTTONUP: {
+            if (s_sw.ad_sb_drag) {
+                s_sw.ad_sb_drag = FALSE;
+                ReleaseCapture();
+                return 0;
+            }
             POINT pt = { (short)LOWORD(lParam), (short)HIWORD(lParam) };
             int hid = find_hit(pt);
             if (hid != HIT_NONE) {
                 handle_hit(hwnd, hid);
-            } else if (s_sw.ad_pick_open) {
+            } else if (s_sw.ad_pick_open && !PtInRect(&s_sw.ad_drop_rc, pt)) {
                 s_sw.ad_pick_open = FALSE;
+                s_sw.ad_pick_query[0] = '\0';
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;
         }
+        case WM_CHAR:
+            if (s_sw.ad_pick_open) {
+                WCHAR wc = (WCHAR)wParam;
+                if (wc == L'\b') {
+                    size_t len = strlen(s_sw.ad_pick_query);
+                    if (len > 0) {
+                        const char *p = s_sw.ad_pick_query + len;
+                        const char *prev = g_utf8_find_prev_char(s_sw.ad_pick_query, p);
+                        if (prev) *(char *)prev = '\0';
+                        else s_sw.ad_pick_query[0] = '\0';
+                        s_sw.ad_pick_scroll = 0;
+                        InvalidateRect(hwnd, NULL, FALSE);
+                    }
+                    return 0;
+                }
+                if (wc >= 0x20 && wc != 0x7F) {
+                    char u8[8] = {0};
+                    int n = WideCharToMultiByte(CP_UTF8, 0, &wc, 1, u8, sizeof(u8) - 1, NULL, NULL);
+                    if (n > 0) {
+                        size_t cur = strlen(s_sw.ad_pick_query);
+                        if (cur + (size_t)n < sizeof(s_sw.ad_pick_query)) {
+                            memcpy(s_sw.ad_pick_query + cur, u8, (size_t)n);
+                            s_sw.ad_pick_query[cur + (size_t)n] = '\0';
+                            s_sw.ad_pick_scroll = 0;
+                            InvalidateRect(hwnd, NULL, FALSE);
+                        }
+                    }
+                    return 0;
+                }
+            }
+            break;
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE) {
                 if (s_sw.ad_pick_open) {
                     s_sw.ad_pick_open = FALSE;
+                    s_sw.ad_pick_query[0] = '\0';
                     InvalidateRect(hwnd, NULL, FALSE);
                 } else {
                     DestroyWindow(hwnd);
                 }
+                return 0;
+            }
+            if (s_sw.ad_pick_open) {
+                int max_sc = s_sw.ad_filtered_count > s_sw.ad_vis_rows ? s_sw.ad_filtered_count - s_sw.ad_vis_rows : 0;
+                if (wParam == VK_DOWN) s_sw.ad_pick_scroll++;
+                else if (wParam == VK_UP) s_sw.ad_pick_scroll--;
+                else if (wParam == VK_NEXT) s_sw.ad_pick_scroll += (s_sw.ad_vis_rows > 1 ? s_sw.ad_vis_rows - 1 : 1);
+                else if (wParam == VK_PRIOR) s_sw.ad_pick_scroll -= (s_sw.ad_vis_rows > 1 ? s_sw.ad_vis_rows - 1 : 1);
+                else break;
+                if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
+                if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
+                InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
             break;
