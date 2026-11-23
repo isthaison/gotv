@@ -7,6 +7,7 @@ extern "C" {
 
 void GoTVShowSettings(void);
 void GoTVShowDataWindow(void);
+void GoTVShowStartupSplash(void);
 
 #ifdef __cplusplus
 }

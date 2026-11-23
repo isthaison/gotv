@@ -344,6 +344,8 @@ static void tray_on_activate_update(GtkMenuItem *item, gpointer data){
     tray_update_start(TRUE);
 }
 
+static void show_startup_splash(gboolean is_light);
+
 int tray_run(int argc, char *argv[]){
     g_set_prgname("gotv");
     g_set_application_name("GoTV");
@@ -368,6 +370,14 @@ int tray_run(int argc, char *argv[]){
     app_indicator_set_title(tray_indicator, "GoTV — Telex/VNI");
 
     (void)tray_current_lang();
+    {
+        gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        GtvConfig cfg = {0};
+        gtv_config_load(&cfg, dir);
+        show_startup_splash(cfg.ui_theme == GTV_THEME_LIGHT);
+        gtv_config_clear(&cfg);
+        g_free(dir);
+    }
 
     GtkWidget *menu = gtk_menu_new();
     GSList *group = NULL;
@@ -1034,26 +1044,49 @@ static void on_theme_radio_toggled(GtkToggleButton *btn, gpointer data) {
     apply_linux_theme(GTK_WIDGET(btn) == rb_theme_light);
 }
 
-typedef struct {
-    GtkWidget *splash;
-    GtkWidget *win;
-    GtkWidget *btn_ok;
-} SplashCtx;
-
 static gboolean on_splash_done(gpointer data) {
-    SplashCtx *ctx = data;
-    if (ctx->splash && GTK_IS_WIDGET(ctx->splash))
-        gtk_widget_destroy(ctx->splash);
-    if (ctx->win && GTK_IS_WIDGET(ctx->win)) {
-        gtk_widget_show_all(ctx->win);
-        if (ctx->btn_ok && GTK_IS_WIDGET(ctx->btn_ok))
-            gtk_widget_grab_focus(ctx->btn_ok);
-        if (setup_scroll) {
-            GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(setup_scroll));
-            if (vadj) gtk_adjustment_set_value(vadj, 0.0);
-        }
-    }
+    GtkWidget *splash = GTK_WIDGET(data);
+    if (splash && GTK_IS_WIDGET(splash))
+        gtk_widget_destroy(splash);
     return G_SOURCE_REMOVE;
+}
+
+static void show_startup_splash(gboolean is_light) {
+    apply_linux_theme(is_light);
+    GtkWidget *splash = gtk_window_new(GTK_WINDOW_POPUP);
+    gtk_style_context_add_class(gtk_widget_get_style_context(splash), "gtv-win");
+    gtk_window_set_position(GTK_WINDOW(splash), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(splash), 340, 200);
+    GtkWidget *sp_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_box), "gtv-card");
+    gtk_container_set_border_width(GTK_CONTAINER(sp_box), 24);
+    gtk_container_add(GTK_CONTAINER(splash), sp_box);
+
+    GdkPixbuf *sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.png", 48, 48, TRUE, NULL);
+    if (!sp_pb)
+        sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.svg", 48, 48, TRUE, NULL);
+    GtkWidget *sp_img = sp_pb
+        ? gtk_image_new_from_pixbuf(sp_pb)
+        : gtk_image_new_from_icon_name("gotv", GTK_ICON_SIZE_DIALOG);
+    if (sp_pb) g_object_unref(sp_pb);
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_img, FALSE, FALSE, 0);
+
+    GtkWidget *sp_title = gtk_label_new("GoTV");
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_title), "gtv-h1");
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_title, FALSE, FALSE, 0);
+
+    GtkWidget *sp_sub = gtk_label_new(gtv_i18n("Bộ gõ tiếng Việt · Telex / VNI", "Vietnamese Input · Telex / VNI"));
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_sub), "gtv-card-sub");
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_sub, FALSE, FALSE, 0);
+
+    GtkWidget *sp_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_bar), "gtv-splash-bar");
+    gtk_widget_set_size_request(sp_bar, 140, 4);
+    gtk_widget_set_halign(sp_bar, GTK_ALIGN_CENTER);
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_bar, FALSE, FALSE, 4);
+
+    gtk_widget_show_all(splash);
+    g_timeout_add(500, on_splash_done, splash);
 }
 
 int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_modern, const char *cur_spell, const char *cur_suggest, const char *cfg){
@@ -1351,41 +1384,12 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     g_signal_connect(btn_ok, "clicked", G_CALLBACK(on_save), win);
     gtk_box_pack_start(GTK_BOX(bbox), btn_ok, FALSE, FALSE, 0);
 
-    GtkWidget *splash = gtk_window_new(GTK_WINDOW_POPUP);
-    gtk_style_context_add_class(gtk_widget_get_style_context(splash), "gtv-win");
-    gtk_window_set_position(GTK_WINDOW(splash), GTK_WIN_POS_CENTER);
-    gtk_window_set_default_size(GTK_WINDOW(splash), 340, 200);
-    GtkWidget *sp_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_style_context_add_class(gtk_widget_get_style_context(sp_box), "gtv-card");
-    gtk_container_set_border_width(GTK_CONTAINER(sp_box), 24);
-    gtk_container_add(GTK_CONTAINER(splash), sp_box);
-
-    GdkPixbuf *sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.png", 48, 48, TRUE, NULL);
-    if (!sp_pb)
-        sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.svg", 48, 48, TRUE, NULL);
-    GtkWidget *sp_img = sp_pb
-        ? gtk_image_new_from_pixbuf(sp_pb)
-        : gtk_image_new_from_icon_name("gotv", GTK_ICON_SIZE_DIALOG);
-    if (sp_pb) g_object_unref(sp_pb);
-    gtk_box_pack_start(GTK_BOX(sp_box), sp_img, FALSE, FALSE, 0);
-
-    GtkWidget *sp_title = gtk_label_new("GoTV");
-    gtk_style_context_add_class(gtk_widget_get_style_context(sp_title), "gtv-h1");
-    gtk_box_pack_start(GTK_BOX(sp_box), sp_title, FALSE, FALSE, 0);
-
-    GtkWidget *sp_sub = gtk_label_new(gtv_i18n("Bộ gõ tiếng Việt · Telex / VNI", "Vietnamese Input · Telex / VNI"));
-    gtk_style_context_add_class(gtk_widget_get_style_context(sp_sub), "gtv-card-sub");
-    gtk_box_pack_start(GTK_BOX(sp_box), sp_sub, FALSE, FALSE, 0);
-
-    GtkWidget *sp_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(sp_bar), "gtv-splash-bar");
-    gtk_widget_set_size_request(sp_bar, 140, 4);
-    gtk_widget_set_halign(sp_bar, GTK_ALIGN_CENTER);
-    gtk_box_pack_start(GTK_BOX(sp_box), sp_bar, FALSE, FALSE, 4);
-
-    SplashCtx splash_ctx = { splash, win, btn_ok };
-    gtk_widget_show_all(splash);
-    g_timeout_add(650, on_splash_done, &splash_ctx);
+    gtk_widget_show_all(win);
+    gtk_widget_grab_focus(btn_ok);
+    if (setup_scroll) {
+        GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(setup_scroll));
+        if (vadj) gtk_adjustment_set_value(vadj, 0.0);
+    }
     gtk_main();
     return 0;
 }

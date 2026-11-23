@@ -175,6 +175,7 @@ int main(int argc, char *argv[]) {
         bundleIdentifier:bid];
     (void)server;
 
+    GoTVShowStartupSplash();
     checkForUpdates(NO);
 
     [[NSApplication sharedApplication] run];

@@ -1023,15 +1023,14 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [self selectTab:0];
     }
 
-    BOOL wasVisible = [window isVisible];
     [self loadFromConfig];
     [window center];
-    if (wasVisible) {
-        [window makeKeyAndOrderFront:nil];
-        [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
-        return;
-    }
+    [window makeKeyAndOrderFront:nil];
+    [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+}
 
+- (void)showStartupSplash {
+    [self loadFromConfig];
     NSWindow *splash = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 340, 200)
                                                    styleMask:NSWindowStyleMaskBorderless
                                                      backing:NSBackingStoreBuffered
@@ -1084,8 +1083,7 @@ extern void GoTVCheckForUpdates(BOOL manual);
     [sv addSubview:bar];
 
     [splash makeKeyAndOrderFront:nil];
-    [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
-    [NSTimer scheduledTimerWithTimeInterval:0.65
+    [NSTimer scheduledTimerWithTimeInterval:0.5
                                      target:self
                                    selector:@selector(finishSplash:)
                                    userInfo:splash
@@ -1098,8 +1096,6 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [splash orderOut:nil];
         [splash release];
     }
-    [window makeKeyAndOrderFront:nil];
-    [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
 }
 
 - (IBAction)telexSwitchChanged:(id)sender {
@@ -1231,6 +1227,10 @@ extern void GoTVCheckForUpdates(BOOL manual);
  * ------------------------------------------------------------------------- */
 void GoTVShowSettings(void) {
     [[GtvPreferencesWindow shared] show];
+}
+
+void GoTVShowStartupSplash(void) {
+    [[GtvPreferencesWindow shared] showStartupSplash];
 }
 
 void GoTVShowDataWindow(void) {
