@@ -15,6 +15,7 @@
 #include <glib/gstdio.h>
 
 #define WM_GTV_DICT_STATUS (WM_APP + 22)
+#define IDC_AD_SEARCH_EDIT 1901
 
 /* Dictionary panel: version/word-count labels plus a worker that refreshes
  * dict-vi.txt from the GitHub release asset (offline-first: the bundled
@@ -374,7 +375,12 @@ typedef struct {
     gboolean ad_sb_drag;
     int ad_vis_rows;
     int ad_filtered_count;
-    SetupHit hits[64];
+    HWND ad_search_hwnd;
+    HFONT ad_search_font;
+    HBRUSH ad_search_brush;
+    ARGB ad_search_brush_bg;
+    WNDPROC ad_search_orig_proc;
+    SetupHit hits[128];
     int n_hits;
     HICON app_icon;
 } SetupWinState;
@@ -414,6 +420,82 @@ static void ad_scroll_from_y(int py) {
     s_sw.ad_pick_scroll = (rel * max_sc + track_h / 2) / track_h;
     if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
     if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
+}
+
+static LRESULT CALLBACK AdSearchEditProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_KEYDOWN) {
+        if (wParam == VK_ESCAPE || wParam == VK_UP || wParam == VK_DOWN ||
+            wParam == VK_PRIOR || wParam == VK_NEXT) {
+            return SendMessageW(GetParent(hwnd), WM_KEYDOWN, wParam, lParam);
+        }
+    } else if (msg == WM_MOUSEWHEEL) {
+        return SendMessageW(GetParent(hwnd), WM_MOUSEWHEEL, wParam, lParam);
+    }
+    if (s_sw.ad_search_orig_proc)
+        return CallWindowProcW(s_sw.ad_search_orig_proc, hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+static void ad_close_picker(HWND hwnd) {
+    s_sw.ad_pick_open = FALSE;
+    s_sw.ad_pick_query[0] = '\0';
+    s_sw.ad_sb_drag = FALSE;
+    if (s_sw.ad_search_hwnd) {
+        SetWindowTextW(s_sw.ad_search_hwnd, L"");
+        ShowWindow(s_sw.ad_search_hwnd, SW_HIDE);
+    }
+    if (hwnd && IsWindow(hwnd)) SetFocus(hwnd);
+}
+
+static int sc(int px, UINT dpi);
+
+static void ad_sync_search_edit(HWND parent, const RECT *srch_rc, UINT dpi) {
+    if (!parent || !IsWindow(parent)) return;
+    if (!s_sw.ad_pick_open || !srch_rc) {
+        if (s_sw.ad_search_hwnd && IsWindowVisible(s_sw.ad_search_hwnd))
+            ShowWindow(s_sw.ad_search_hwnd, SW_HIDE);
+        return;
+    }
+    gboolean newly_shown = FALSE;
+    if (!s_sw.ad_search_hwnd) {
+        s_sw.ad_search_hwnd = CreateWindowExW(
+            0, L"EDIT", L"",
+            WS_CHILD | ES_AUTOHSCROLL,
+            0, 0, 100, 20,
+            parent, (HMENU)(UINT_PTR)IDC_AD_SEARCH_EDIT, GetModuleHandle(NULL), NULL);
+        if (s_sw.ad_search_hwnd) {
+            s_sw.ad_search_orig_proc = (WNDPROC)SetWindowLongPtrW(
+                s_sw.ad_search_hwnd, GWLP_WNDPROC, (LONG_PTR)AdSearchEditProc);
+        }
+        newly_shown = TRUE;
+    }
+    if (!s_sw.ad_search_hwnd) return;
+    if (!s_sw.ad_search_font) {
+        s_sw.ad_search_font = CreateFontW(
+            -sc(13, dpi), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        if (s_sw.ad_search_font)
+            SendMessageW(s_sw.ad_search_hwnd, WM_SETFONT, (WPARAM)s_sw.ad_search_font, FALSE);
+    }
+    gunichar2 *wph = g_utf8_to_utf16(
+        gtv_i18n_s(g_app.config.ui_lang, "Gõ để tìm ứng dụng...", "Type to search apps..."),
+        -1, NULL, NULL, NULL);
+    if (wph) {
+        SendMessageW(s_sw.ad_search_hwnd, 0x1501 /* EM_SETCUEBANNER */, TRUE, (LPARAM)wph);
+        g_free(wph);
+    }
+    int fh = sc(18, dpi);
+    int ex = srch_rc->left + sc(8, dpi);
+    int er = srch_rc->right - (s_sw.ad_pick_query[0] ? sc(28, dpi) : sc(8, dpi));
+    int ey = srch_rc->top + ((srch_rc->bottom - srch_rc->top) - fh) / 2;
+    if (er < ex + 20) er = ex + 20;
+    MoveWindow(s_sw.ad_search_hwnd, ex, ey, er - ex, fh, TRUE);
+    if (!IsWindowVisible(s_sw.ad_search_hwnd)) {
+        ShowWindow(s_sw.ad_search_hwnd, SW_SHOW);
+        newly_shown = TRUE;
+    }
+    if (newly_shown) SetFocus(s_sw.ad_search_hwnd);
 }
 
 static void ad_load_data(void) {
@@ -958,24 +1040,16 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
             RECT srch_rc = { d_x + d_pad, d_y + d_pad, d_x + d_w - d_pad, d_y + d_pad + d_srch_h };
             fill_round_rect(g, (REAL)srch_rc.left, (REAL)srch_rc.top,
                             (REAL)(srch_rc.right - srch_rc.left), (REAL)d_srch_h,
-                            (REAL)sc(6, dpi), pal->bg, pal->card_border);
+                            (REAL)sc(6, dpi), pal->bg, pal->accent_border);
             push_hit(srch_rc, HIT_AD_PICK_SEARCH, TRUE);
+            ad_sync_search_edit(s_hwndSetup, &srch_rc, dpi);
 
             if (s_sw.ad_pick_query[0]) {
-                gchar *q_disp = g_strdup_printf("%s|", s_sw.ad_pick_query);
-                RECT qrc = { srch_rc.left + sc(8, dpi), srch_rc.top, srch_rc.right - sc(28, dpi), srch_rc.bottom };
-                draw_text_u8(mem, q_disp, &qrc, pal->text_primary, f_nav,
-                             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-                g_free(q_disp);
                 RECT clr_rc = { srch_rc.right - sc(26, dpi), srch_rc.top, srch_rc.right - sc(2, dpi), srch_rc.bottom };
                 draw_text_u8(mem, "\xC3\x97", &clr_rc,
                              (s_sw.hover_id == HIT_AD_PICK_CLEAR) ? pal->text_primary : pal->text_muted,
                              f_card, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
                 push_hit(clr_rc, HIT_AD_PICK_CLEAR, TRUE);
-            } else {
-                RECT prc = { srch_rc.left + sc(8, dpi), srch_rc.top, srch_rc.right - sc(8, dpi), srch_rc.bottom };
-                draw_text_u8(mem, tr("Gõ để tìm ứng dụng...", "Type to search apps..."),
-                             &prc, pal->text_muted, f_sub, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
             }
 
             int list_y = d_y + d_pad + d_srch_h + d_gap;
@@ -1031,9 +1105,11 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         } else {
             SetRectEmpty(&s_sw.ad_drop_rc);
             SetRectEmpty(&s_sw.ad_sb_rc);
+            ad_sync_search_edit(s_hwndSetup, NULL, dpi);
         }
 
     } else if (s_sw.active_tab == NAV_DICTS) {
+        ad_sync_search_edit(s_hwndSetup, NULL, dpi);
         RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Bật gợi ý từ thông minh", "Enable smart word suggestions"),
                                   tr("Hoạt động 100% offline", "100% offline suggestions"), f_card, f_sub, dpi);
@@ -1156,15 +1232,14 @@ static void handle_hit(HWND hwnd, int id) {
         (guint)(id - HIT_AD_PICK_ITEM_BASE) < s_sw.ad_apps->len) {
         s_sw.ad_sel_app = id - HIT_AD_PICK_ITEM_BASE;
         s_sw.ad_sel_rule = -1;
-        s_sw.ad_pick_open = FALSE;
-        s_sw.ad_pick_query[0] = '\0';
+        ad_close_picker(hwnd);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
     if (id >= HIT_NAV_BASE && id < HIT_NAV_BASE + NAV_COUNT) {
         s_sw.active_tab = id - HIT_NAV_BASE;
         s_sw.app_dicts_mode = FALSE;
-        s_sw.ad_pick_open = FALSE;
+        ad_close_picker(hwnd);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -1289,31 +1364,42 @@ static void handle_hit(HWND hwnd, int id) {
         case HIT_BTN_APP_DICTS:
             ad_load_data();
             s_sw.app_dicts_mode = TRUE;
-            s_sw.ad_pick_open = FALSE;
+            ad_close_picker(hwnd);
             s_sw.ad_pick_scroll = 0;
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case HIT_AD_BACK:
             s_sw.app_dicts_mode = FALSE;
-            s_sw.ad_pick_open = FALSE;
+            ad_close_picker(hwnd);
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case HIT_AD_PICK_APP:
             if (s_sw.ad_apps && s_sw.ad_apps->len > 0) {
-                s_sw.ad_pick_open = !s_sw.ad_pick_open;
-                s_sw.ad_pick_scroll = 0;
-                s_sw.ad_wheel_accum = 0;
-                s_sw.ad_sb_drag = FALSE;
-                s_sw.ad_pick_query[0] = '\0';
+                if (s_sw.ad_pick_open) {
+                    ad_close_picker(hwnd);
+                } else {
+                    s_sw.ad_pick_open = TRUE;
+                    s_sw.ad_pick_scroll = 0;
+                    s_sw.ad_wheel_accum = 0;
+                    s_sw.ad_sb_drag = FALSE;
+                    s_sw.ad_pick_query[0] = '\0';
+                    if (s_sw.ad_search_hwnd) SetWindowTextW(s_sw.ad_search_hwnd, L"");
+                }
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             break;
         case HIT_AD_PICK_SEARCH:
+            if (s_sw.ad_search_hwnd) SetFocus(s_sw.ad_search_hwnd);
+            break;
         case HIT_AD_PICK_SCROLLBAR:
             break;
         case HIT_AD_PICK_CLEAR:
             s_sw.ad_pick_query[0] = '\0';
             s_sw.ad_pick_scroll = 0;
+            if (s_sw.ad_search_hwnd) {
+                SetWindowTextW(s_sw.ad_search_hwnd, L"");
+                SetFocus(s_sw.ad_search_hwnd);
+            }
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case HIT_AD_SAVE: {
@@ -1480,6 +1566,34 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 return 0;
             }
             break;
+        case WM_CTLCOLOREDIT: {
+            if ((HWND)lParam == s_sw.ad_search_hwnd) {
+                HDC hdc = (HDC)wParam;
+                const SetupPalette *pal = current_pal();
+                COLORREF fg = RGB((pal->text_primary >> 16) & 0xFF, (pal->text_primary >> 8) & 0xFF, pal->text_primary & 0xFF);
+                COLORREF bg = RGB((pal->bg >> 16) & 0xFF, (pal->bg >> 8) & 0xFF, pal->bg & 0xFF);
+                SetTextColor(hdc, fg);
+                SetBkColor(hdc, bg);
+                if (!s_sw.ad_search_brush || s_sw.ad_search_brush_bg != pal->bg) {
+                    if (s_sw.ad_search_brush) DeleteObject(s_sw.ad_search_brush);
+                    s_sw.ad_search_brush = CreateSolidBrush(bg);
+                    s_sw.ad_search_brush_bg = pal->bg;
+                }
+                return (LRESULT)s_sw.ad_search_brush;
+            }
+            break;
+        }
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDC_AD_SEARCH_EDIT && HIWORD(wParam) == EN_CHANGE && s_sw.ad_search_hwnd) {
+                WCHAR wbuf[64] = {0};
+                GetWindowTextW(s_sw.ad_search_hwnd, wbuf, G_N_ELEMENTS(wbuf));
+                WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, s_sw.ad_pick_query, sizeof(s_sw.ad_pick_query), NULL, NULL);
+                s_sw.ad_pick_query[sizeof(s_sw.ad_pick_query) - 1] = '\0';
+                s_sw.ad_pick_scroll = 0;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            break;
         case WM_LBUTTONUP: {
             if (s_sw.ad_sb_drag) {
                 s_sw.ad_sb_drag = FALSE;
@@ -1491,8 +1605,7 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             if (hid != HIT_NONE) {
                 handle_hit(hwnd, hid);
             } else if (s_sw.ad_pick_open && !PtInRect(&s_sw.ad_drop_rc, pt)) {
-                s_sw.ad_pick_open = FALSE;
-                s_sw.ad_pick_query[0] = '\0';
+                ad_close_picker(hwnd);
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;
@@ -1531,8 +1644,7 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE) {
                 if (s_sw.ad_pick_open) {
-                    s_sw.ad_pick_open = FALSE;
-                    s_sw.ad_pick_query[0] = '\0';
+                    ad_close_picker(hwnd);
                     InvalidateRect(hwnd, NULL, FALSE);
                 } else {
                     DestroyWindow(hwnd);
@@ -1567,6 +1679,11 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         case WM_DESTROY:
             s_hwndSetup = NULL;
             s_sw.app_dicts_mode = FALSE;
+            s_sw.ad_pick_open = FALSE;
+            s_sw.ad_search_hwnd = NULL;
+            s_sw.ad_search_orig_proc = NULL;
+            if (s_sw.ad_search_font) { DeleteObject(s_sw.ad_search_font); s_sw.ad_search_font = NULL; }
+            if (s_sw.ad_search_brush) { DeleteObject(s_sw.ad_search_brush); s_sw.ad_search_brush = NULL; }
             g_clear_pointer(&s_sw.dict_status, g_free);
             g_clear_pointer(&s_sw.ad_rules, g_ptr_array_unref);
             g_clear_pointer(&s_sw.ad_apps, g_ptr_array_unref);
@@ -1611,7 +1728,7 @@ static void open_setup_window_now(void) {
     int x = desk.left + ((desk.right - desk.left) - w) / 2;
     int y = desk.top + ((desk.bottom - desk.top) - h) / 2;
 
-    DWORD style = WS_OVERLAPPEDWINDOW;
+    DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
     RECT wr = { 0, 0, w, h };
     AdjustWindowRectEx(&wr, style, FALSE, 0);
     int ww = wr.right - wr.left;
