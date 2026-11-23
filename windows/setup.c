@@ -42,6 +42,7 @@ static HWND s_hwndSetup = NULL;
 typedef struct {
     gchar *id;
     gchar *label;
+    gboolean is_running;
 } WinAppComboItem;
 
 static void win_app_combo_item_free(gpointer p) {
@@ -55,6 +56,7 @@ static void win_app_combo_item_free(gpointer p) {
 static gint win_app_combo_item_cmp(gconstpointer a, gconstpointer b) {
     const WinAppComboItem *ia = *(const WinAppComboItem * const *)a;
     const WinAppComboItem *ib = *(const WinAppComboItem * const *)b;
+    if (ia->is_running != ib->is_running) return ib->is_running ? 1 : -1;
     return g_ascii_strcasecmp(ia->id ? ia->id : "", ib->id ? ib->id : "");
 }
 
@@ -68,7 +70,14 @@ static gboolean is_ignored_win_exe(const gchar *id) {
     const char * const ignored[] = {
         "explorer.exe", "applicationframehost.exe", "textinputhost.exe",
         "shellexperiencehost.exe", "searchhost.exe", "startmenuexperiencehost.exe",
-        "systemsettings.exe", "gotv.exe", "setup.exe", "update.exe", NULL
+        "systemsettings.exe", "gotv.exe", "setup.exe", "update.exe",
+        "cmmgr32.exe", "fsquirt.exe", "gethelp.exe", "iediag.exe",
+        "iediagcmd.exe", "innosetup.exe", "install.exe", "iscc.exe",
+        "licensemanagershellext.exe", "mplayer2.exe", "ms-teamsupdate.exe",
+        "wab.exe", "wabmig.exe", "mshta.exe", "cmd.exe", "conhost.exe",
+        "rundll32.exe", "regsvr32.exe", "msiexec.exe", "taskmgr.exe",
+        "mmc.exe", "dxdiag.exe", "winver.exe", "charmap.exe",
+        "control.exe", "fontview.exe", "snippingtool.exe", NULL
     };
     for (int i = 0; ignored[i]; i++) {
         if (g_strcmp0(id, ignored[i]) == 0) return TRUE;
@@ -77,7 +86,7 @@ static gboolean is_ignored_win_exe(const gchar *id) {
     return FALSE;
 }
 
-static void win_app_add_item(WinAppEnumCtx *ctx, const gchar *raw_id, const gchar *title) {
+static void win_app_add_item(WinAppEnumCtx *ctx, const gchar *raw_id, const gchar *title, gboolean is_running) {
     gchar *norm = gtv_app_dict_normalize_id(raw_id);
     if (!norm || !*norm || is_ignored_win_exe(norm)) {
         g_free(norm);
@@ -95,8 +104,9 @@ static void win_app_add_item(WinAppEnumCtx *ctx, const gchar *raw_id, const gcha
     g_hash_table_insert(ctx->seen, g_strdup(norm), GINT_TO_POINTER(1));
     WinAppComboItem *it = g_new0(WinAppComboItem, 1);
     it->id = norm;
+    it->is_running = is_running;
     if (title && *title) {
-        gchar *short_title = g_utf8_substring(title, 0, MIN(g_utf8_strlen(title, -1), 42));
+        gchar *short_title = g_utf8_substring(title, 0, MIN(g_utf8_strlen(title, -1), 26));
         it->label = g_strdup_printf("%s — %s", norm, short_title);
         g_free(short_title);
     } else {
@@ -120,7 +130,7 @@ static BOOL CALLBACK ad_enum_win_cb(HWND w, LPARAM lParam) {
         GetWindowTextW(w, wtitle, 127);
         gchar *u8_path = g_utf16_to_utf8((const gunichar2 *)exePath, -1, NULL, NULL, NULL);
         gchar *u8_title = g_utf16_to_utf8((const gunichar2 *)wtitle, -1, NULL, NULL, NULL);
-        if (u8_path) win_app_add_item(ctx, u8_path, u8_title);
+        if (u8_path) win_app_add_item(ctx, u8_path, u8_title, TRUE);
         g_free(u8_path);
         g_free(u8_title);
     }
@@ -141,7 +151,7 @@ static void ad_collect_reg_app_paths(WinAppEnumCtx *ctx, HKEY root) {
         gchar *u8 = g_utf16_to_utf8((const gunichar2 *)subName, -1, NULL, NULL, NULL);
         if (u8) {
             if (g_str_has_suffix(u8, ".exe") || g_str_has_suffix(u8, ".EXE"))
-                win_app_add_item(ctx, u8, NULL);
+                win_app_add_item(ctx, u8, NULL, FALSE);
             g_free(u8);
         }
     }
@@ -255,7 +265,8 @@ enum {
     HIT_AD_DELETE = 221,
     HIT_TOGGLE_DICT_BASE = 300, /* + 0..4 */
     HIT_AD_DICT_BASE = 320,     /* + 0..4 */
-    HIT_AD_RULE_BASE = 400      /* + 0..N */
+    HIT_AD_RULE_BASE = 400,     /* + 0..N */
+    HIT_AD_PICK_ITEM_BASE = 1000 /* + 0..N */
 };
 
 typedef struct {
@@ -351,6 +362,8 @@ typedef struct {
     int ad_sel_rule;
     guint ad_mask;
     RECT ad_pick_rc;
+    gboolean ad_pick_open;
+    int ad_pick_scroll;
     SetupHit hits[64];
     int n_hits;
     HICON app_icon;
@@ -374,7 +387,7 @@ static void ad_load_data(void) {
     if (s_sw.ad_rules) {
         for (guint i = 0; i < s_sw.ad_rules->len; i++) {
             const GtvAppDictRule *r = g_ptr_array_index(s_sw.ad_rules, i);
-            if (r && r->app_id) win_app_add_item(&ctx, r->app_id, NULL);
+            if (r && r->app_id) win_app_add_item(&ctx, r->app_id, NULL, FALSE);
         }
     }
     g_ptr_array_sort(ctx.items, win_app_combo_item_cmp);
@@ -864,6 +877,47 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
             }
         }
 
+        /* Floating in-window dropdown when app picker is open */
+        if (s_sw.ad_pick_open && s_sw.ad_apps && s_sw.ad_apps->len > 0) {
+            int max_vis = 7;
+            int vis = (int)s_sw.ad_apps->len < max_vis ? (int)s_sw.ad_apps->len : max_vis;
+            int d_row = sc(28, dpi);
+            int d_pad = sc(6, dpi);
+            int d_h = vis * d_row + d_pad * 2;
+            int d_x = s_sw.ad_pick_rc.left;
+            int d_y = s_sw.ad_pick_rc.bottom + sc(4, dpi);
+            int d_w = s_sw.ad_pick_rc.right - s_sw.ad_pick_rc.left;
+            if (d_y + d_h > ch - sc(10, dpi)) d_h = ch - sc(10, dpi) - d_y;
+            vis = (d_h - d_pad * 2) / d_row;
+            if (vis < 1) vis = 1;
+            int max_sc = (int)s_sw.ad_apps->len > vis ? (int)s_sw.ad_apps->len - vis : 0;
+            if (s_sw.ad_pick_scroll > max_sc) s_sw.ad_pick_scroll = max_sc;
+            if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
+
+            fill_round_rect(g, (REAL)d_x, (REAL)d_y, (REAL)d_w, (REAL)d_h,
+                            (REAL)sc(8, dpi), pal->card, pal->accent_border);
+            for (int r = 0; r < vis && (guint)(s_sw.ad_pick_scroll + r) < s_sw.ad_apps->len; r++) {
+                guint idx = (guint)(s_sw.ad_pick_scroll + r);
+                const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, idx);
+                int hid = HIT_AD_PICK_ITEM_BASE + (int)idx;
+                int iy = d_y + d_pad + r * d_row;
+                RECT ir = { d_x + sc(6, dpi), iy, d_x + d_w - sc(6, dpi), iy + d_row };
+                if ((int)idx == s_sw.ad_sel_app || s_sw.hover_id == hid) {
+                    fill_round_rect(g, (REAL)ir.left, (REAL)ir.top, (REAL)(ir.right - ir.left), (REAL)d_row,
+                                    (REAL)sc(5, dpi), ((int)idx == s_sw.ad_sel_app) ? pal->nav_active : pal->nav_hover, 0);
+                }
+                RECT trc = { ir.left + sc(8, dpi), iy, ir.right - sc(74, dpi), iy + d_row };
+                draw_text_u8(mem, it && it->label ? it->label : "", &trc, pal->text_primary, f_nav,
+                             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                if (it && it->is_running) {
+                    RECT brc = { ir.right - sc(70, dpi), iy, ir.right - sc(8, dpi), iy + d_row };
+                    draw_text_u8(mem, tr("Đang chạy", "Running"), &brc, pal->text_muted, f_sub,
+                                 DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
+                }
+                push_hit(ir, hid, TRUE);
+            }
+        }
+
     } else if (s_sw.active_tab == NAV_DICTS) {
         RECT c1 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
                                   tr("Bật gợi ý từ thông minh", "Enable smart word suggestions"),
@@ -983,9 +1037,18 @@ static void save_and_refresh(HWND hwnd) {
 }
 
 static void handle_hit(HWND hwnd, int id) {
+    if (id >= HIT_AD_PICK_ITEM_BASE && s_sw.ad_apps &&
+        (guint)(id - HIT_AD_PICK_ITEM_BASE) < s_sw.ad_apps->len) {
+        s_sw.ad_sel_app = id - HIT_AD_PICK_ITEM_BASE;
+        s_sw.ad_sel_rule = -1;
+        s_sw.ad_pick_open = FALSE;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
     if (id >= HIT_NAV_BASE && id < HIT_NAV_BASE + NAV_COUNT) {
         s_sw.active_tab = id - HIT_NAV_BASE;
         s_sw.app_dicts_mode = FALSE;
+        s_sw.ad_pick_open = FALSE;
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -1110,32 +1173,22 @@ static void handle_hit(HWND hwnd, int id) {
         case HIT_BTN_APP_DICTS:
             ad_load_data();
             s_sw.app_dicts_mode = TRUE;
+            s_sw.ad_pick_open = FALSE;
+            s_sw.ad_pick_scroll = 0;
             InvalidateRect(hwnd, NULL, FALSE);
             break;
         case HIT_AD_BACK:
             s_sw.app_dicts_mode = FALSE;
+            s_sw.ad_pick_open = FALSE;
             InvalidateRect(hwnd, NULL, FALSE);
             break;
-        case HIT_AD_PICK_APP: {
-            if (!s_sw.ad_apps || s_sw.ad_apps->len == 0) break;
-            HMENU hm = CreatePopupMenu();
-            if (!hm) break;
-            for (guint i = 0; i < s_sw.ad_apps->len; i++) {
-                const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, i);
-                UINT flags = ((int)i == s_sw.ad_sel_app) ? MF_CHECKED : MF_UNCHECKED;
-                gtv_win_menu_add_utf8(hm, it && it->label ? it->label : "", flags, 1000 + (UINT)i);
-            }
-            POINT pt = { s_sw.ad_pick_rc.left, s_sw.ad_pick_rc.bottom };
-            ClientToScreen(hwnd, &pt);
-            int chosen = TrackPopupMenu(hm, TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, hwnd, NULL);
-            DestroyMenu(hm);
-            if (chosen >= 1000 && (guint)(chosen - 1000) < s_sw.ad_apps->len) {
-                s_sw.ad_sel_app = chosen - 1000;
-                s_sw.ad_sel_rule = -1;
+        case HIT_AD_PICK_APP:
+            if (s_sw.ad_apps && s_sw.ad_apps->len > 0) {
+                s_sw.ad_pick_open = !s_sw.ad_pick_open;
+                s_sw.ad_pick_scroll = 0;
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             break;
-        }
         case HIT_AD_SAVE: {
             if (!s_sw.ad_apps || s_sw.ad_sel_app < 0 || (guint)s_sw.ad_sel_app >= s_sw.ad_apps->len) break;
             const WinAppComboItem *it = g_ptr_array_index(s_sw.ad_apps, (guint)s_sw.ad_sel_app);
@@ -1263,15 +1316,34 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;
+        case WM_MOUSEWHEEL:
+            if (s_sw.ad_pick_open && s_sw.ad_apps && s_sw.ad_apps->len > 0) {
+                int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+                s_sw.ad_pick_scroll -= (delta / WHEEL_DELTA) * 2;
+                if (s_sw.ad_pick_scroll < 0) s_sw.ad_pick_scroll = 0;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            break;
         case WM_LBUTTONUP: {
             POINT pt = { (short)LOWORD(lParam), (short)HIWORD(lParam) };
             int hid = find_hit(pt);
-            if (hid != HIT_NONE) handle_hit(hwnd, hid);
+            if (hid != HIT_NONE) {
+                handle_hit(hwnd, hid);
+            } else if (s_sw.ad_pick_open) {
+                s_sw.ad_pick_open = FALSE;
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
             return 0;
         }
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE) {
-                DestroyWindow(hwnd);
+                if (s_sw.ad_pick_open) {
+                    s_sw.ad_pick_open = FALSE;
+                    InvalidateRect(hwnd, NULL, FALSE);
+                } else {
+                    DestroyWindow(hwnd);
+                }
                 return 0;
             }
             break;
