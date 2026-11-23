@@ -1301,8 +1301,11 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-void gtv_setup_show(HWND parent) {
-    (void)parent;
+static HWND s_hwndSplash = NULL;
+static ULONG_PTR s_splash_gdip = 0;
+static HICON s_splash_icon = NULL;
+
+static void open_setup_window_now(void) {
     if (s_hwndSetup && IsWindow(s_hwndSetup)) {
         if (IsIconic(s_hwndSetup)) ShowWindow(s_hwndSetup, SW_RESTORE);
         SetForegroundWindow(s_hwndSetup);
@@ -1347,5 +1350,133 @@ void gtv_setup_show(HWND parent) {
         ShowWindow(s_hwndSetup, SW_SHOW);
         SetForegroundWindow(s_hwndSetup);
         UpdateWindow(s_hwndSetup);
+    }
+}
+
+static LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_CREATE: {
+            GtvGdipStartupInput in = { 1, NULL, FALSE, FALSE };
+            GdiplusStartup(&s_splash_gdip, &in, NULL);
+            UINT dpi = win_dpi(hwnd);
+            int isz = sc(48, dpi);
+            s_splash_icon = (HICON)LoadImageW(GetModuleHandle(NULL), MAKEINTRESOURCEW(IDI_APP_ICON),
+                                              IMAGE_ICON, isz, isz, LR_DEFAULTCOLOR);
+            SetTimer(hwnd, 1, 650, NULL);
+            return 0;
+        }
+        case WM_ERASEBKGND:
+            return 1;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC out = BeginPaint(hwnd, &ps);
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            int cw = cr.right, ch = cr.bottom;
+            if (cw > 0 && ch > 0) {
+                UINT dpi = win_dpi(hwnd);
+                HDC mem = CreateCompatibleDC(out);
+                HBITMAP bmp = CreateCompatibleBitmap(out, cw, ch);
+                HBITMAP oldb = (HBITMAP)SelectObject(mem, bmp);
+                GpGraphics *g = NULL;
+                GdipCreateFromHDC(mem, &g);
+                if (g) GdipSetSmoothingMode(g, 4);
+
+                const SetupPalette *pal = current_pal();
+                fill_round_rect(g, 0, 0, (REAL)cw, (REAL)ch, 0, pal->bg, pal->card_border);
+                if (s_splash_icon) {
+                    int isz = sc(48, dpi);
+                    DrawIconEx(mem, (cw - isz) / 2, sc(28, dpi), s_splash_icon, isz, isz, 0, NULL, DI_NORMAL);
+                }
+
+                HFONT f_title = make_font(20, FW_BOLD, dpi);
+                HFONT f_sub = make_font(12, FW_NORMAL, dpi);
+                HFONT f_ver = make_font(10, FW_NORMAL, dpi);
+
+                RECT trc = { sc(16, dpi), sc(84, dpi), cw - sc(16, dpi), sc(114, dpi) };
+                draw_text_u8(mem, "GoTV", &trc, pal->text_primary, f_title, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+                RECT src = { sc(16, dpi), sc(114, dpi), cw - sc(16, dpi), sc(136, dpi) };
+                draw_text_u8(mem, tr("Bộ gõ tiếng Việt · Telex / VNI", "Vietnamese Input · Telex / VNI"),
+                             &src, pal->text_secondary, f_sub, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+                int bw = sc(140, dpi), bh = sc(4, dpi);
+                fill_round_rect(g, (REAL)((cw - bw) / 2), (REAL)sc(150, dpi), (REAL)bw, (REAL)bh,
+                                (REAL)(bh / 2), pal->accent, 0);
+
+                RECT vrc = { sc(16, dpi), ch - sc(30, dpi), cw - sc(16, dpi), ch - sc(12, dpi) };
+                draw_text_u8(mem, "v" GTV_VERSION, &vrc, pal->text_muted, f_ver, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+                BitBlt(out, 0, 0, cw, ch, mem, 0, 0, SRCCOPY);
+                DeleteObject(f_title);
+                DeleteObject(f_sub);
+                DeleteObject(f_ver);
+                if (g) GdipDeleteGraphics(g);
+                SelectObject(mem, oldb);
+                DeleteObject(bmp);
+                DeleteDC(mem);
+            }
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_TIMER:
+        case WM_LBUTTONUP:
+            KillTimer(hwnd, 1);
+            DestroyWindow(hwnd);
+            open_setup_window_now();
+            return 0;
+        case WM_KEYDOWN:
+            if (wParam == VK_ESCAPE || wParam == VK_RETURN || wParam == VK_SPACE) {
+                KillTimer(hwnd, 1);
+                DestroyWindow(hwnd);
+                open_setup_window_now();
+                return 0;
+            }
+            break;
+        case WM_DESTROY:
+            s_hwndSplash = NULL;
+            if (s_splash_icon) { DestroyIcon(s_splash_icon); s_splash_icon = NULL; }
+            if (s_splash_gdip) { GdiplusShutdown(s_splash_gdip); s_splash_gdip = 0; }
+            return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+void gtv_setup_show(HWND parent) {
+    (void)parent;
+    if (s_hwndSetup && IsWindow(s_hwndSetup)) {
+        if (IsIconic(s_hwndSetup)) ShowWindow(s_hwndSetup, SW_RESTORE);
+        SetForegroundWindow(s_hwndSetup);
+        return;
+    }
+    if (s_hwndSplash && IsWindow(s_hwndSplash)) {
+        SetForegroundWindow(s_hwndSplash);
+        return;
+    }
+    HINSTANCE hinst = GetModuleHandle(NULL);
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = SplashWndProc;
+    wc.hInstance = hinst;
+    wc.hIcon = LoadIconW(hinst, MAKEINTRESOURCEW(IDI_APP_ICON));
+    wc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
+    wc.lpszClassName = L"GoTVSplashWindow";
+    RegisterClassExW(&wc);
+
+    UINT dpi = win_dpi(NULL);
+    int w = sc(340, dpi), h = sc(200, dpi);
+    RECT desk = {0};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &desk, 0);
+    int x = desk.left + ((desk.right - desk.left) - w) / 2;
+    int y = desk.top + ((desk.bottom - desk.top) - h) / 2;
+
+    s_hwndSplash = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, L"GoTVSplashWindow", L"GoTV",
+                                   WS_POPUP, x, y, w, h, NULL, NULL, hinst, NULL);
+    if (s_hwndSplash) {
+        ShowWindow(s_hwndSplash, SW_SHOW);
+        SetForegroundWindow(s_hwndSplash);
+        UpdateWindow(s_hwndSplash);
+    } else {
+        open_setup_window_now();
     }
 }

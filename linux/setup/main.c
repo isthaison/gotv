@@ -1001,7 +1001,8 @@ static void apply_linux_theme(gboolean is_light) {
         "switch { background-color: #3B3538; border-radius: 999px; border: none; min-height: 22px; min-width: 42px; }"
         "switch:checked { background-color: #D32F2F; }"
         "switch slider { background-color: #FAF7F2; border-radius: 999px; min-height: 18px; min-width: 18px; margin: 2px; }"
-        "checkbutton, radiobutton { color: #F5F2F0; }";
+        "checkbutton, radiobutton { color: #F5F2F0; }"
+        ".gtv-splash-bar { background-color: #D32F2F; min-height: 4px; border-radius: 2px; }";
     const char *light_css =
         "window.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
         ".gtv-sidebar { background-color: #F3EFE8; border-right: 1px solid #E7E5E4; padding: 12px 8px; }"
@@ -1022,7 +1023,8 @@ static void apply_linux_theme(gboolean is_light) {
         "switch { background-color: #D6D3D1; border-radius: 999px; border: none; min-height: 22px; min-width: 42px; }"
         "switch:checked { background-color: #D32F2F; }"
         "switch slider { background-color: #FFFFFF; border-radius: 999px; min-height: 18px; min-width: 18px; margin: 2px; }"
-        "checkbutton, radiobutton { color: #2B2320; }";
+        "checkbutton, radiobutton { color: #2B2320; }"
+        ".gtv-splash-bar { background-color: #D32F2F; min-height: 4px; border-radius: 2px; }";
     gtk_css_provider_load_from_data(setup_css, is_light ? light_css : dark_css, -1, NULL);
 }
 
@@ -1030,6 +1032,28 @@ static void on_theme_radio_toggled(GtkToggleButton *btn, gpointer data) {
     (void)data;
     if (!gtk_toggle_button_get_active(btn)) return;
     apply_linux_theme(GTK_WIDGET(btn) == rb_theme_light);
+}
+
+typedef struct {
+    GtkWidget *splash;
+    GtkWidget *win;
+    GtkWidget *btn_ok;
+} SplashCtx;
+
+static gboolean on_splash_done(gpointer data) {
+    SplashCtx *ctx = data;
+    if (ctx->splash && GTK_IS_WIDGET(ctx->splash))
+        gtk_widget_destroy(ctx->splash);
+    if (ctx->win && GTK_IS_WIDGET(ctx->win)) {
+        gtk_widget_show_all(ctx->win);
+        if (ctx->btn_ok && GTK_IS_WIDGET(ctx->btn_ok))
+            gtk_widget_grab_focus(ctx->btn_ok);
+        if (setup_scroll) {
+            GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(setup_scroll));
+            if (vadj) gtk_adjustment_set_value(vadj, 0.0);
+        }
+    }
+    return G_SOURCE_REMOVE;
 }
 
 int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_modern, const char *cur_spell, const char *cur_suggest, const char *cfg){
@@ -1327,12 +1351,41 @@ int setup_ui(int argc, char *argv[], const char *cur_method, const char *cur_mod
     g_signal_connect(btn_ok, "clicked", G_CALLBACK(on_save), win);
     gtk_box_pack_start(GTK_BOX(bbox), btn_ok, FALSE, FALSE, 0);
 
-    gtk_widget_show_all(win);
-    gtk_widget_grab_focus(btn_ok);
-    if (setup_scroll) {
-        GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(setup_scroll));
-        if (vadj) gtk_adjustment_set_value(vadj, 0.0);
-    }
+    GtkWidget *splash = gtk_window_new(GTK_WINDOW_POPUP);
+    gtk_style_context_add_class(gtk_widget_get_style_context(splash), "gtv-win");
+    gtk_window_set_position(GTK_WINDOW(splash), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(splash), 340, 200);
+    GtkWidget *sp_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_box), "gtv-card");
+    gtk_container_set_border_width(GTK_CONTAINER(sp_box), 24);
+    gtk_container_add(GTK_CONTAINER(splash), sp_box);
+
+    GdkPixbuf *sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.png", 48, 48, TRUE, NULL);
+    if (!sp_pb)
+        sp_pb = gdk_pixbuf_new_from_file_at_scale("/usr/share/gotv/icons/gotv.svg", 48, 48, TRUE, NULL);
+    GtkWidget *sp_img = sp_pb
+        ? gtk_image_new_from_pixbuf(sp_pb)
+        : gtk_image_new_from_icon_name("gotv", GTK_ICON_SIZE_DIALOG);
+    if (sp_pb) g_object_unref(sp_pb);
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_img, FALSE, FALSE, 0);
+
+    GtkWidget *sp_title = gtk_label_new("GoTV");
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_title), "gtv-h1");
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_title, FALSE, FALSE, 0);
+
+    GtkWidget *sp_sub = gtk_label_new(gtv_i18n("Bộ gõ tiếng Việt · Telex / VNI", "Vietnamese Input · Telex / VNI"));
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_sub), "gtv-card-sub");
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_sub, FALSE, FALSE, 0);
+
+    GtkWidget *sp_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(sp_bar), "gtv-splash-bar");
+    gtk_widget_set_size_request(sp_bar, 140, 4);
+    gtk_widget_set_halign(sp_bar, GTK_ALIGN_CENTER);
+    gtk_box_pack_start(GTK_BOX(sp_box), sp_bar, FALSE, FALSE, 4);
+
+    SplashCtx splash_ctx = { splash, win, btn_ok };
+    gtk_widget_show_all(splash);
+    g_timeout_add(650, on_splash_done, &splash_ctx);
     gtk_main();
     return 0;
 }

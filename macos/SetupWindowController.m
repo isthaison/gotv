@@ -1023,8 +1023,81 @@ extern void GoTVCheckForUpdates(BOOL manual);
         [self selectTab:0];
     }
 
+    BOOL wasVisible = [window isVisible];
     [self loadFromConfig];
     [window center];
+    if (wasVisible) {
+        [window makeKeyAndOrderFront:nil];
+        [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+        return;
+    }
+
+    NSWindow *splash = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 340, 200)
+                                                   styleMask:NSWindowStyleMaskBorderless
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    [splash setOpaque:NO];
+    [splash setBackgroundColor:[NSColor clearColor]];
+    [splash setLevel:NSFloatingWindowLevel];
+    [splash center];
+
+    NSView *sv = [splash contentView];
+    [sv setWantsLayer:YES];
+    [[sv layer] setCornerRadius:14.0];
+    [[sv layer] setBorderWidth:1.0];
+    [[sv layer] setBackgroundColor:[[self cBg] CGColor]];
+    [[sv layer] setBorderColor:[[self cCardBorder] CGColor]];
+    if (@available(macOS 10.14, *)) {
+        [splash setAppearance:[NSAppearance appearanceNamed:(isLightTheme ? NSAppearanceNameAqua : NSAppearanceNameDarkAqua)]];
+    }
+
+    NSBox *badge = [[[NSBox alloc] initWithFrame:NSMakeRect(146, 128, 48, 48)] autorelease];
+    [badge setBoxType:NSBoxCustom];
+    [badge setBorderType:NSNoBorder];
+    [badge setTitlePosition:NSNoTitle];
+    [badge setCornerRadius:12.0];
+    [badge setFillColor:[self cAccent]];
+    NSTextField *badgeTxt = [NSTextField labelWithString:@"Ắ"];
+    [badgeTxt setFrame:NSMakeRect(0, 8, 48, 32)];
+    [badgeTxt setAlignment:NSTextAlignmentCenter];
+    [badgeTxt setFont:[NSFont boldSystemFontOfSize:24]];
+    [badgeTxt setTextColor:[NSColor whiteColor]];
+    [badge addSubview:badgeTxt];
+    [sv addSubview:badge];
+
+    NSTextField *spTitle = [self makeLabel:NSMakeRect(20, 92, 300, 28) size:20 bold:YES secondary:NO];
+    [spTitle setStringValue:@"GoTV"];
+    [spTitle setAlignment:NSTextAlignmentCenter];
+    [sv addSubview:spTitle];
+
+    NSTextField *spSub = [self makeLabel:NSMakeRect(20, 68, 300, 20) size:12 bold:NO secondary:YES];
+    [spSub setStringValue:[NSString stringWithUTF8String:gtv_i18n("Bộ gõ tiếng Việt · Telex / VNI", "Vietnamese Input · Telex / VNI")]];
+    [spSub setAlignment:NSTextAlignmentCenter];
+    [sv addSubview:spSub];
+
+    NSBox *bar = [[[NSBox alloc] initWithFrame:NSMakeRect(100, 48, 140, 4)] autorelease];
+    [bar setBoxType:NSBoxCustom];
+    [bar setBorderType:NSNoBorder];
+    [bar setTitlePosition:NSNoTitle];
+    [bar setCornerRadius:2.0];
+    [bar setFillColor:[self cAccent]];
+    [sv addSubview:bar];
+
+    [splash makeKeyAndOrderFront:nil];
+    [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+    [NSTimer scheduledTimerWithTimeInterval:0.65
+                                     target:self
+                                   selector:@selector(finishSplash:)
+                                   userInfo:splash
+                                    repeats:NO];
+}
+
+- (void)finishSplash:(NSTimer *)timer {
+    NSWindow *splash = (NSWindow *)[timer userInfo];
+    if (splash) {
+        [splash orderOut:nil];
+        [splash release];
+    }
     [window makeKeyAndOrderFront:nil];
     [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
 }
