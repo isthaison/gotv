@@ -34,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.29" date="2026-11-23">
+      <description>
+        <p>Phát hành 0.9.29.</p>
+      </description>
+    </release>
     <release version="0.9.28" date="2026-11-23">
       <description>
         <p>Add themed splash screen when opening Settings across Windows, Linux, and macOS</p>
