@@ -266,6 +266,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     gtv_startup_repoint();
 
+    /* 1c. Load config & theme early at app startup so splash + UI are ready immediately */
+    gtv_init();
+    {
+        gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
+        gtv_config_load(&g_app.config, config_dir);
+        g_free(config_dir);
+    }
+    if (!takeover) {
+        gtv_splash_show();
+    }
+
     /* 2. Ensure this installation owns the per-user TSF registration. */
     gtv_tsf_install_ensure_registered();
     gtv_kbd_cleanup_vi_tip_only();
@@ -275,13 +286,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #ifndef GTV_STORE_BUILD
     gtv_input_setup_ensure_async();
 #endif
-
-    /* 3. Initialize GoTV config */
-    gtv_init();
-
-    gchar *config_dir = gtv_user_path(g_get_user_config_dir(), NULL);
-    gtv_config_load(&g_app.config, config_dir);
-    g_free(config_dir);
 
     /* 4. Register message window class */
     s_uTaskbarRestartMsg = RegisterWindowMessageA("TaskbarCreated");

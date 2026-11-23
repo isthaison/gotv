@@ -1761,7 +1761,7 @@ static LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             int isz = sc(48, dpi);
             s_splash_icon = (HICON)LoadImageW(GetModuleHandle(NULL), MAKEINTRESOURCEW(IDI_APP_ICON),
                                               IMAGE_ICON, isz, isz, LR_DEFAULTCOLOR);
-            SetTimer(hwnd, 1, 650, NULL);
+            SetTimer(hwnd, 1, 500, NULL);
             return 0;
         }
         case WM_ERASEBKGND:
@@ -1822,13 +1822,11 @@ static LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         case WM_LBUTTONUP:
             KillTimer(hwnd, 1);
             DestroyWindow(hwnd);
-            open_setup_window_now();
             return 0;
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE || wParam == VK_RETURN || wParam == VK_SPACE) {
                 KillTimer(hwnd, 1);
                 DestroyWindow(hwnd);
-                open_setup_window_now();
                 return 0;
             }
             break;
@@ -1841,13 +1839,14 @@ static LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-void gtv_setup_show(HWND parent) {
-    (void)parent;
-    if (s_hwndSetup && IsWindow(s_hwndSetup)) {
-        if (IsIconic(s_hwndSetup)) ShowWindow(s_hwndSetup, SW_RESTORE);
-        SetForegroundWindow(s_hwndSetup);
-        return;
+void gtv_splash_close(void) {
+    if (s_hwndSplash && IsWindow(s_hwndSplash)) {
+        KillTimer(s_hwndSplash, 1);
+        DestroyWindow(s_hwndSplash);
     }
+}
+
+void gtv_splash_show(void) {
     if (s_hwndSplash && IsWindow(s_hwndSplash)) {
         SetForegroundWindow(s_hwndSplash);
         return;
@@ -1873,9 +1872,17 @@ void gtv_setup_show(HWND parent) {
                                    WS_POPUP, x, y, w, h, NULL, NULL, hinst, NULL);
     if (s_hwndSplash) {
         ShowWindow(s_hwndSplash, SW_SHOW);
-        SetForegroundWindow(s_hwndSplash);
         UpdateWindow(s_hwndSplash);
-    } else {
-        open_setup_window_now();
     }
+}
+
+void gtv_setup_show(HWND parent) {
+    (void)parent;
+    gtv_splash_close();
+    if (s_hwndSetup && IsWindow(s_hwndSetup)) {
+        if (IsIconic(s_hwndSetup)) ShowWindow(s_hwndSetup, SW_RESTORE);
+        SetForegroundWindow(s_hwndSetup);
+        return;
+    }
+    open_setup_window_now();
 }
