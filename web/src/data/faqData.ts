@@ -241,5 +241,36 @@ export const FAQ_ITEMS: FaqItem[] = [
         <li>Bạn có thể kiểm tra trực tiếp bằng công cụ <strong>Kiểm tra URL (URL Inspection)</strong> với đường dẫn đầy đủ <code>https://isthaison.github.io/gotv/sitemap.xml</code> để xác nhận Googlebot tải file thành công (HTTP 200).</li>
       </ol>
     `
+  },
+  {
+    id: 'linux-ubuntu-wayland',
+    slug: 'bo-go-tieng-viet-cho-linux-ubuntu-fedora',
+    question: 'Cách cài đặt và gõ tiếng Việt trên Linux (Ubuntu, Debian, Fedora, Wayland & X11) bằng GoTV?',
+    shortAnswer: 'Tải gói gotv_*_amd64.deb (Ubuntu/Debian) hoặc gotv-*.x86_64.rpm (Fedora/RHEL) từ GitHub Releases của GoTV, cài đặt rồi thêm nguồn nhập GoTV trong Settings → Keyboard → Input Sources (hỗ trợ cả Wayland và X11 qua IBus).',
+    category: 'usage',
+    dateModified: '2026-11-23',
+    detailHtml: `
+      <h3 class="text-xl font-bold mt-2 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Cài đặt nhanh bằng gói .deb / .rpm</h3>
+      <p class="mb-4">GoTV cung cấp sẵn gói cài đặt chính thức cho các bản phân phối Linux phổ biến tại trang <a href="https://github.com/isthaison/gotv/releases/latest" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">GitHub Releases</a>:</p>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Ubuntu / Debian / Linux Mint / Pop!_OS:</strong> tải file <code>gotv_*_amd64.deb</code> và cài bằng lệnh <code>sudo apt install ./gotv_*_amd64.deb</code>.</li>
+        <li><strong>Fedora / CentOS / RHEL:</strong> tải file <code>gotv-*.x86_64.rpm</code> và cài bằng lệnh <code>sudo dnf install ./gotv-*.x86_64.rpm</code>.</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Kích hoạt bộ gõ IBus trên Wayland &amp; X11</h3>
+      <ol class="list-decimal pl-6 mb-4 space-y-2">
+        <li>Khởi động lại IBus bằng lệnh <code>ibus restart</code> (hoặc đăng xuất rồi đăng nhập lại sau lần cài đầu tiên).</li>
+        <li>Mở <strong>Settings → Keyboard → Input Sources</strong>, nhấn <strong>Add Input Source (+)</strong> → chọn <strong>Vietnamese → GoTV</strong>.</li>
+        <li>Chuyển nhanh giữa tiếng Anh và tiếng Việt bằng <code>Super + Space</code>.</li>
+        <li>Mở giao diện cấu hình (chế độ tối/sáng, song ngữ Việt/Anh, Telex/VNI) bằng lệnh <code>ibus-setup-gotv</code> hoặc từ icon GoTV trên khay hệ thống.</li>
+      </ol>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">3. Tính năng tối ưu cho lập trình viên trên Linux</h3>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Từ điển riêng theo từng ứng dụng (Per-App Dictionaries):</strong> tự động chuyển bộ từ điển gợi ý (<code>Tiếng Việt</code>, <code>English</code>, <code>C/C++</code>, <code>C# (.NET)</code>, <code>T-SQL</code>) theo ứng dụng đang mở như VS Code, Terminal, hay trình duyệt.</li>
+        <li><strong>Thuần C + GTK+ 3.0:</strong> không kéo theo runtime nặng, không gạch đỏ gây rối mắt khi gõ lệnh hay viết code.</li>
+      </ul>
+      <p>Nếu GoTV giúp bạn gõ tiếng Việt mượt mà hơn trên Linux, hãy ghé <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a> để tải bản mới nhất và tặng dự án một <strong>Star</strong> ủng hộ mã nguồn mở Việt!</p>
+    `
   }
 ];
