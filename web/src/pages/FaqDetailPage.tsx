@@ -11,7 +11,12 @@ interface FaqDetailPageProps {
 }
 
 export const FaqDetailPage: React.FC<FaqDetailPageProps> = ({ faq, basePath = '/gotv/' }) => {
-  const relatedFaqs = FAQ_ITEMS.filter((item) => item.id !== faq.id).slice(0, 3);
+  const idx = Math.max(0, FAQ_ITEMS.findIndex((item) => item.id === faq.id));
+  const rotate = <T,>(arr: T[], shift: number) =>
+    arr.length <= 1 ? arr : [...arr.slice(shift % arr.length), ...arr.slice(0, shift % arr.length)];
+  const sameCat = rotate(FAQ_ITEMS.filter((item) => item.id !== faq.id && item.category === faq.category), idx);
+  const otherCat = rotate(FAQ_ITEMS.filter((item) => item.id !== faq.id && item.category !== faq.category), idx);
+  const relatedFaqs = [...sameCat, ...otherCat].slice(0, 3);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#faf7f2] text-[#2b2320]">

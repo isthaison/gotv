@@ -300,5 +300,64 @@ export const FAQ_ITEMS: FaqItem[] = [
       <pre class="bg-stone-900 text-emerald-400 p-3 rounded-xl font-mono text-xs overflow-x-auto mb-4">winget install isthaison.GoTV</pre>
       <p>Hoặc tải trực tiếp tệp <code>gotv-*-x64-setup.exe</code> (cài đặt per-user không bắt buộc quyền Admin) tại <a href="https://github.com/isthaison/gotv/releases/latest" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">GitHub Releases</a>. Nếu thấy hữu ích, hãy tặng một <strong>Star</strong> tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>!</p>
     `
+  },
+  {
+    id: 'so-sanh-unikey-evkey',
+    slug: 'so-sanh-gotv-voi-unikey-evkey',
+    question: 'So sánh GoTV với các bộ gõ tiếng Việt truyền thống (UniKey, EVKey) — Điểm khác biệt là gì?',
+    shortAnswer: 'Khác với các bộ gõ đóng mã nguồn hoặc chỉ chạy trên Windows, GoTV là dự án mã nguồn mở 100% (MIT) với một lõi C thuần duy nhất cho cả Windows (TSF 64-bit/32-bit), Linux (IBus) và macOS (Native IMK), tích hợp từ điển ngoại tuyến theo từng ứng dụng.',
+    category: 'general',
+    dateModified: '2026-11-24',
+    detailHtml: `
+      <p class="mb-4">Người dùng tìm kiếm bộ gõ thay thế hoặc song hành cùng các bộ gõ quen thuộc trên Windows như <strong>UniKey</strong> hay <strong>EVKey</strong> thường quan tâm tới tính minh bạch mã nguồn, khả năng chạy đa nền tảng và độ ổn định trong IDE/Terminal. Dưới đây là những điểm khác biệt cốt lõi của <strong>GoTV</strong>:</p>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Bảng so sánh nhanh kiến trúc và tính năng</h3>
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-left text-xs sm:text-sm border border-stone-200 rounded-xl overflow-hidden">
+          <thead class="bg-stone-50 border-b border-stone-200 text-stone-900">
+            <tr>
+              <th class="p-3 font-bold">Tiêu chí</th>
+              <th class="p-3 font-bold text-red-700">GoTV (Mã nguồn mở MIT)</th>
+              <th class="p-3 font-bold">Bộ gõ truyền thống (Windows)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-200">
+            <tr>
+              <td class="p-3 font-semibold">Mã nguồn &amp; Kiểm chứng</td>
+              <td class="p-3">Công khai 100% trên GitHub, tự build/kiểm thử được</td>
+              <td class="p-3">Thường phân phối binary đóng nguồn</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-semibold">Hệ điều hành</td>
+              <td class="p-3">Windows 10/11 (TSF), Linux (IBus), macOS (Native IMK)</td>
+              <td class="p-3">Chủ yếu Windows</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-semibold">Cài đặt Windows</td>
+              <td class="p-3">Per-user (không cần Admin), hỗ trợ <code>winget install isthaison.GoTV</code></td>
+              <td class="p-3">Thường cần chạy quyền Admin cho app đặc quyền</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-semibold">Gõ trong Terminal / IDE</td>
+              <td class="p-3">Chuẩn TSF / IMK / IBus, không gạch chân đỏ, hỗ trợ Ghostty/iTerm2/VS Code</td>
+              <td class="p-3">Dùng hook phím Win32, đôi khi dính chữ trên Chrome/Electron</td>
+            </tr>
+            <tr>
+              <td class="p-3 font-semibold">Từ điển &amp; Macro</td>
+              <td class="p-3">Gợi ý offline ~6.700 từ tiếng Việt + từ điển theo từng app (C/C++, C#, T-SQL, English)</td>
+              <td class="p-3">Chủ yếu bảng gõ tắt tĩnh</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Khi nào nên chọn GoTV?</h3>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li>Bạn làm việc trên nhiều hệ điều hành (Windows tại công ty, Linux hoặc macOS cá nhân) và muốn <strong>một quy tắc gõ Telex/VNI giống hệt nhau</strong>.</li>
+        <li>Bạn cần phần mềm <strong>mã nguồn mở minh bạch</strong>, không telemetry, không gửi dữ liệu bàn phím ra Internet.</li>
+        <li>Bạn là lập trình viên hay gõ xen kẽ tiếng Việt với từ khóa <code>C/C++</code>, <code>C#</code>, <code>T-SQL</code>, <code>English</code> và muốn bộ gõ tự đổi từ điển gợi ý theo từng ứng dụng.</li>
+      </ul>
+      <p>Khám phá mã nguồn, bộ cài Windows/Linux/macOS và đóng góp cho dự án tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>.</p>
+    `
   }
 ];
