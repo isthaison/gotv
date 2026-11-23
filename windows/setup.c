@@ -720,20 +720,25 @@ static void paint_setup_window(HWND hwnd, HDC out_hdc, int cw, int ch) {
         draw_button(g, mem, pal, emo_btn, tr("Mở bảng...", "Open..."), HIT_BTN_EMOJI_CFG, FALSE, TRUE, f_btn, dpi);
         cy += card_h + gap;
 
-        /* Card 5: Giao diện & Ngôn ngữ */
-        RECT c5 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
-                                  tr("Giao diện & Ngôn ngữ", "Theme & Language"), NULL, f_card, f_sub, dpi);
-        int lw = sc(70, dpi), lh = sc(26, dpi), thw = sc(56, dpi);
-        int by5 = c5.top + (card_h - lh) / 2;
-        RECT en_btn = { c5.right - sc(16, dpi) - lw, by5, c5.right - sc(16, dpi), by5 + lh };
-        RECT vi_btn = { en_btn.left - sc(6, dpi) - lw, by5, en_btn.left - sc(6, dpi), by5 + lh };
-        RECT lt_btn = { vi_btn.left - sc(14, dpi) - thw, by5, vi_btn.left - sc(14, dpi), by5 + lh };
-        RECT dk_btn = { lt_btn.left - sc(6, dpi) - thw, by5, lt_btn.left - sc(6, dpi), by5 + lh };
+        /* Card 5: Giao diện & Ngôn ngữ (2 rows to prevent overlap at any width) */
+        int card5_h = sc(84, dpi);
+        fill_round_rect(g, (REAL)cx, (REAL)cy, (REAL)cwid, (REAL)card5_h, (REAL)sc(10, dpi), pal->card, pal->card_border);
+        int lw = sc(74, dpi), lh = sc(26, dpi), thw = sc(60, dpi);
+        int r1_y = cy + sc(10, dpi), r2_y = cy + sc(46, dpi);
+        RECT l_thm = { cx + sc(16, dpi), r1_y, cx + cwid - sc(160, dpi), r1_y + lh };
+        draw_text_u8(mem, tr("Giao diện", "Theme"), &l_thm, pal->text_primary, f_card, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        RECT lt_btn = { cx + cwid - sc(16, dpi) - thw, r1_y, cx + cwid - sc(16, dpi), r1_y + lh };
+        RECT dk_btn = { lt_btn.left - sc(6, dpi) - thw, r1_y, lt_btn.left - sc(6, dpi), r1_y + lh };
         draw_button(g, mem, pal, dk_btn, tr("Tối", "Dark"), HIT_BTN_THEME_DARK, g_app.config.ui_theme == GTV_THEME_DARK, TRUE, f_sub, dpi);
         draw_button(g, mem, pal, lt_btn, tr("Sáng", "Light"), HIT_BTN_THEME_LIGHT, g_app.config.ui_theme == GTV_THEME_LIGHT, TRUE, f_sub, dpi);
+
+        RECT l_lng = { cx + sc(16, dpi), r2_y, cx + cwid - sc(180, dpi), r2_y + lh };
+        draw_text_u8(mem, tr("Ngôn ngữ", "Language"), &l_lng, pal->text_primary, f_card, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        RECT en_btn = { cx + cwid - sc(16, dpi) - lw, r2_y, cx + cwid - sc(16, dpi), r2_y + lh };
+        RECT vi_btn = { en_btn.left - sc(6, dpi) - lw, r2_y, en_btn.left - sc(6, dpi), r2_y + lh };
         draw_button(g, mem, pal, vi_btn, "Tiếng Việt", HIT_BTN_LANG_VI, g_app.config.ui_lang == GTV_LANG_VI, TRUE, f_sub, dpi);
         draw_button(g, mem, pal, en_btn, "English", HIT_BTN_LANG_EN, g_app.config.ui_lang == GTV_LANG_EN, TRUE, f_sub, dpi);
-        cy += card_h + gap;
+        cy += card5_h + gap;
 
         /* Card 6: Khởi động cùng Windows */
         RECT c6 = draw_card_frame(g, mem, pal, cx, cy, cwid, card_h,
