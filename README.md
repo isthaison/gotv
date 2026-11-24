@@ -55,7 +55,7 @@ $ build/gotv-demo --transform telex duocjwd
 - **Gợi ý từ điển ngoại tuyến**: hoàn thành tiền tố theo bộ từ điển tiếng Việt chính quy (~6.700 từ chuẩn mực theo quy chuẩn của Viện Ngôn ngữ học, Bộ GD&ĐT và chuẩn quốc tế Hunspell vi_VN) kết hợp từ điển tự học riêng của bạn, hoạt động offline 100%.
 - **Từ điển riêng theo từng ứng dụng (Per-App Dictionaries)**: tự động chuyển bộ từ điển gợi ý (`Tiếng Việt`, `English`, `C/C++`, `C# (.NET)`, `T-SQL`) theo từng cửa sổ đang gõ — ví dụ bật từ điển lập trình trong IDE/Terminal và giữ tiếng Việt thuần khi chat hoặc soạn thảo văn bản.
 - **Giao diện Tối/Sáng & Song ngữ Việt/Anh (Dark/Light Theme & Bilingual UI)**: cài đặt giao diện hiện đại đồng bộ trên Windows, Linux và macOS, hỗ trợ chuyển nhanh chế độ Tối/Sáng và ngôn ngữ Tiếng Việt / English.
-- **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍. Có sẵn bảng quản lý trực quan trên macOS.
+- **Macro/emoji bằng file text**: tự thêm `cty=Công ty TNHH` (gõ `cty` rồi nhấn **Tab** để bung (macro/emoji đều cần Tab), phím Space giữ nguyên chữ), `:smile:`→😊, `(y)`→👍. Có sẵn cửa sổ quản lý trực quan trên cả Windows, Linux và macOS.
 - **Nhẹ, riêng tư**: lõi C thuần + glib; không runtime nặng nề, không gửi dữ liệu phím đi đâu, mọi gợi ý chạy offline trên máy.
 - **Tự cập nhật**: kiểm tra release GitHub định kỳ, nâng cấp đè giữ nguyên cấu hình cá nhân.
 

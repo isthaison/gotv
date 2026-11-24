@@ -33,6 +33,8 @@ Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều 
 | Đổi Telex ↔ VNI trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ✅ (Menu Bar + Preferences) |
 | Chuẩn dấu / Chính tả trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
 | Bật/tắt gợi ý từ điển trong UI | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences + Menu Bar) |
+| Từ điển riêng theo từng ứng dụng | ✅ (Setup) | ✅ (Setup) | ✅ (Preferences) |
+| Giao diện Tối/Sáng & Song ngữ Việt/Anh | ✅ (Setup GTK3) | ✅ (Setup Win32) | ✅ (Preferences Cocoa) |
 | Quản lý macro/emoji trong UI | ✅ (tray + Setup) | ✅ (tray + Setup) | ✅ (Menu Bar + GtvDataWindow) |
 
 ## Khay, menu, hệ thống

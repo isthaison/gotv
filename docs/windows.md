@@ -1,6 +1,6 @@
 # Bản Windows
 
-Native Windows 10/11 (x64). Gõ bằng **TSF Text Service** (stub `gtv_tsf.dll` đăng ký một lần + engine versioned trong `ver\<bản>\`, composition chuẩn Windows — đúng trong mọi ô nhập kể cả autocomplete/khó tính); app khay hệ thống lo cấu hình, gợi ý AI, cập nhật. Không còn hook bàn phím.
+Native Windows 10/11 (x64). Gõ bằng **TSF Text Service** (stub `gtv_tsf.dll` đăng ký một lần + engine versioned trong `ver\<bản>\`, composition chuẩn Windows — đúng trong mọi ô nhập kể cả autocomplete/khó tính); app khay hệ thống lo cấu hình, gợi ý từ điển offline, cập nhật. Không còn hook bàn phím.
 
 - Cài lần đầu: đăng xuất/đăng nhập lại rồi chọn GoTV bằng `Win+Space`. Các bản **cập nhật sau không cần** đóng app, đăng xuất hay reboot (xem dưới).
 - Nếu chưa thấy bàn phím GoTV: vào **Settings → Time & Language → Language** → chọn `English` (hoặc `Tiếng Việt`) → **Options** → **Add a keyboard** → chọn **GoTV**. Không thấy nữa thì đăng xuất/đăng nhập lại một lần.
@@ -12,7 +12,7 @@ Native Windows 10/11 (x64). Gõ bằng **TSF Text Service** (stub `gtv_tsf.dll` 
 - Mỗi release GitHub đính kèm `gotv-<version>-x64-setup.exe` (Inno Setup, per-user, không cần admin, gỡ sạch qua Add/Remove Programs, giữ nguyên cấu hình).
 - Cập nhật không chạm app đang chạy, không cần đăng xuất/reboot: mỗi bản nằm trong thư mục version riêng (`ver\<bản>\`), stub TSF (`gtv_tsf.dll`) đăng ký đúng một lần nên không cài lại, không UAC. App đang mở giữ bản cũ tới khi thoát; app mở mới dùng bản mới ngay; app khay tự tiếp quản bản mới trong ~1 giây. Chỉ giữ bản hiện tại + 1 bản rollback, cũ hơn tự dọn.
 - App tự kiểm tra release mới nhất mỗi ngày; menu tray **Kiểm tra cập nhật...** để kiểm tra tay. Có bản mới thì hiện balloon — **click vào balloon** để tải và chạy bộ cài silent. So sánh semver, chỉ cài đúng asset `gotv-<version>-x64-setup.exe`.
-- Code signing: bản release ký self-signed cert (RSA 4096, 1 năm) — bypass SmartScreen trên大部分 Windows. Nếu cert chưa cấu hình, bản unsigned vẫn hoạt động bình thường nhưng SmartScreen có thể hiện cảnh báo lần đầu chạy.
+- Code signing: bản release ký self-signed cert (RSA 4096, 1 năm) — bypass SmartScreen trên phần lớn máy Windows. Nếu cert chưa cấu hình, bản unsigned vẫn hoạt động bình thường nhưng SmartScreen có thể hiện cảnh báo lần đầu chạy.
 - Chẩn đoán: `%LOCALAPPDATA%\gotv\update.log` (mọi bước check/tải/cài của updater).
 
 ## Microsoft Store

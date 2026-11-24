@@ -359,5 +359,34 @@ export const FAQ_ITEMS: FaqItem[] = [
       </ul>
       <p>Khám phá mã nguồn, bộ cài Windows/Linux/macOS và đóng góp cho dự án tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>.</p>
     `
+  },
+  {
+    id: 'per-app-dictionaries',
+    slug: 'tu-dien-rieng-theo-ung-dung-cho-lap-trinh-vien',
+    question: 'Cách dùng tính năng Từ điển riêng theo từng ứng dụng (Per-App Dictionaries) trong GoTV?',
+    shortAnswer: 'GoTV cho phép gán bộ từ điển riêng (Tiếng Việt, English, C/C++, C# (.NET), T-SQL) cho từng ứng dụng như VS Code, Terminal, SSMS hay trình duyệt — hoạt động 100% offline trên Windows, Linux và macOS.',
+    category: 'usage',
+    dateModified: '2026-11-24',
+    detailHtml: `
+      <p class="mb-4">Khi lập trình viên hoặc nhân viên văn phòng làm việc liên tục giữa cửa sổ code, câu lệnh SQL và khung chat tiếng Việt, việc bộ gõ tự động bật/tắt đúng ngữ cảnh từ vựng giúp giảm lỗi gõ nhầm đáng kể.</p>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">1. 5 bộ từ điển ngoại tuyến tích hợp sẵn</h3>
+      <ul class="list-disc pl-6 mb-4 space-y-2">
+        <li><strong>Tiếng Việt (<code>vi</code>):</strong> ~6.670 từ vựng tiếng Việt chuẩn chính tả.</li>
+        <li><strong>Tiếng Anh (<code>en</code>):</strong> ~3.400 từ tiếng Anh phổ thông &amp; thuật ngữ kỹ thuật.</li>
+        <li><strong>C / C++ (<code>c</code>):</strong> ~980 từ khóa và hàm chuẩn C/C++/POSIX/GLib.</li>
+        <li><strong>C# (.NET) (<code>csharp</code>):</strong> ~1.080 từ khóa C#, LINQ và lớp .NET BCL phổ biến.</li>
+        <li><strong>T-SQL (<code>tsql</code>):</strong> ~830 từ khóa SQL Server, kiểu dữ liệu và hàm hệ thống.</li>
+      </ul>
+
+      <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Cách thiết lập trên Windows, Linux và macOS</h3>
+      <ol class="list-decimal pl-6 mb-4 space-y-2">
+        <li>Mở cửa sổ <strong>Cài đặt GoTV</strong> từ khay hệ thống (hoặc chạy <code>ibus-setup-gotv</code> trên Linux) &rarr; chọn mục <strong>Từ điển</strong>.</li>
+        <li>Nhấn nút <strong>Theo từng ứng dụng...</strong> (Per-app dictionaries).</li>
+        <li>Chọn ứng dụng từ danh sách thả xuống (có sẵn ô tìm kiếm nhanh trên Windows) như <code>Code.exe</code>, <code>WindowsTerminal.exe</code>, <code>Ssms.exe</code>, hoặc <code>firefox</code>.</li>
+        <li>Đánh dấu các gói từ điển mong muốn cho ứng dụng đó rồi nhấn <strong>Thêm / Cập nhật</strong>.</li>
+      </ol>
+      <p>Toàn bộ quy tắc được lưu cục bộ trong tệp <code>config</code> (mục <code>[app_dicts]</code>) và xử lý 100% offline. Tải bản mới nhất và tặng sao ủng hộ dự án tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>.</p>
+    `
   }
 ];

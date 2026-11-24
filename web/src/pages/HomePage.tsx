@@ -97,9 +97,9 @@ export const HomePage: React.FC<HomePageProps> = ({ basePath = '/gotv/' }) => {
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-4">
                 <BookMarked className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-lg text-stone-900 mb-2">Gợi ý từ điển &amp; Tự học</h3>
+              <h3 className="font-bold text-lg text-stone-900 mb-2">Gợi ý từ điển &amp; Theo từng ứng dụng</h3>
               <p className="text-sm text-stone-600 leading-relaxed">
-                Tự động hoàn thành từ và sửa lỗi chính tả từ kho từ điển ~7.000 từ. Tự động ghi nhớ thói quen gõ cá nhân trên ổ cứng máy tính.
+                Tự động hoàn thành từ từ 5 bộ từ điển (Tiếng Việt, English, C/C++, C#, T-SQL) và tự chuyển theo từng ứng dụng đang gõ, ghi nhớ thói quen hoàn toàn offline.
               </p>
             </article>
 
