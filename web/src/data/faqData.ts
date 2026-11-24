@@ -178,20 +178,20 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'vi-tri-config',
     slug: 'vi-tri-luu-file-cau-hinh-gotv',
     question: 'Vị trí lưu file cấu hình, macro và từ điển của GoTV ở đâu?',
-    shortAnswer: 'Windows: %APPDATA%\\gotv\\ — Linux: ~/.config/gotv/ — macOS: ~/Library/Application Support/gotv/. Toàn bộ là file text UTF-8, sửa tay được.',
+    shortAnswer: 'Windows: %LOCALAPPDATA%\\gotv\\ — Linux: ~/.config/gotv/ — macOS: ~/Library/Application Support/gotv/. Toàn bộ là file text UTF-8, sửa tay được.',
     category: 'usage',
-    dateModified: '2026-11-07',
+    dateModified: '2026-11-24',
     detailHtml: `
       <h3 class="text-xl font-bold mt-2 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Đường dẫn thư mục</h3>
       <ul class="list-disc pl-6 mb-4 space-y-2">
-        <li><strong>Windows:</strong> <code>%APPDATA%\\gotv\\</code> (Bấm <code>Win + R</code>, dán <code>%appdata%\\gotv</code> và Enter).</li>
+        <li><strong>Windows:</strong> <code>%LOCALAPPDATA%\\gotv\\</code> (Bấm <code>Win + R</code>, dán <code>%localappdata%\\gotv</code> và Enter).</li>
         <li><strong>Linux:</strong> <code>~/.config/gotv/</code></li>
         <li><strong>macOS:</strong> <code>~/Library/Application Support/gotv/</code> hoặc <code>~/.config/gotv/</code></li>
       </ul>
       <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Các tệp quan trọng</h3>
-      <p class="mb-2"><code>config</code>: Tùy chọn kiểu gõ (telex/vni), chính tả.</p>
-      <p class="mb-2"><code>macro.txt</code>: Danh sách từ gõ tắt cá nhân (ví dụ: <code>cty=Công ty TNHH</code>).</p>
-      <p><code>learned-words.txt</code>: Dữ liệu từ vựng bộ gõ đã tự học.</p>
+      <p class="mb-2"><code>config</code>: Tùy chọn kiểu gõ (telex/vni), giao diện (tối/sáng), ngôn ngữ, chính tả và từ điển theo ứng dụng.</p>
+      <p class="mb-2"><code>macros.txt</code> &amp; <code>emojis.txt</code>: Danh sách từ gõ tắt và emoji cá nhân (ví dụ: <code>cty=Công ty TNHH</code>).</p>
+      <p><code>learned-words.txt</code> &amp; <code>learned-corrections.txt</code>: Dữ liệu từ vựng bộ gõ đã tự học.</p>
     `
   },
   {

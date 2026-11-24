@@ -158,7 +158,7 @@ ibus-setup-gotv --cli      # terminal
 - **Không thấy GoTV sau khi cài (macOS):** đăng xuất/đăng nhập lại (hoặc chạy `killall -9 GoTV` trong Terminal);
   System Settings → Keyboard → Text Input → Edit → Bấm (+) → Vietnamese → GoTV.
 - **Crash (Linux):** xem `~/.cache/gotv/crash.log`, báo kèm phiên bản và log liên quan.
-- **Updater (Windows):** xem `%APPDATA%\gotv\update.log`.
+- **Updater (Windows):** xem `%LOCALAPPDATA%\gotv\update.log`.
 
 ## Đóng góp & Cộng đồng (Community & Contributing)
 
@@ -166,9 +166,6 @@ Dự án phát triển hoàn toàn vì cộng đồng và rất trân trọng m�
 - Xem **[Hướng dẫn đóng góp (CONTRIBUTING.md)](CONTRIBUTING.md)** để biết cách gửi báo cáo lỗi, đóng góp từ điển, macro hoặc mã nguồn.
 - Thảo luận và góp ý tính năng mới tại **[GitHub Discussions](https://github.com/isthaison/gotv/discussions)** hoặc [GitHub Issues](https://github.com/isthaison/gotv/issues).
 - Mọi đóng góp code cần vượt qua kiểm thử: `./gtv.sh test` (Linux/macOS) hoặc `.\gtv.cmd test` (Windows).
-
-> 💡 **Gợi ý topics cho repo** (mục About → ⚙️): `vietnamese` `tieng-viet` `telex` `vni`
-> `input-method` `ime` `ibus` `tsf` `open-source` `linux` `windows` `macos` `dictionary` `c`
 
 ## Star History & Stargazers
 
