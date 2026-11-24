@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Trung tâm Hỏi đáp & Sửa lỗi (FAQ)
+    url: https://isthaison.github.io/gotv/faq/
+    about: Xem hướng dẫn cài đặt Windows/Linux/macOS, Zalo PC, Terminal và cách xử lý các lỗi thường gặp.
+  - name: Thảo luận & Hỏi đáp cộng đồng (Discussions)
+    url: https://github.com/isthaison/gotv/discussions
+    about: Đặt câu hỏi, chia sẻ mẹo cấu hình hoặc trao đổi ý tưởng mới với tác giả và cộng đồng.

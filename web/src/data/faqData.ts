@@ -6,6 +6,7 @@ export interface FaqItem {
   detailHtml: string;
   category: 'general' | 'usage' | 'troubleshooting';
   dateModified: string;
+  lang?: 'vi' | 'en';
 }
 
 export const FAQ_ITEMS: FaqItem[] = [
@@ -396,6 +397,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     shortAnswer: 'GoTV is a free, MIT-licensed pure C Vietnamese IME supporting Telex & VNI on Windows 10/11 (TSF + winget), Linux (IBus .deb/.rpm), and macOS (Native InputMethodKit), with offline dictionaries and zero telemetry.',
     category: 'general',
     dateModified: '2026-11-24',
+    lang: 'en',
     detailHtml: `
       <div lang="en">
         <p class="mb-4"><strong>GoTV</strong> is an independent, 100% open-source (MIT License) Vietnamese Input Method Editor (IME) powered by a single pure C core shared across <strong>Windows, Linux, and macOS</strong>.</p>

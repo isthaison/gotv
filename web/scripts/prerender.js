@@ -54,10 +54,11 @@ async function prerender() {
   await vite.close();
 
   // Helper tạo khung HTML đầy đủ
-  function buildHtmlTemplate({ title, description, canonical, schema, bodyContent, isFaqSubpage = false }) {
+  function buildHtmlTemplate({ title, description, canonical, schema, bodyContent, isFaqSubpage = false, lang = 'vi' }) {
     const assetPrefix = isFaqSubpage ? '../' : './';
+    const ogLocale = lang === 'en' ? 'en_US' : 'vi_VN';
     return `<!DOCTYPE html>
-<html lang="vi">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -71,10 +72,10 @@ async function prerender() {
   <meta name="google-site-verification" content="googled070dcb971278a07">
   <meta name="theme-color" content="#b22222">
   <link rel="canonical" href="${canonical}">
-  <link rel="alternate" hreflang="vi" href="${canonical}">
+  <link rel="alternate" hreflang="${lang}" href="${canonical}">
   <link rel="alternate" hreflang="x-default" href="${canonical}">
   <meta property="og:type" content="${isFaqSubpage ? 'article' : 'website'}">
-  <meta property="og:locale" content="vi_VN">
+  <meta property="og:locale" content="${ogLocale}">
   <meta property="og:site_name" content="GoTV">
   <meta property="og:title" content="${title}">
   <meta property="og:description" content="${description}">
@@ -274,6 +275,7 @@ ${JSON.stringify(schema, null, 2)}
       schema: detailSchema,
       bodyContent: detailContent,
       isFaqSubpage: true,
+      lang: faq.lang || 'vi',
     });
 
     fs.writeFileSync(path.join(siteDir, 'faq', `${faq.slug}.html`), detailHtml, 'utf-8');
