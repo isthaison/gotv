@@ -120,7 +120,7 @@ Vài điểm Windows thật sự quyết định, đã tính sẵn trong code:
 ## Gạch đỏ dưới chữ Việt trong trình duyệt/app khác
 
 Không phải của GoTV: TSF của app không bao giờ vẽ gạch đỏ (không set display
-attribute nào), bản Windows cũng không có gạch đỏ inline (chỉ có balloon gợi ý AI).
+attribute nào), bản Windows cũng không có gạch đỏ inline (chỉ có balloon gợi ý từ điển offline).
 Gạch đỏ cả câu như ảnh là **spellchecker của trình duyệt** (từ điển Anh gặp chữ Việt)
 hoặc Windows (Settings → Time & language → Typing → Highlight misspelt words khi đang
 ở ENG). Tắt spellcheck của ô nhập đó, hoặc thêm tiếng Việt vào trình duyệt là hết.

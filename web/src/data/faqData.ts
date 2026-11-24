@@ -388,5 +388,34 @@ export const FAQ_ITEMS: FaqItem[] = [
       </ol>
       <p>Toàn bộ quy tắc được lưu cục bộ trong tệp <code>config</code> (mục <code>[app_dicts]</code>) và xử lý 100% offline. Tải bản mới nhất và tặng sao ủng hộ dự án tại <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>.</p>
     `
+  },
+  {
+    id: 'english-vietnamese-ime-guide',
+    slug: 'vietnamese-input-method-windows-linux-macos-open-source',
+    question: 'Open-source Vietnamese Input Method (Telex & VNI) for Windows, Linux & macOS — GoTV Guide',
+    shortAnswer: 'GoTV is a free, MIT-licensed pure C Vietnamese IME supporting Telex & VNI on Windows 10/11 (TSF + winget), Linux (IBus .deb/.rpm), and macOS (Native InputMethodKit), with offline dictionaries and zero telemetry.',
+    category: 'general',
+    dateModified: '2026-11-24',
+    detailHtml: `
+      <div lang="en">
+        <p class="mb-4"><strong>GoTV</strong> is an independent, 100% open-source (MIT License) Vietnamese Input Method Editor (IME) powered by a single pure C core shared across <strong>Windows, Linux, and macOS</strong>.</p>
+
+        <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">1. Why developers choose GoTV</h3>
+        <ul class="list-disc pl-6 mb-4 space-y-2">
+          <li><strong>Cross-platform parity:</strong> Identical Telex &amp; VNI transformation rules (modern <em>hòa</em> or traditional <em>hoà</em> tone placement) on Windows, Linux, and macOS.</li>
+          <li><strong>Native OS integration:</strong> Windows Text Services Framework (TSF 64-bit &amp; 32-bit WOW64), Linux IBus (Wayland &amp; X11), and macOS Apple InputMethodKit (IMK — no Accessibility/TCC permission required, clean typing in Ghostty, iTerm2, Kitty, and Terminal.app).</li>
+          <li><strong>Offline &amp; private by design:</strong> Zero network telemetry. Built-in offline suggestion packs (<code>vi</code>, <code>en</code>, <code>c</code>, <code>csharp</code>, <code>tsql</code>), per-app dictionary rules, text macros, and emoji shortcodes (expanded with <code>Tab</code>).</li>
+          <li><strong>Bilingual UI &amp; Dark/Light theme:</strong> Switch the Settings UI cleanly between English and Vietnamese, and Dark or Light appearance.</li>
+        </ul>
+
+        <h3 class="text-xl font-bold mt-6 mb-3 text-stone-900 border-b border-red-700 pb-1">2. Quick Installation</h3>
+        <ul class="list-disc pl-6 mb-4 space-y-2">
+          <li><strong>Windows 10/11:</strong> Run <code>winget install isthaison.GoTV</code> or download the per-user <code>gotv-*-x64-setup.exe</code> installer (no Admin rights required).</li>
+          <li><strong>Linux (Ubuntu/Debian/Fedora/RHEL):</strong> Install <code>gotv_*_amd64.deb</code> or <code>gotv-*.x86_64.rpm</code>, then add <em>Vietnamese → GoTV</em> in GNOME/IBus Input Sources.</li>
+          <li><strong>macOS (Apple Silicon &amp; Intel):</strong> Install <code>gotv-*-macos.pkg</code> (or drag <code>GoTV.app</code> from <code>.dmg</code> to <code>/Library/Input Methods/</code>), then add <em>Vietnamese → GoTV</em> in System Settings.</li>
+        </ul>
+        <p>Download the latest release, inspect the C source code, or support the project with a GitHub Star at <a href="https://github.com/isthaison/gotv" target="_blank" rel="noopener noreferrer" class="text-red-700 underline font-semibold">github.com/isthaison/gotv</a>.</p>
+      </div>
+    `
   }
 ];
