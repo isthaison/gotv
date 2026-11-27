@@ -18,7 +18,7 @@ CORE_LIB := $(BUILD_DIR)/libgotv.a
 CORE_LIBS := $(shell $(PKG_CONFIG) --libs gio-2.0) -lm
 BINS := $(BUILD_DIR)/ibus-engine-gotv $(BUILD_DIR)/ibus-setup-gotv $(BUILD_DIR)/gotv-demo
 
-.PHONY: all build test vet install clean package help
+.PHONY: all build test vet install install-fcitx5 uninstall-fcitx5 clean package help fcitx5
 all: build
 build: $(BINS)
 $(BUILD_DIR)/engine/%.o: engine/%.c engine/engine.h engine/internal.h
@@ -32,6 +32,9 @@ $(BUILD_DIR)/ibus-setup-gotv: linux/setup/main.c linux/setup/data.c $(CORE_LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) linux/setup/main.c linux/setup/data.c $(CORE_LIB) $(LDFLAGS) $(shell $(PKG_CONFIG) --cflags --libs gtk+-3.0 ayatana-appindicator3-0.1) $(CORE_LIBS) -o $@
 $(BUILD_DIR)/gotv-demo: tools/demo/main.c $(CORE_LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(CORE_LIB) $(LDFLAGS) $(CORE_LIBS) -o $@
+fcitx5:
+	cmake -S linux/fcitx5 -B $(BUILD_DIR)/fcitx5 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+	cmake --build $(BUILD_DIR)/fcitx5 --parallel
 $(BUILD_DIR)/test-engine: tests/test_engine.c $(CORE_LIB)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(CORE_LIB) $(LDFLAGS) $(CORE_LIBS) -o $@
 $(BUILD_DIR)/test-support: tests/test_support.c $(CORE_LIB)
@@ -46,13 +49,18 @@ vet:
 	$(MAKE) build test CFLAGS='-O2 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Werror' BUILD_DIR=$(BUILD_DIR)/strict
 install: build
 	sudo bash ./gtv.sh install
+install-fcitx5: fcitx5
+	sudo bash ./gtv.sh install-fcitx5
+uninstall-fcitx5:
+	sudo bash ./gtv.sh uninstall-fcitx5
 package: build
 	bash ./gtv.sh package "$(VERSION)"
 clean:
 	bash ./gtv.sh clean
 help:
-	@echo 'make build | test | vet | install | package VERSION=... | clean | bump V=...'
-	@echo '  (shell entry point: ./gtv.sh <build|test|vet|clean|install|package|bump|help>)'
+	@echo 'make build | test | vet | fcitx5 | install | install-fcitx5 | uninstall-fcitx5'
+	@echo 'make package VERSION=... | clean | bump V=...'
+	@echo '  (Fcitx5 build requires its development packages and CMake)'
 .PHONY: bump
 bump:
 	bash ./gtv.sh bump "$(V)" "$(NOTES)"

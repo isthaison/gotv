@@ -1,6 +1,7 @@
 #include "data.h"
 #include "../../engine/internal.h"
 #include <gtk/gtk.h>
+#include <stdlib.h>
 
 typedef struct {
     GtkWidget *dlg;
@@ -12,6 +13,30 @@ typedef struct {
     gboolean emoji;
     gboolean dirty;
 } DataUi;
+
+void data_restart_fcitx5_if_active(void) {
+    gchar *binary = g_find_program_in_path("fcitx5-remote");
+    if (!binary) return;
+    g_free(binary);
+
+    gchar *current = NULL;
+    gint status = 0;
+    GError *error = NULL;
+    if (!g_spawn_command_line_sync("fcitx5-remote -n", &current, NULL,
+                                   &status, &error)) {
+        g_warning("Could not query Fcitx5: %s", error->message);
+        g_clear_error(&error);
+        g_free(current);
+        return;
+    }
+    if (status == 0 && current && *g_strstrip(current)) {
+        if (!g_spawn_command_line_async("fcitx5-remote -r", &error)) {
+            g_warning("Could not restart Fcitx5: %s", error->message);
+            g_clear_error(&error);
+        }
+    }
+    g_free(current);
+}
 
 static void data_refresh(DataUi *u) {
     gtk_list_store_clear(u->store);
@@ -204,8 +229,8 @@ void data_show(GtkWindow *parent) {
     gtk_box_pack_start(GTK_BOX(btns), b_del, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(btns), b_folder, FALSE, FALSE, 0);
 
-    GtkWidget *note = gtk_label_new(gtv_i18n("Thay đổi lưu vào file riêng của bạn. Đóng cửa sổ này sẽ restart ibus để engine nhận bảng mới.",
-                                             "Changes are saved to your personal file. Closing this window will restart ibus to load the new table."));
+    GtkWidget *note = gtk_label_new(gtv_i18n("Thay đổi lưu vào file riêng của bạn. Đóng cửa sổ này sẽ restart IBus/Fcitx5 đang hoạt động để nạp bảng mới.",
+                                             "Changes are saved to your personal file. Closing this window restarts active IBus/Fcitx5 engines to load the new table."));
     gtk_style_context_add_class(gtk_widget_get_style_context(note), "gtv-card-sub");
     gtk_label_set_line_wrap(GTK_LABEL(note), TRUE);
     gtk_label_set_xalign(GTK_LABEL(note), 0.0);
@@ -216,8 +241,13 @@ void data_show(GtkWindow *parent) {
     gtk_widget_show_all(u.dlg);
     gtk_dialog_run(GTK_DIALOG(u.dlg));
     if (u.dirty) {
-        int status = system("ibus restart 2>/dev/null &");
-        if (status != 0) g_warning("ibus restart failed (status %d)", status);
+        gchar *ibus = g_find_program_in_path("ibus");
+        if (ibus) {
+            int status = system("ibus restart 2>/dev/null &");
+            if (status != 0) g_warning("ibus restart failed (status %d)", status);
+            g_free(ibus);
+        }
+        data_restart_fcitx5_if_active();
     }
     gtk_widget_destroy(u.dlg);
 }

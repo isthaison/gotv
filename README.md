@@ -33,12 +33,12 @@ Từ phiên bản 0.9.0, dự án của **isthaison** đổi tên từ GoTiengVi
 Xem [hướng dẫn chuyển đổi](docs/rename-gotv.md) cho người đang dùng bản cũ.
 
 Bộ gõ tiếng Việt mã nguồn mở: một **lõi gõ duy nhất viết bằng C** (không Go, không CGO, không runtime ngoài),
-chạy trên cả ba hệ điều hành qua adapter mỏng của từng nền tảng —
-[IBus](https://github.com/ibus/ibus) trên Linux, [TSF Text Service](https://learn.microsoft.com/en-us/windows/win32/tsf/text-services-framework) trên Windows,
+chạy trên cả ba hệ điều hành qua adapter native của từng nền tảng —
+[IBus](https://github.com/ibus/ibus) và Fcitx5 trên Linux, [TSF Text Service](https://learn.microsoft.com/en-us/windows/win32/tsf/text-services-framework) trên Windows,
 [InputMethodKit](https://developer.apple.com/documentation/inputmethodkit) trên macOS.
 
 > **English:** GoTV is a free, open-source **Vietnamese input method (Telex & VNI)** for
-> Linux (IBus), Windows 10/11 (TSF) and macOS (InputMethodKit) — built on a lightweight,
+> Linux (IBus and Fcitx5), Windows 10/11 (TSF) and macOS (InputMethodKit) — built on a lightweight,
 > standalone C core with offline spellcheck, text macros/emoji expansions and an offline dictionary
 > (word suggestions + typo corrections, auto-updated from GitHub).
 
@@ -70,6 +70,7 @@ $ build/gotv-demo --transform telex duocjwd
 | Nền tảng | Cách gõ | Trạng thái |
 |---|---|---|
 | Linux (Ubuntu/GNOME) | IBus engine + app khay (indicator) | ✅ Ổn định — `.deb` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
+| Linux (Fcitx5) | Native Fcitx5 addon | ✅ Telex/VNI, Tab macro/emoji — từ GoTV 0.9.32 có gói `gotv-fcitx5` riêng |
 | Windows 10/11 | TSF Text Service + app khay | ✅ Ổn định — `gotv-*-x64-setup.exe` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 | macOS (Apple Silicon & Intel) | InputMethodKit `.app` (Native IMK) | ✅ Ổn định — `gotv-*-macos.pkg` / `.dmg` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 
@@ -87,6 +88,15 @@ sudo ./gtv.sh install
 Rồi vào **Settings → Keyboard → Input Sources** thêm **GoTV**
 (một nguồn duy nhất; chuyển Telex/VNI trong app indicator hoặc Setup),
 chuyển bằng `Super+Space`. Chi tiết: [docs/dev.md](docs/dev.md).
+
+**Linux (Fcitx5)**: từ GoTV 0.9.32, tải cả hai gói `.deb` `gotv_<version>-1_amd64.deb`
+và `gotv-fcitx5_<version>-1_amd64.deb` từ [Releases](https://github.com/isthaison/gotv/releases/latest),
+rồi cài bằng `sudo apt install ./gotv_<version>-1_amd64.deb ./gotv-fcitx5_<version>-1_amd64.deb`.
+Gói adapter cài phần dùng chung và Fcitx5 nếu máy chưa có. Sau khi cài, mở
+Fcitx5 Configuration → **Input Method** → **+** → thêm **GoTV**; nếu Fcitx5 đang
+chạy, chạy `fcitx5-remote -r` hoặc đăng xuất/đăng nhập lại. Có thể build từ source
+theo [hướng dẫn phát triển](docs/dev.md). Adapter hỗ trợ Telex/VNI và mở rộng
+macro/emoji bằng Tab; bảng gợi ý từ điển hiện mới có trên IBus.
 
 **Windows 10/11**:
 - Cài qua Windows Package Manager (**Winget**):
@@ -121,7 +131,7 @@ Ví dụ: `bawst` → `bắt`, `duocjwd` → `được`, `hoaf` → `hoà`/`hòa
 | Tiêu chí | GoTV |
 |---|---|
 | Kiểu gõ hỗ trợ | Telex & VNI (bảng quy tắc chung, hỗ trợ kiểu dấu mới/cũ) |
-| Đa nền tảng | Đầy đủ Linux (IBus), Windows 10/11 (TSF), macOS (Native IMK) |
+| Đa nền tảng | Linux (IBus/Fcitx5), Windows 10/11 (TSF), macOS (Native IMK) |
 | Trải nghiệm gõ | Không gạch đỏ gây phân tâm, phù hợp cả gõ văn bản và lập trình |
 | Gợi ý & Macro | Gợi ý từ điển chính quy và macro/emoji hoàn toàn offline |
 | Giấy phép | Mã nguồn mở (MIT License) |
@@ -151,6 +161,8 @@ ibus-setup-gotv --cli      # terminal
 
 - **Không thấy GoTV trong Input Sources (Linux):** `ibus restart`, đăng xuất/đăng nhập lại,
   kiểm tra `/usr/share/ibus/component/gotv.xml`.
+- **Không thấy GoTV trong Fcitx5:** kiểm tra gói `gotv-fcitx5` đã cài, rồi chạy
+  `fcitx5-remote -r`; nếu build từ source, build addon bằng `make fcitx5` trước khi cài.
 - **Gõ không ra dấu (Linux):** đang ở engine `gotv`? Kiểm tra `Super+Space` và
   `method` trong `~/.config/gotv/config`.
 - **Không thấy GoTV sau khi cài (Windows):** đăng xuất/đăng nhập lại;

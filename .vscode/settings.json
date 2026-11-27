@@ -2,5 +2,6 @@
   "C_Cpp.default.configurationProvider": null,
   "files.associations": {
     "ibus.h": "c"
-  }
+  },
+  "cmake.sourceDirectory": "../linux/fcitx5"
 }

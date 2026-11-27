@@ -16,10 +16,21 @@ Linux giữ `make ...` trực tiếp vẫn dùng được:
 make build                         # 3 binary + libgotv.a
 make test                          # engine + support + thuật toán
 make vet                           # build + test với -Werror
+make fcitx5                        # native Fcitx5 addon (cần fcitx5 dev packages + CMake)
 make test-ibus                     # vòng đời IBus
 make test-ui                       # giao diện setup
 make help
 ```
+
+Để build adapter Fcitx5, cài thêm `cmake`, `extra-cmake-modules`,
+`libfcitx5core-dev`, `libfcitx5config-dev`, `libfcitx5utils-dev` và
+`fcitx5-modules-dev`, rồi chạy `make fcitx5`. Sau khi cài GoTV core bằng
+`sudo ./gtv.sh install`, chạy `sudo ./gtv.sh install-fcitx5` để cài riêng
+adapter. `sudo ./gtv.sh uninstall-fcitx5` chỉ gỡ adapter. Bắt đầu từ GoTV 0.9.32, gói
+`.deb` phát hành adapter riêng thành `gotv-fcitx5`; cài đồng thời hai gói
+`gotv_<version>-1_amd64.deb` và `gotv-fcitx5_<version>-1_amd64.deb` từ GitHub
+Release. Gói riêng giúp người dùng IBus không cần cài Fcitx5. Adapter Fcitx5
+hiện chưa có bảng gợi ý từ điển hay app khay.
 
 Mọi lệnh shell gom trong một file duy nhất: `./gtv.sh <build|test|vet|clean|install|uninstall|package|bump|help>`.
 
@@ -31,6 +42,8 @@ Binary trong `build/`: `ibus-engine-gotv` (`--ibus` trong IBus), `ibus-setup-got
 
 ```sh
 sudo ./gtv.sh install              # Linux: chép file hệ thống + ibus restart
+sudo ./gtv.sh install-fcitx5       # cài addon đã build (cần cài GoTV core trước)
+sudo ./gtv.sh uninstall-fcitx5     # chỉ gỡ addon Fcitx5
 sudo ./gtv.sh uninstall            # Linux: gỡ đúng danh sách install (giữ ~/.config)
 ./gtv.sh package [VERSION]         # Linux: .deb
 make package VERSION=X.Y-1         # tương đương (Linux)
@@ -150,7 +163,8 @@ Luồng bất đồng bộ cho UI: `gtv_suggest_combined_async()` / `gtv_suggest
 1. Bump một lệnh (đừng sửa tay từng file — script là nơi duy nhất ghi version): `make bump V=X.Y.Z ["ghi chú"]` (chạy `./gtv.sh bump`). Kiểm tra `git diff`, rồi commit.
 2. Commit, push tag `vX.Y.Z`.
 3. CI Windows build `gotv-X.Y.Z-x64-setup.exe` (ký self-signed cert RSA 4096, cert lưu trong GitHub secret `WIN_CERT_PFX_B64`),
-   CI Linux build `gotv_X.Y.Z-1_<arch>.deb`, CI macOS build `.dmg` + `.pkg`, cả ba đính kèm release để app tự cập nhật.
+   CI Linux build `gotv_X.Y.Z-1_<arch>.deb` và `gotv-fcitx5_X.Y.Z-1_<arch>.deb`,
+   CI macOS build `.dmg` + `.pkg`; các gói được đính kèm release để app tự cập nhật.
 4. Linux: khay hệ thống có mục **Kiểm tra cập nhật...**
 
 ---

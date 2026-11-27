@@ -229,12 +229,17 @@ static gboolean tray_update_installed_cb(gpointer data){
     TrayUpdate *u = data;
     GtkWidget *d;
     if(u->installed){
-        run_shell("ibus restart >/dev/null 2>&1 &");
+        gchar *ibus = g_find_program_in_path("ibus");
+        if(ibus){
+            run_shell("ibus restart >/dev/null 2>&1 &");
+            g_free(ibus);
+        }
+        data_restart_fcitx5_if_active();
         gchar *dest = g_build_filename(g_get_tmp_dir(), "gotv-update.deb", NULL);
         g_remove(dest);
         g_free(dest);
         d = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-            "Đã cài %s. IBus đang khởi động lại.", u->tag ? u->tag : "");
+            "Đã cài %s. IBus/Fcitx5 đang khởi động lại nếu hoạt động.", u->tag ? u->tag : "");
     }else{
         d = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
             "Cài đặt thất bại.%s%s", u->note ? "\n" : "", u->note ? u->note : "");
@@ -566,11 +571,15 @@ static void on_save(GtkWidget *w, gpointer data){
         gtk_dialog_run(GTK_DIALOG(failure));gtk_widget_destroy(failure);g_error_free(error);
         return;
     }
-    // Restart ibus
-    run_shell("ibus restart 2>/dev/null &");
+    // Fcitx5 picks up the saved settings from the config file on the next key.
+    gchar *ibus = g_find_program_in_path("ibus");
+    if(ibus){
+        run_shell("ibus restart 2>/dev/null &");
+        g_free(ibus);
+    }
     GtkWidget *dlg = gtk_message_dialog_new(win, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-        gtv_i18n("Đã lưu %s, modern=%s, gợi ý từ điển=%s (%s). Đã restart ibus.",
-                 "Saved %s, modern=%s, suggestions=%s (%s). Restarted ibus."),
+        gtv_i18n("Đã lưu %s, modern=%s, gợi ý từ điển=%s (%s). IBus được restart nếu có; Fcitx5 nhận cấu hình ở lần gõ tiếp theo.",
+                 "Saved %s, modern=%s, suggestions=%s (%s). IBus is restarted if installed; Fcitx5 picks up the settings on the next key."),
         method, modern, suggest, config.dicts);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
