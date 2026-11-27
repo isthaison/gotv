@@ -1746,9 +1746,9 @@ static void open_setup_window_now(void) {
                                   NULL, NULL, hinst, NULL);
     g_free(wtitle);
     if (s_hwndSetup) {
+        RedrawWindow(s_hwndSetup, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
         ShowWindow(s_hwndSetup, SW_SHOW);
         SetForegroundWindow(s_hwndSetup);
-        UpdateWindow(s_hwndSetup);
     }
 }
 
