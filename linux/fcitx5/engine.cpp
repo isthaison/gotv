@@ -4,6 +4,7 @@
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputcontextproperty.h>
+#include <fcitx/inputpanel.h>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/inputmethodentry.h>
 #include <fcitx/instance.h>
