@@ -28,6 +28,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.31" date="2026-11-27">
+      <description>
+        <p>Prevent white background flash when opening Windows settings</p>
+      </description>
+    </release>
     <release version="0.9.30" date="2026-11-27">
       <description>
         <p>Fix Windows dark settings initial white frame</p>

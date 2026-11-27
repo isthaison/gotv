@@ -40,6 +40,19 @@ static gpointer dict_update_worker(gpointer data) {
 
 static HWND s_hwndSetup = NULL;
 
+static HBRUSH setup_window_bg_brush(void) {
+    static HBRUSH dark_brush = NULL;
+    static HBRUSH light_brush = NULL;
+
+    if (g_app.config.ui_theme == GTV_THEME_LIGHT) {
+        if (!light_brush) light_brush = CreateSolidBrush(RGB(250, 247, 242));
+        return light_brush;
+    }
+
+    if (!dark_brush) dark_brush = CreateSolidBrush(RGB(24, 22, 23));
+    return dark_brush;
+}
+
 typedef struct {
     gchar *id;
     gchar *label;
@@ -1486,8 +1499,13 @@ static LRESULT CALLBACK SetupWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             apply_dwm_frame(hwnd);
             return 0;
         }
-        case WM_ERASEBKGND:
+        case WM_ERASEBKGND: {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            HBRUSH brush = setup_window_bg_brush();
+            if (brush) FillRect((HDC)wParam, &rc, brush);
             return 1;
+        }
         case WM_SIZE:
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
@@ -1717,6 +1735,7 @@ static void open_setup_window_now(void) {
     wc.hInstance = hinst;
     wc.hIcon = LoadIconW(hinst, MAKEINTRESOURCEW(IDI_APP_ICON));
     wc.hCursor = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
+    wc.hbrBackground = setup_window_bg_brush();
     wc.lpszClassName = L"GoTVSetupWindow";
     RegisterClassExW(&wc);
 
@@ -1746,6 +1765,8 @@ static void open_setup_window_now(void) {
                                   NULL, NULL, hinst, NULL);
     g_free(wtitle);
     if (s_hwndSetup) {
+        SetClassLongPtrW(s_hwndSetup, GCLP_HBRBACKGROUND,
+                         (LONG_PTR)setup_window_bg_brush());
         RedrawWindow(s_hwndSetup, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW);
         ShowWindow(s_hwndSetup, SW_SHOW);
         SetForegroundWindow(s_hwndSetup);
