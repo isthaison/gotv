@@ -9,6 +9,8 @@
 #   vet               strict build + test (-Werror where supported)
 #   clean             remove build trees (build/, release-pkg/)
 #   install           install to the system (see per-OS notes in help)
+#   install-fcitx5    install the already built Fcitx5 addon (Linux)
+#   uninstall-fcitx5  remove the Fcitx5 addon (Linux)
 #   uninstall         remove a previous install (best-effort clean)
 #   package [VER]     build the OS-native installer (.deb/.exe/.zip)
 #   bump X.Y.Z ["notes"]  bump version everywhere (single writer)
@@ -44,9 +46,12 @@ Usage: $PROG <command> [args]   (OS detected: $OS)
   clean             remove build/ and release-pkg/
   install           install to system:
                       linux: sudo $PROG install (DESTDIR=... to stage only)
+                      linux Fcitx5: make fcitx5 before sudo $PROG install
+  install-fcitx5    install the built Fcitx5 addon separately
+  uninstall-fcitx5  remove only the Fcitx5 addon
+  uninstall         remove installed files + registry/task/profile leftovers
                       windows: build setup.exe + silent install + start app
                       mac: copy GoTV.app to ~/Library/Input Methods
-  uninstall         remove installed files + registry/task/profile leftovers
   package [VER]     OS-native installer (linux: .deb | windows: setup.exe | mac: .zip)
   bump X.Y.Z ["notes"]  bump version everywhere (single writer)
   help              this help
@@ -57,7 +62,65 @@ cmd_help() {
     usage
 }
 
-# ---------------- Linux (unchanged) ----------------
+# ---------------- Linux ----------------
+
+install_fcitx5_tree() {
+    local build_dir="${BUILD_DIR:-build}/fcitx5"
+    if [[ ! -f "$build_dir/cmake_install.cmake" ]]; then
+        echo "Fcitx5 adapter chưa được build. Chạy: make fcitx5" >&2
+        return 1
+    fi
+    DESTDIR="${DESTDIR:-}" cmake --install "$build_dir" --prefix /usr
+    if [[ -f "$build_dir/install_manifest.txt" ]]; then
+        install -Dm644 "$build_dir/install_manifest.txt" \
+            "${DESTDIR:-}/usr/share/gotv/fcitx5-install-manifest"
+    fi
+}
+
+remove_fcitx5_install() {
+    local manifest="${DESTDIR:-}/usr/share/gotv/fcitx5-install-manifest"
+    local installed
+    if [[ ! -f "$manifest" ]]; then
+        manifest="${BUILD_DIR:-build}/fcitx5/install_manifest.txt"
+    fi
+    [[ -f "$manifest" ]] || return 0
+    while IFS= read -r installed; do
+        [[ -n "$installed" ]] || continue
+        case "$installed" in
+            "${DESTDIR:-}"/*) rm -f -- "$installed" ;;
+            /*) rm -f -- "${DESTDIR:-}$installed" ;;
+        esac
+    done < "$manifest"
+    rm -f -- "${DESTDIR:-}/usr/share/gotv/fcitx5-install-manifest"
+}
+
+restart_fcitx5_sessions() {
+    local sock uid user rundir active
+    command -v fcitx5-remote >/dev/null 2>&1 || {
+        echo 'Không tìm thấy fcitx5-remote; đăng xuất/đăng nhập để nạp adapter.'
+        return 0
+    }
+    for sock in /run/user/*/bus; do
+        [[ -S "$sock" ]] || continue
+        uid=$(stat -c %u "$sock" 2>/dev/null || true)
+        [[ -n "$uid" && "$uid" != 0 ]] || continue
+        user=$(id -nu "$uid" 2>/dev/null || true)
+        [[ -n "$user" ]] || continue
+        rundir="/run/user/$uid"
+        active=$(sudo -u "$user" env XDG_RUNTIME_DIR="$rundir" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=$rundir/bus" \
+            fcitx5-remote -n 2>/dev/null || true)
+        if [[ -n "$active" ]]; then
+            if sudo -u "$user" env XDG_RUNTIME_DIR="$rundir" \
+                DBUS_SESSION_BUS_ADDRESS="unix:path=$rundir/bus" \
+                fcitx5-remote -r >/dev/null 2>&1; then
+                echo "Đã restart Fcitx5 cho $user."
+            else
+                echo "Chưa restart được Fcitx5 cho $user; chạy: fcitx5-remote -r"
+            fi
+        fi
+    done
+}
 
 cmd_build_linux() {
     # Build and test the native C applications without starting a desktop session.
@@ -481,6 +544,11 @@ cmd_install_linux() {
     done
     install -Dm644 data/learned-corrections.txt "$DESTDIR/usr/share/gotv/learned-corrections.txt"
     install -Dm644 data/learned-words.txt "$DESTDIR/usr/share/gotv/learned-words.txt"
+    local fcitx5_installed=0
+    if [[ "${GTV_SKIP_FCITX5:-0}" != 1 && -f "$BUILD_DIR/fcitx5/cmake_install.cmake" ]]; then
+        install_fcitx5_tree
+        fcitx5_installed=1
+    fi
     for size in 16 22 24 32 48 64 128 256; do
         directory="$DESTDIR/usr/share/icons/hicolor/${size}x${size}/apps"
         mkdir -p "$directory"
@@ -557,9 +625,32 @@ DESKTOP
         gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
         update-desktop-database /usr/share/applications || true
         restart_ibus_sessions
-        echo 'Đã cài. Mở GoTV rồi chọn bằng Super+Space.'
+        if [[ "$fcitx5_installed" == 1 ]]; then
+            restart_fcitx5_sessions
+            echo 'Đã cài GoTV cho IBus và Fcitx5. Thêm GoTV trong cấu hình input method.'
+        else
+            echo 'Đã cài GoTV cho IBus. Muốn dùng Fcitx5: make fcitx5 rồi chạy sudo ./gtv.sh install-fcitx5.'
+        fi
     else
         echo "Đã tạo cây cài đặt: $DESTDIR"
+    fi
+}
+
+cmd_install_fcitx5_linux() {
+    : "${BUILD_DIR:=build}"
+    : "${DESTDIR:=}"
+    if [[ -z "$DESTDIR" && "$EUID" -ne 0 ]]; then
+        echo "Cần sudo: sudo $PROG install-fcitx5" >&2
+        exit 1
+    fi
+    if [[ -z "$DESTDIR" && ! -d /usr/share/gotv ]]; then
+        echo "Cài GoTV trước bằng: sudo $PROG install" >&2
+        exit 1
+    fi
+    install_fcitx5_tree
+    if [[ -z "$DESTDIR" ]]; then
+        restart_fcitx5_sessions
+        echo 'Đã cài adapter Fcitx5. Chọn GoTV trong cấu hình Fcitx5.'
     fi
 }
 
@@ -628,6 +719,9 @@ cmd_uninstall_linux() {
         echo "Cần sudo: sudo $PROG uninstall" >&2
         exit 1
     fi
+    local fcitx5_was_installed=0
+    [[ -f "$DESTDIR/usr/share/gotv/fcitx5-install-manifest" ]] && fcitx5_was_installed=1
+    remove_fcitx5_install
     rm -f "$DESTDIR/usr/libexec/ibus-engine-gotv" \
         "$DESTDIR/usr/libexec/ibus-setup-gotv" \
         "$DESTDIR/usr/bin/gotv-demo" \
@@ -652,21 +746,39 @@ cmd_uninstall_linux() {
         gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
         update-desktop-database /usr/share/applications || true
         restart_ibus_sessions
+        if [[ "$fcitx5_was_installed" == 1 ]]; then
+            restart_fcitx5_sessions
+        fi
         echo 'Đã gỡ. Giữ nguyên ~/.config/gotv.'
     else
         echo "Đã gỡ khỏi cây staging: $DESTDIR"
     fi
 }
 
+cmd_uninstall_fcitx5_linux() {
+    : "${DESTDIR:=}"
+    if [[ -z "$DESTDIR" && "$EUID" -ne 0 ]]; then
+        echo "Cần sudo: sudo $PROG uninstall-fcitx5" >&2
+        exit 1
+    fi
+    remove_fcitx5_install
+    if [[ -z "$DESTDIR" ]]; then
+        restart_fcitx5_sessions
+        echo 'Đã gỡ adapter Fcitx5 (giữ nguyên GoTV cho IBus và cấu hình cá nhân).'
+    fi
+}
+
 cmd_package_linux() {
-    version=${1:-0.9.31-1}
+    local version="${1:-$(version)-1}"
     architecture=$(dpkg --print-architecture)
     dpkg --validate-version "$version"
-    make build test
+    make build test fcitx5
     staging=$(mktemp -d /tmp/gotv-package.XXXXXX)
+    fcitx5_staging=$(mktemp -d /tmp/gotv-fcitx5-package.XXXXXX)
     chmod 755 "$staging"
-    trap 'rm -rf -- "$staging"' EXIT
-    DESTDIR="$staging" cmd_install
+    chmod 755 "$fcitx5_staging"
+    trap 'rm -rf -- "$staging" "$fcitx5_staging"' EXIT
+    GTV_SKIP_FCITX5=1 DESTDIR="$staging" cmd_install
     mkdir -p "$staging/DEBIAN"
     cat > "$staging/DEBIAN/control" <<CONTROL
 Package: gotv
@@ -677,8 +789,9 @@ Version: $version
 Section: utils
 Priority: optional
 Architecture: $architecture
-Depends: ibus, libibus-1.0-5, libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, libayatana-appindicator3-1
+Depends: libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, libayatana-appindicator3-1
 Recommends: curl, libnotify-bin
+Suggests: ibus, libibus-1.0-5
 Maintainer: GoTV Project <https://github.com/isthaison/gotv>
 Homepage: https://github.com/isthaison/gotv
 Description: Vietnamese Telex/VNI input method in native C
@@ -704,6 +817,26 @@ POST
     chmod 755 "$staging/DEBIAN/postinst"
     output="gotv_${version}_${architecture}.deb"
     dpkg-deb --root-owner-group --build "$staging" "$output"
+    echo "Đã đóng gói: $output"
+
+    DESTDIR="$fcitx5_staging" cmake --install build/fcitx5 --prefix /usr
+    mkdir -p "$fcitx5_staging/DEBIAN"
+    cat > "$fcitx5_staging/DEBIAN/control" <<CONTROL
+Package: gotv-fcitx5
+Depends: gotv (= $version), fcitx5
+Version: $version
+Section: utils
+Priority: optional
+Architecture: $architecture
+Maintainer: GoTV Project <https://github.com/isthaison/gotv>
+Homepage: https://github.com/isthaison/gotv
+Description: GoTV native input method adapter for Fcitx5
+ Native Fcitx5 addon using the shared GoTV Telex/VNI engine.
+CONTROL
+    chmod -R u=rwX,go=rX "$fcitx5_staging"
+    chmod 755 "$fcitx5_staging/DEBIAN"
+    output="gotv-fcitx5_${version}_${architecture}.deb"
+    dpkg-deb --root-owner-group --build "$fcitx5_staging" "$output"
     echo "Đã đóng gói: $output"
 }
 
@@ -804,9 +937,11 @@ case "$command" in
     vet)     cmd_vet ;;
     clean)   cmd_clean ;;
     install) cmd_install ;;
+    install-fcitx5) cmd_install_fcitx5_linux ;;
     uninstall) cmd_uninstall ;;
+    uninstall-fcitx5) cmd_uninstall_fcitx5_linux ;;
     package) shift; cmd_package "${1:-}" ;;
     bump)    shift; cmd_bump "${1:?Usage: $PROG bump X.Y.Z [\"notes\"]}" "${2:-}" ;;
     help|--help|-h) cmd_help ;;
-    *) echo "Unknown command '$command'. Usage: $PROG <build|test|vet|clean|install|uninstall|package|bump|help>" >&2; exit 1 ;;
+    *) echo "Unknown command '$command'. Usage: $PROG <build|test|vet|clean|install|install-fcitx5|uninstall|uninstall-fcitx5|package|bump|help>" >&2; exit 1 ;;
 esac

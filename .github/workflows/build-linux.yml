@@ -19,13 +19,26 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y build-essential pkg-config libglib2.0-dev \
-            libibus-1.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-bin rpm alien
+            libibus-1.0-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-bin \
+            cmake extra-cmake-modules libfcitx5core-dev libfcitx5config-dev \
+            libfcitx5utils-dev fcitx5-modules-dev rpm alien
 
       - name: Build All
         run: make build
 
       - name: Run Test Suite
         run: make test
+
+      - name: Build Fcitx5 Adapter
+        run: make fcitx5
+
+      - name: Smoke-test Fcitx5 Install Layout
+        run: |
+          stage="$RUNNER_TEMP/gotv-fcitx5-stage"
+          DESTDIR="$stage" cmake --install build/fcitx5 --prefix /usr
+          test -f "$stage/usr/share/fcitx5/inputmethod/gotv.conf"
+          test -f "$stage/usr/share/fcitx5/addon/gotv.conf"
+          test -n "$(find "$stage/usr" -path '*/fcitx5/libgotv.so' -print -quit)"
 
       - name: Get Version
         if: startsWith(github.ref, 'refs/tags/v')
@@ -38,8 +51,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           make package VERSION="$APP_VERSION"
-          ls -la gotv_*.deb
-          sudo alien -r --scripts gotv_*.deb
+          ls -la gotv*.deb
+          sudo alien -r --scripts gotv*.deb
           ls -la *.rpm
 
       - name: Upload Artifact
@@ -48,7 +61,7 @@ jobs:
         with:
           name: gotv-linux-packages
           path: |
-            gotv_*.deb
+            gotv*.deb
             *.rpm
 
       - name: Release Asset (on Tag)
@@ -56,7 +69,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            gotv_*.deb
+            gotv*.deb
             *.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

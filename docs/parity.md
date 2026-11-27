@@ -3,6 +3,10 @@
 Mục đích: một chỗ duy nhất để thấy tính năng nào có/thiếu ở đâu, khỏi mò từng thư mục.  
 Kiến trúc chung: `engine/` (C, dùng chung 100%) + adapter native tương thích từng nền tảng (`linux/`, `windows/`, `macos/`).
 
+Linux có adapter IBus đầy đủ và adapter Fcitx5 native. Fcitx5 hiện hỗ trợ gõ
+Telex/VNI, backspace, commit và macro/emoji bằng Tab; gợi ý từ điển/candidate
+list và giao diện khay hiện chỉ được cung cấp qua adapter IBus.
+
 Ký hiệu: ✅ có · ⚠️ một phần · ❌ chưa có · ➖ hệ điều hành lo.
 
 ## Gõ (lõi engine C dùng chung)
