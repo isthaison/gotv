@@ -28,6 +28,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.30" date="2026-11-27">
+      <description>
+        <p>Fix Windows dark settings initial white frame</p>
+      </description>
+    </release>
     <release version="0.9.29" date="2026-11-23">
       <description>
         <p>Phát hành 0.9.29.</p>
