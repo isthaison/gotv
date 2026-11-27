@@ -70,7 +70,7 @@ $ build/gotv-demo --transform telex duocjwd
 | Nền tảng | Cách gõ | Trạng thái |
 |---|---|---|
 | Linux (Ubuntu/GNOME) | IBus engine + app khay (indicator) | ✅ Ổn định — `.deb` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
-| Linux (Fcitx5) | Native Fcitx5 addon | ✅ Telex/VNI, Tab macro/emoji — gói `gotv-fcitx5` sẽ có từ release kế tiếp |
+| Linux (Fcitx5) | Native Fcitx5 addon | ✅ Telex/VNI, Tab macro/emoji — từ GoTV 0.9.32 có gói `gotv-fcitx5` riêng |
 | Windows 10/11 | TSF Text Service + app khay | ✅ Ổn định — `gotv-*-x64-setup.exe` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 | macOS (Apple Silicon & Intel) | InputMethodKit `.app` (Native IMK) | ✅ Ổn định — `gotv-*-macos.pkg` / `.dmg` ở [Releases](https://github.com/isthaison/gotv/releases/latest) |
 
@@ -89,12 +89,14 @@ Rồi vào **Settings → Keyboard → Input Sources** thêm **GoTV**
 (một nguồn duy nhất; chuyển Telex/VNI trong app indicator hoặc Setup),
 chuyển bằng `Super+Space`. Chi tiết: [docs/dev.md](docs/dev.md).
 
-**Linux (Fcitx5)**: adapter có thể build từ source theo [hướng dẫn phát triển](docs/dev.md);
-gói `gotv-fcitx5` (cài kèm phần dùng chung) sẽ được đính kèm từ release kế tiếp.
-Sau khi cài, mở Fcitx5 Configuration → **Input Method** → **+** → thêm **GoTV**.
-Nếu Fcitx5 đang chạy, chạy `fcitx5-remote -r` hoặc đăng xuất/đăng nhập lại.
-Adapter hỗ trợ Telex/VNI và mở rộng macro/emoji bằng Tab; bảng gợi ý từ điển
-hiện mới có trên IBus.
+**Linux (Fcitx5)**: từ GoTV 0.9.32, tải cả hai gói `.deb` `gotv_<version>-1_amd64.deb`
+và `gotv-fcitx5_<version>-1_amd64.deb` từ [Releases](https://github.com/isthaison/gotv/releases/latest),
+rồi cài bằng `sudo apt install ./gotv_<version>-1_amd64.deb ./gotv-fcitx5_<version>-1_amd64.deb`.
+Gói adapter cài phần dùng chung và Fcitx5 nếu máy chưa có. Sau khi cài, mở
+Fcitx5 Configuration → **Input Method** → **+** → thêm **GoTV**; nếu Fcitx5 đang
+chạy, chạy `fcitx5-remote -r` hoặc đăng xuất/đăng nhập lại. Có thể build từ source
+theo [hướng dẫn phát triển](docs/dev.md). Adapter hỗ trợ Telex/VNI và mở rộng
+macro/emoji bằng Tab; bảng gợi ý từ điển hiện mới có trên IBus.
 
 **Windows 10/11**:
 - Cài qua Windows Package Manager (**Winget**):
