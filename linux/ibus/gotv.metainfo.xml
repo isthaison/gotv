@@ -28,6 +28,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.34" date="2026-11-28">
+      <description>
+        <p>Fix dark theme in tray data dialog.</p>
+      </description>
+    </release>
     <release version="0.9.33" date="2026-11-28">
       <description>
         <p>GTK data dialog follows selected theme; fix Linux VS Code IntelliSense configuration.</p>

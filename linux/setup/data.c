@@ -178,6 +178,7 @@ void data_show(GtkWindow *parent) {
 
     GtkWidget *list_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(list_card), "gtv-card");
+    gtk_style_context_add_class(gtk_widget_get_style_context(list_card), "gtv-win");
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
         GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -201,6 +202,7 @@ void data_show(GtkWindow *parent) {
 
     GtkWidget *form_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_style_context_add_class(gtk_widget_get_style_context(form_card), "gtv-card");
+    gtk_style_context_add_class(gtk_widget_get_style_context(form_card), "gtv-win");
     gtk_box_pack_start(GTK_BOX(content), form_card, FALSE, FALSE, 0);
 
     GtkWidget *form = gtk_grid_new();

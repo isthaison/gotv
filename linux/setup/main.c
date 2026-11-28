@@ -350,6 +350,8 @@ static void tray_on_activate_update(GtkMenuItem *item, gpointer data){
 }
 
 static void show_startup_splash(gboolean is_light);
+static GtkCssProvider *setup_css;
+static void apply_linux_theme(gboolean is_light);
 
 int tray_run(int argc, char *argv[]){
     g_set_prgname("gotv");
@@ -379,6 +381,11 @@ int tray_run(int argc, char *argv[]){
         gchar *dir = gtv_user_path(g_get_user_config_dir(), NULL);
         GtvConfig cfg = {0};
         gtv_config_load(&cfg, dir);
+        setup_css = gtk_css_provider_new();
+        apply_linux_theme(cfg.ui_theme == GTV_THEME_LIGHT);
+        gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+            GTK_STYLE_PROVIDER(setup_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        g_object_unref(setup_css);
         show_startup_splash(cfg.ui_theme == GTV_THEME_LIGHT);
         gtv_config_clear(&cfg);
         g_free(dir);
@@ -1001,7 +1008,7 @@ static void apply_linux_theme(gboolean is_light) {
         g_object_set(settings, "gtk-application-prefer-dark-theme", !is_light, NULL);
     }
     const char *dark_css =
-        "window.gtv-win { background-color: #181617; color: #F5F2F0; }"
+        ".gtv-win, window.gtv-win, dialog.gtv-win { background-color: #181617; color: #F5F2F0; }"
         ".gtv-sidebar { background-color: #131112; border-right: 1px solid #2A2628; padding: 12px 8px; }"
         ".gtv-brand-row { padding: 6px 8px 14px 8px; }"
         ".gtv-brand { font-size: 15px; font-weight: 700; color: #F5F2F0; }"
@@ -1030,7 +1037,7 @@ static void apply_linux_theme(gboolean is_light) {
         "window.gtv-win scrolledwindow, window.gtv-win viewport, dialog.gtv-win scrolledwindow, dialog.gtv-win viewport { background-color: #211E20; }"
         ".gtv-splash-bar { background-color: #D32F2F; min-height: 4px; border-radius: 2px; }";
     const char *light_css =
-        "window.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
+        ".gtv-win, window.gtv-win, dialog.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
         ".gtv-sidebar { background-color: #F3EFE8; border-right: 1px solid #E7E5E4; padding: 12px 8px; }"
         ".gtv-brand-row { padding: 6px 8px 14px 8px; }"
         ".gtv-brand { font-size: 15px; font-weight: 700; color: #2B2320; }"
