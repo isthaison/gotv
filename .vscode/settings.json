@@ -1,7 +1,7 @@
 {
   "C_Cpp.default.configurationProvider": null,
+  "C_Cpp.default.configuration": "Linux",
   "files.associations": {
     "ibus.h": "c"
-  },
-  "cmake.sourceDirectory": "E:/git/gotiengviet/linux/fcitx5"
+  }
 }

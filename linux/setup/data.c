@@ -153,11 +153,15 @@ void data_show(GtkWindow *parent) {
     u.dlg = gtk_dialog_new_with_buttons(gtv_i18n("GoTV — Dữ liệu", "GoTV — Data"),
         parent, GTK_DIALOG_MODAL, gtv_i18n("_Đóng", "_Close"), GTK_RESPONSE_CLOSE, NULL);
     gtk_style_context_add_class(gtk_widget_get_style_context(u.dlg), "gtv-win");
+    /* GtkDialog has its own CSS node and content/action areas. Mark them as
+     * themed windows too so the shared Settings palette covers every surface. */
+    GtkWidget *dialog_area = gtk_dialog_get_content_area(GTK_DIALOG(u.dlg));
+    gtk_style_context_add_class(gtk_widget_get_style_context(dialog_area), "gtv-win");
     gtk_window_set_default_size(GTK_WINDOW(u.dlg), 540, 460);
     GtkWidget *b_close = gtk_dialog_get_widget_for_response(GTK_DIALOG(u.dlg), GTK_RESPONSE_CLOSE);
     if (b_close) gtk_style_context_add_class(gtk_widget_get_style_context(b_close), "gtv-btn");
 
-    GtkWidget *area = gtk_dialog_get_content_area(GTK_DIALOG(u.dlg));
+    GtkWidget *area = dialog_area;
     GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_container_set_border_width(GTK_CONTAINER(content), 14);
     gtk_box_pack_start(GTK_BOX(area), content, TRUE, TRUE, 0);
