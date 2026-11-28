@@ -3,5 +3,5 @@
   "files.associations": {
     "ibus.h": "c"
   },
-  "cmake.sourceDirectory": "../linux/fcitx5"
+  "cmake.sourceDirectory": "E:/git/gotiengviet/linux/fcitx5"
 }

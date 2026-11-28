@@ -1021,6 +1021,13 @@ static void apply_linux_theme(gboolean is_light) {
         "switch:checked { background-color: #D32F2F; }"
         "switch slider { background-color: #FAF7F2; border-radius: 999px; min-height: 18px; min-width: 18px; margin: 2px; }"
         "checkbutton, radiobutton { color: #F5F2F0; }"
+        "window.gtv-win entry, dialog.gtv-win entry { background-color: #2B2729; color: #F5F2F0; border: 1px solid #453E42; border-radius: 6px; box-shadow: none; }"
+        "window.gtv-win entry:focus, dialog.gtv-win entry:focus { border-color: #D32F2F; }"
+        "window.gtv-win entry selection, dialog.gtv-win entry selection { background-color: #7F1D1D; color: #FFFFFF; }"
+        "window.gtv-win treeview, dialog.gtv-win treeview { background-color: #211E20; color: #F5F2F0; }"
+        "window.gtv-win treeview:selected, dialog.gtv-win treeview:selected { background-color: #3A3033; color: #FFFFFF; }"
+        "window.gtv-win treeview header button, dialog.gtv-win treeview header button { background-color: #2B2729; color: #F5F2F0; border-color: #453E42; box-shadow: none; }"
+        "window.gtv-win scrolledwindow, window.gtv-win viewport, dialog.gtv-win scrolledwindow, dialog.gtv-win viewport { background-color: #211E20; }"
         ".gtv-splash-bar { background-color: #D32F2F; min-height: 4px; border-radius: 2px; }";
     const char *light_css =
         "window.gtv-win { background-color: #FAF7F2; color: #2B2320; }"
@@ -1043,6 +1050,13 @@ static void apply_linux_theme(gboolean is_light) {
         "switch:checked { background-color: #D32F2F; }"
         "switch slider { background-color: #FFFFFF; border-radius: 999px; min-height: 18px; min-width: 18px; margin: 2px; }"
         "checkbutton, radiobutton { color: #2B2320; }"
+        "window.gtv-win entry, dialog.gtv-win entry { background-color: #FFFFFF; color: #2B2320; border: 1px solid #D6D3D1; border-radius: 6px; box-shadow: none; }"
+        "window.gtv-win entry:focus, dialog.gtv-win entry:focus { border-color: #D32F2F; }"
+        "window.gtv-win entry selection, dialog.gtv-win entry selection { background-color: #FEE2E2; color: #7F1D1D; }"
+        "window.gtv-win treeview, dialog.gtv-win treeview { background-color: #FFFFFF; color: #2B2320; }"
+        "window.gtv-win treeview:selected, dialog.gtv-win treeview:selected { background-color: #FEE2E2; color: #7F1D1D; }"
+        "window.gtv-win treeview header button, dialog.gtv-win treeview header button { background-color: #F5F5F4; color: #2B2320; border-color: #D6D3D1; box-shadow: none; }"
+        "window.gtv-win scrolledwindow, window.gtv-win viewport, dialog.gtv-win scrolledwindow, dialog.gtv-win viewport { background-color: #FFFFFF; }"
         ".gtv-splash-bar { background-color: #D32F2F; min-height: 4px; border-radius: 2px; }";
     gtk_css_provider_load_from_data(setup_css, is_light ? light_css : dark_css, -1, NULL);
 }

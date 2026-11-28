@@ -28,6 +28,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.9.32" date="2026-11-27">
+      <description>
+        <p>Add native Fcitx5 input method support.</p>
+      </description>
+    </release>
     <release version="0.9.31" date="2026-11-27">
       <description>
         <p>Prevent white background flash when opening Windows settings</p>
